@@ -223,9 +223,16 @@ def validate(decision, *, source_has_ids=False):
     # then. The board and main's review still record it.
     if 'no_reply' in decision and type(decision['no_reply']) is not bool:
         raise tree.WorkPlanError('invalid side decision no_reply')
+    # User 2026-11-22: when a running Work fork owns this item, the side actor
+    # may hand off directly (action=update, relay=true, no_reply=true) so the
+    # running fork reads and answers the source thread without creating a new
+    # queue item or posting a duplicate side reply.
+    direct_fork_handoff = (decision.get('action') == 'update' and decision.get('relay') is True
+                           and decision.get('ask_main') is not True and not decision.get('release_waits')
+                           and decision.get('time_limit') is None)
     forward_only = (decision.get('ask_main') is not True and not decision.get('release_waits')
                     and decision.get('relay') is not True and decision.get('time_limit') is None)
-    if decision.get('no_reply') is not True or not forward_only:
+    if decision.get('no_reply') is not True or not (forward_only or direct_fork_handoff):
         decision.pop('no_reply', None)
     time_limit = decision.get('time_limit')
     if time_limit is not None:
@@ -654,8 +661,12 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
                                 'item_id': item, 'recap': decision['summary'], 'result': result}
         if decision.get('relay') and action == 'update':
             # The host forwards the message to main and to the fork working on
-            # this item; each decides whether it matters to its current work.
-            result['relay'] = {'item_id': item}
+            # this item; with no_reply=True, the running fork handles the reply
+            # directly without a duplicate side reply or main interruption.
+            relay_payload = {'item_id': item}
+            if decision.get('no_reply') is True:
+                relay_payload['fork_responds'] = True
+            result['relay'] = relay_payload
         if not main_reply and not gate_check and needs_main_review(result, decision):
             # Main's own handoff answers come back as follow-ups; main already knows them.
             # A host gate re-check has no person behind it: a release or a

@@ -306,9 +306,16 @@ function compactWorkload(workload,text) {
     if (node.status === 'done' || typeof node.ref !== 'string' || node.ref.length < 6 || !source.includes(node.ref)) continue
     for (let up = node, seen = 0; up && seen < 32 && picked.size < 40; up = byId.get(up.parent_id), seen++) picked.set(up.id,brief(up))
   }
+  const activeForks = Array.isArray(workload?.active_forks) ? workload.active_forks.slice(0, 32) : []
+  for (const fork of activeForks) {
+    const start = byId.get(fork.item_id) || byId.get(fork.root_id)
+    for (let up = start, seen = 0; up && seen < 32 && picked.size < 40; up = byId.get(up.parent_id), seen++)
+      picked.set(up.id, brief(up))
+  }
   return {version:workload?.version, compact:true, node_count:nodes.length,
     open_goals:nodes.filter(node => node.parent_id == null && node.status !== 'done').length,
     referenced:[...picked.values()],
+    ...(activeForks.length ? {active_forks:activeForks} : {}),
     read_more:'Read the board only if the decision needs it: work_status (text) to find an item; '
       +'work_status root_id=<goal id> detail=true for one goal. Never assume items you have not read.'}
 }
@@ -2261,6 +2268,29 @@ async function relayToItem($,identity,event,result) {
     +event.receipt_id.slice(0,12)+': '+line(result.summary,400)+released
   const ask = ' Decide whether this matters to your current work; if not, ignore it. No acknowledgment is needed. '
     +'This is not new execution approval and does not change your approved scope.'
+  if (result.relay.fork_responds === true) {
+    const spec = event.source_read
+    const candidates = [...new Set(forks.filter(row => row.state === 'running' && row.slot === true)
+      .map(row => row.host_id))]
+    const target = candidates.length === 1 ? candidates[0] : null
+    let outcome = 'no unique running worker or verified source'
+    if (target && spec?.classification === 'thread' && await identityOf($) === identity) {
+      const source = {conversation_id:spec.conversation_id, root_id:spec.root_id,
+        target_message_id:spec.target_message_id}
+      try {
+        const sent = await $.session.send({to:{agentId:target},text:header+'\n'+T('mod_direct_fork_reply')
+          +'\nSource: '+JSON.stringify(source)+'\nMessage: '+eventView(event.text)})
+        if (sent?.isDelivered === true) {
+          $.ui.log('Side direct-relay '+item+' → '+target+' (queued)')
+          return
+        }
+        outcome = sent?.isDelivered === false ? 'delivery refused' : 'delivery uncertain'
+      } catch { outcome = 'delivery uncertain' }
+    }
+    await noticeToMain($,identity,event.receipt_id,header+'\nOriginal message:\n'+message
+      +'\nDirect handoff: '+outcome+'; side skipped outbound reply. Check delivery before responding.')
+    return
+  }
   const delivered = []
   // A parked fork (waiting_input) is resumed by the Work host first when its
   // wait is cleared on the board (Stage 3, 2026-11-17); it then gets the relay

@@ -101,6 +101,11 @@ TEXTS: dict[str, str] = {
     # The pane while the board is being loaded.
     'mod_pane_loading': (
         "Work 보드를 불러오는 중입니다. 잠시 뒤에도 그대로면 r(Refresh)을 누르십시오."),
+    # Direct side-to-running-fork handoff when the side skipped its own reply.
+    'mod_direct_fork_reply': (
+        "Direct handoff: the side actor did not post an outbound reply or create a new Work item so your running "
+        "session can handle this message directly. Respond on the source thread if a reply is needed, and incorporate "
+        "any in-scope detail into your current work. This is not new execution approval and does not change your approved scope."),
 }
 
 

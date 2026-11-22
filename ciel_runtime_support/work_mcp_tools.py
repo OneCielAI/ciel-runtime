@@ -809,7 +809,7 @@ def dispatch_work_tool(
                 output = attach_packet(output, store, state_dir)
             return respond(request_id, output)
         try:
-            output = _run(name, args, store, approval_ask, auto_continue=work_auto_continue_enabled(config), retention=retention_status(config), config=config, log=log)
+            output = _run(name, args, store, approval_ask, auto_continue=work_auto_continue_enabled(config), retention=retention_status(config), config=config, log=log, identity=identity)
         except ValueError as error:
             # Priority/P0 services use the parallel domain's ValueError base;
             # model-facing Work tools expose the same bounded error contract.
@@ -859,7 +859,18 @@ def _switch_work_mode(enabled: Any, load_config: Callable[[], dict[str, Any]],
             "auto continue stop at their next check. Turn it back on with work_mode_set(enabled=true)."), False
 
 
-def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bool, *, auto_continue: bool = True, retention: dict[str, Any] | None = None, config: dict[str, Any] | None = None, log: Callable[[str, str], Any] | None = None) -> str:
+def _active_forks_for(doc: dict[str, Any], identity: str | None) -> list[dict[str, Any]]:
+    if not identity:
+        return []
+    try:
+        from .side_workload import project_active_forks
+        from .work_parallel_mcp import ledger
+        return project_active_forks(ledger().read(), doc, identity)
+    except Exception:  # noqa: BLE001 - fork summary never fails a board read
+        return []
+
+
+def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bool, *, auto_continue: bool = True, retention: dict[str, Any] | None = None, config: dict[str, Any] | None = None, log: Callable[[str, str], Any] | None = None, identity: str | None = None) -> str:
     expected = _expected_version(args)
     if name == "work_status":
         doc = store.read_snapshot()
@@ -913,6 +924,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
             from .work_parallel_mcp import ledger, project
             state["parallel"] = project(ledger(), "")
             state["parallel"].pop("leases", None)
+            state["active_forks"] = _active_forks_for(doc, identity)
             state["retention"] = retention or retention_status({})
             if args.get("detail") is True:
                 active = {doc["active_root"]} if doc.get("active_root") else set()
@@ -921,7 +933,10 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
                 state["nodes"] = [node for node in doc["nodes"] if node["id"] in active]
             return json.dumps(state, ensure_ascii=False)
         # A side fork finds an item from the whole goal list (user 2026-11-18).
-        return tree.render(doc, max_lines=104, all_goals=args.get("all_goals") is True)
+        rendered = tree.render(doc, max_lines=104, all_goals=args.get("all_goals") is True)
+        from .side_workload import format_active_forks_lines
+        fork_lines = format_active_forks_lines(_active_forks_for(doc, identity))
+        return rendered + ("\n" + "\n".join(fork_lines) if fork_lines else "")
     if name == "work_plan_set":
         spec = {"title": args.get("goal"), "note": args.get("note", ""), "children": args.get("children") or []}
         spec.update({key: args[key] for key in ("ref", "refs", "waiting_on", "priority", "release_hint") if key in args})

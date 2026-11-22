@@ -537,9 +537,15 @@ def run(name, args, config, state_dir, identity, store):
                                    main_notice=_complaint_notice(state_dir, receipt_id, result))
                 active = None
             else:
-                from .side_workload import project as project_workload
+                from .side_workload import project as project_workload, project_active_forks
                 from .side_work_decision import unfinished_digest
-                active['workload'] = project_workload(document)
+                active_forks = []
+                try:
+                    from .work_parallel_mcp import ledger as parallel_ledger
+                    active_forks = project_active_forks(parallel_ledger().read(), document, identity)
+                except Exception:  # noqa: BLE001 - fork projection is advisory to side claim
+                    active_forks = []
+                active['workload'] = project_workload(document, active_forks=active_forks)
                 # Host-held: returned in _host at resolve, never taken from the model.
                 active['work_digest'] = unfinished_digest(document)
                 # The decision fields this router accepts: the mod sends no field

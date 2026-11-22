@@ -20,6 +20,8 @@ let noticeClaimed = false
 const leases = {
   'relay-running': {L1:{id:'L1',item_id:'n3',host_id:'agent-run',state:'running',slot:true},
                     L9:{id:'L9',item_id:'n9',host_id:'agent-other',state:'running',slot:true}},
+  'relay-direct-running': {L1:{id:'L1',item_id:'n3',host_id:'agent-run',state:'running',slot:true}},
+  'relay-direct-fallback': {L1:{id:'L1',item_id:'n2',host_id:'agent-gone',state:'running',slot:true}},
   'relay-parked': {L2:{id:'L2',item_id:'n2',host_id:'agent-park',state:'waiting_input',slot:false}},
   'relay-parked-resumed': {L2:{id:'L2',item_id:'n2',host_id:'agent-park',state:'waiting_input',slot:false}},
   'relay-parked-waiting': {L2:{id:'L2',item_id:'n2',host_id:'agent-park',state:'waiting_input',slot:false}},
@@ -27,6 +29,7 @@ const leases = {
   'relay-refuses': {L1:{id:'L1',item_id:'n2',host_id:'agent-gone',state:'running',slot:true}},
 }[scenario] || {}
 let claimed = false
+let spawnedPrompt = ''
 const timers = []
 const hostStore = new Map()
 const MESSAGE = 'Andy: the CSV delimiter must be a semicolon, not a comma'
@@ -39,9 +42,13 @@ const $ = {
   mcp:{connect:async()=>({}),call:async(server,name,args)=>{
     let value = {}
     if (name === 'work_side_claim') {
+      const direct = scenario.startsWith('relay-direct-')
       const claim = claimed ? null : {receipt_id:'e'.repeat(64),generation:'10000000000000000000000000000005',text:MESSAGE,event_key:'walkie:1',
-        lease_until:Date.now()/1000+120,route:{},workload:{version:4,truncated:false,active_root:'n1',queue_order:[],
-          nodes:[{id:'n1',parent_id:null,title:'export'},{id:'n2',parent_id:'n1',title:'csv writer'},{id:'n3',parent_id:'n2',title:'delimiter'},{id:'n8',parent_id:null,title:'other goal'},{id:'n9',parent_id:'n8',title:'other step'}]}}
+        lease_until:Date.now()/1000+120,route:{},
+        ...(direct ? {source_read:{classification:'thread',server:'walkie',conversation_id:'34886995-4a66-4527-a618-814e9cb0a5bf',root_id:'1000',target_message_id:'1005'}} : {}),
+        workload:{version:4,truncated:false,active_root:'n1',queue_order:[],
+          active_forks: direct ? [{item_id:'n3',root_id:'n1',title:'delimiter',state:'running',priority:'P1',role:'worker',agent_id:'agent-run',refs:['1000']}] : [],
+          nodes:[{id:'n1',parent_id:null,title:'export',refs:['1000']},{id:'n2',parent_id:'n1',title:'csv writer'},{id:'n3',parent_id:'n2',title:'delimiter'},{id:'n8',parent_id:null,title:'other goal'},{id:'n9',parent_id:'n8',title:'other step'}]}}
       claimed = true
       value = scenario === 'forward-idle'
         ? {claim:null,settings:{model:'inherit',context_mode:'isolated'},handoff_replies:[],main_wakes:[],
@@ -51,9 +58,12 @@ const $ = {
     if (name === 'work_parallel_status') value = {version:1,policy:{},leases}
     if (name === 'work_side_resolve') {
       resolved.push(args.decision)
+      const direct = args.decision.relay && args.decision.no_reply === true
       value = {receipt:{receipt_id:args._host.receipt_id,stage:'processed'},
         result:{action:'update',item_id:'n2',title:'csv writer',summary:'Delimiter is a semicolon',duplicate:false,
-          relay:args.decision.relay ? {item_id:'n2'} : undefined,handoff:'not_required',
+          relay:args.decision.relay ? {item_id:'n2',...(direct ? {fork_responds:true} : {})} : undefined,
+          ...(direct ? {no_reply:true} : {}),
+          handoff:'not_required',
           ...(scenario === 'complaint-idle' ? {ask_main:true,complaint:true} : {})},
         ...(scenario === 'complaint-idle' ? {main_notice:'Ciel side asks main (complaint · n2 · event eeeeeeeeeeee): Delimiter is still wrong'} : {})}
     }
@@ -68,21 +78,23 @@ const $ = {
     return {content:[{type:'text',text:JSON.stringify(value)}]}
   }},
   tool:{list:async()=>[],call:async()=>({text:'stopped'})},
-  agent:{list:async()=>[],register:async()=>({}),spawn:async()=>({agentId:'actor1'})},
+  agent:{list:async()=>[],register:async()=>({}),spawn:async args=>{spawnedPrompt=args?.prompt||''; return {agentId:'actor1'}}},
   env:{get:async key=>key==='CIEL_RUNTIME_DIRECT_GATEWAY_ACTIVE'?'0':'x'.repeat(40)},
   ui:{log:text=>logs.push(text),status:()=>{},invalidate:()=>{}},
   clock:{after:(ms,callback)=>{timers.push(callback);return {cancel(){}}}},
 }
 await startSide($)
 await pollSide($,'claude:parent')
+const isDirect = scenario.startsWith('relay-direct-')
 if (scenario !== 'forward-idle')
   await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({understanding:'understood in my own words',decision:{action:'update',kind:'request',item_id:'n2',
     summary:'Delimiter is a semicolon',reply:'forwarded',note:'CSV delimiter must be ;',relay:!['no-relay','complaint-idle'].includes(scenario),
+    ...(isDirect ? {no_reply:true} : {}),
     ...(scenario === 'complaint-idle' ? {complaint:true} : {})},expected_version:4})})
 // The notice and the idle wake run in hooks the harness does not await. A
 // fixed 20 ms wait lost the append on a loaded machine (2 of 5 runs on 3d42d1d).
 const idle = !busy
-const settled = () => scenario === 'no-relay' ? false : appended.length > 0 && (!idle || submitted.length > 0)
+const settled = () => (scenario === 'no-relay' || scenario === 'relay-direct-running') ? false : appended.length > 0 && (!idle || submitted.length > 0)
 for (let i = 0; i < 150 && !settled(); i++) await new Promise(resolve => setTimeout(resolve, 20))
-await new Promise(resolve => setTimeout(resolve, scenario === 'no-relay' ? 200 : 20))
-console.log(JSON.stringify({sent,appended,submitted,wakes,logs,resolved,resumeCalls}))
+await new Promise(resolve => setTimeout(resolve, (scenario === 'no-relay' || scenario === 'relay-direct-running') ? 200 : 20))
+console.log(JSON.stringify({sent,appended,submitted,wakes,logs,resolved,resumeCalls,spawnedPrompt}))

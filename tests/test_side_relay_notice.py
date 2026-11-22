@@ -122,6 +122,25 @@ class SideRelayNoticeTests(unittest.TestCase):
         self.assertFalse(row['resolved'][0].get('relay'))
         self.assertEqual(([], []), (row['sent'], row['appended']))
 
+    def test_direct_running_fork_relay_skips_main_and_passes_active_forks_and_source_ref(self):
+        row = self.run_case('relay-direct-running')
+        prompt = json.loads(row['spawnedPrompt'])
+        self.assertEqual('agent-run', prompt['workload']['active_forks'][0]['agent_id'])
+        self.assertEqual([{'agentId': 'agent-run'}], [item['to'] for item in row['sent']])
+        fork = row['sent'][0]['text']
+        self.assertIn('Direct handoff', fork)
+        self.assertIn('34886995-4a66-4527-a618-814e9cb0a5bf', fork)
+        self.assertIn('1005', fork)
+        self.assertIn('not new execution approval', fork)
+        self.assertEqual([], row['appended'])
+        self.assertTrue(any('direct-relay' in line for line in row['logs']), row['logs'])
+
+    def test_direct_running_fork_relay_falls_back_to_main_if_fork_delivery_fails(self):
+        row = self.run_case('relay-direct-fallback')
+        self.assertEqual(1, len(row['sent']))
+        self.assertEqual(1, len(row['appended']))
+        self.assertIn('side skipped outbound reply', row['appended'][0])
+
 
 if __name__ == '__main__':
     unittest.main()
