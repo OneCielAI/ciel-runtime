@@ -2,6 +2,18 @@
 
 ## 2026-11-22
 
+- 19:25Z **버전 확인 · Celly 보고 검증 · `bc1bac5` 수정·배포·라우터 재시작**(사용자 요청: 라우터 재시작 여부, Prody·KOBE·Celly 최신 여부, Celly 보고):
+  - **정정**: 15:31Z·16:12Z·16:33Z 기록의 "Celly는 CLI 미재시작이라 `002189d` mod 라이브 미적용"은 틀렸다. Celly·Andy·KOBE·Prody transcript 모두 `15:08:58Z~15:09:12Z`에 `ciel-work: reloaded (19 hooks…)`(설치 파일 핫리로드)가 있고, Celly에서 새 코드 경로 문구 `Work fork stopped after its completion receipt (held waiting)`가 `15:12:33Z`(n1267), `15:56:17Z`(n1319), `16:11:51Z`(n1321)에 나왔다. 세 검수 모두 2~6분 안에 `finalized`(close/approve/approve)됐다.
+  - **설치 버전(파일 해시 vs HEAD `002189d`, `ciel_runtime_support` 588개)**: `register.js`는 세 호스트 모두 `c534337858a2` ✅. Prody는 npm `0.2.51-beta.20261122-150753.002189d` 새 설치(18:38Z 전후 원인 미확인)로 다른 파일은 `runtime_constants.py`(publish 때 VERSION 줄 치환, `npm-publish.yml:126`)뿐이다. Celly·KOBE의 `fork_turn_watch.py`·`work_parallel_finalization.py`는 HEAD와 내용이 같고 줄바꿈만 CRLF다. **KOBE의 `claude_stream_recovery_runtime.py`(=`a75870f`)와 `secure_json_repository.py`(=`0cd6c60`)는 `5038a08`/`99320bc` 이전 버전**(미설치 상태, 미결). `work.test.ts`는 테스트 파일이라 실행에 쓰이지 않는다. `/health`의 `source_fingerprint 84eb402c`는 이 파일들을 포함하지 않아 버전 증거가 될 수 없다.
+  - **재시작 관측(원인 미확인)**: Celly는 `16:42:26Z`에 새 launch(`reason=launch`, router `running=False`)로 라우터 16792와 CLI가 함께 시작됐다. Andy는 `18:34:29Z` 새 launch로 라우터 32996이 떴다. Prody 라우터는 8560(18:38:42Z), KOBE와 Prody 모두 `18:39Z` `Work mode is on`.
+  - **Celly 보고(18:43Z) 검증**: 검수 정상 ✅(n1313/n1330 등 finalized). n1209 `launch_refused`와 n1326 미연결의 원인은 보고의 추정(남은 n1314 run)이 아니다. 거부 원문은 `coordination byte limit`(`18:25:39Z`, `18:47:34Z` reserve, n1332 보고 거부) → **입증 결함** [coordination-history-budget](/2026/11/22/fixes/coordination-history-budget/record.md). Celly 파일 2,097,109/2,097,152 B, Andy 2,066,586 B.
+  - **수정 `bc1bac5`**: 실패 테스트(Celly와 같은 오류) → 수정 → Windows 임시 격리·Linux py310·py311 각 643건(기존 무관 오류 1건, HEAD에서도 동일) → `feature/priority-models`·`beta` push → Publish `45059663675` success → npm `@beta` `0.2.51-beta.20261122-191508.bc1bac5`(tarball 파일 해시 `593897b1c5d4` = 설치본).
+  - **설치**(`work_parallel_receipts.py`, 설치 전 `341492a15bd2`=002189d 원본 확인 → `593897b1c5d4`, 백업 `.overlay-backups/overlay-bc1bac5`): 로컬 3개 경로·Celly(G:)·KOBE·Prody 모두 ✅.
+  - **라우터만 재시작**(CLI 재시작 없음): Andy `32996 → 68036`(19:17:24Z), KOBE `15056 → 17792`(19:21:22Z), Prody `8560 → 10036`(19:21:26Z), Celly `16792 → 67592`(19:22:15Z, 비권한 정지가 거부돼 관리자 권한 `Start-Process -Verb RunAs`로 정지, 첫 시도는 `-Wait`에서 멈춤 → 결과 파일 방식으로 재시도). 새 프로세스는 모두 설치 뒤 시작.
+  - **라이브 효과 ✅**: Celly 파일 `19:22:47Z` 2,097,109 → 1,579,616 B. 18:47Z부터 v5792에 멈춰 있던 버전이 v5796으로 진행했다(runs 184 → 185, receipts 405 → 407, archive 1000 → 297).
+  - 세션 공지(`submit_input`): Celly 15722, Andy 24169, KOBE 11920, Prody 7834 모두 `ok:true`(원인, 수정, 재시도 인스트럭션).
+  - 미결: KOBE의 두 구버전 파일, 리스는 끝났는데 coordination run이 active로 남는 행(Celly 93개), `test_work_parallel_legacy_reviewer` 스키마 테스트 기존 오류, Celly n1326 예약 슬롯(새 라우터에서 처리되는지 다음 틱에 확인).
+
 - 16:33Z 읽기 전용 틱(비교 기준 16:12Z; 추가 재시작·상태 수정 없음):
   - **세 findings 모두 해소 ✅**: Celly `n1321 5bef77ec` → lease `done`, 검수 `finalized/approve`(`n1321-review-approve-20261122`; Celly는 이전 mod라 해소 경로는 미확인). Andy `n650 b592dde3` → `done`, `finalized/approve`(`n650-review-1`). Prody `n1215 cc525e33` finding 소멸.
   - **Andy**(라우터 `54628`, ledger `v5866 → v5869`, MCP `766 ms`, forks 0 err): main `work_parallel_item_review`(n650 approve, 기대 `v2017`) `16:13:49Z`·`16:15:02Z` 두 번 모두 60초 `The operation timed out`, 그런데 결과는 `finalized/approve` — 호출 응답은 타임아웃이지만 결정은 반영됨(어느 호출이 반영했는지·지연 원인 미확인, 다음 틱 추적). `new_failures` `decision_refused_stop b592dde3` 1은 이 타임아웃 거부 기록. `/ca/mcp` reset 2, keep-alive mismatch 249(재기동 경고).
