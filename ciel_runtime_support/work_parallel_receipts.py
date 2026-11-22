@@ -30,6 +30,11 @@ MAX_ARRAY = 100
 MAX_TEXT = 2_000
 MAX_EXIT_ATTEMPTS = 100
 ARCHIVE_SECONDS = 30 * 24 * 60 * 60
+# A write that would pass MAX_BYTES first evicts the oldest finished history
+# (archive rows and the receipts of runs no longer live) down to this target.
+HISTORY_TRIM_TARGET = MAX_BYTES * 3 // 4
+# History this young may still be read by a finalization in progress.
+HISTORY_PROTECT_SECONDS = 24 * 60 * 60
 RECEIPT_KINDS = ("completion", "handoff", "question", "review", "host_salvage")
 NATIVE_STATUSES = ("pending", "running", "waiting", "idle", "completed", "failed", "killed", "missing")
 RUN_STATES = ("reserved", "bound", "active", "waiting", "terminal", "handed_off", "superseded")
@@ -255,6 +260,40 @@ def validate(state):
     require(integer(state["archive_dropped"]), "archive dropped count")
 
 
+def _trim_history(state, size, *, now):
+    """Evict the oldest finished history until the canonical size reaches HISTORY_TRIM_TARGET.
+
+    Celly 2026-11-22: nothing ever removed archive rows below MAX_ARCHIVE or the
+    receipts of runs that had left `runs`, so the file reached 2,097,109 of
+    2,097,152 bytes and every reserve and fork report failed with "coordination
+    byte limit". History is archive rows and receipt/detail pairs whose run is
+    no longer live; live runs, their receipts and history younger than
+    HISTORY_PROTECT_SECONDS stay. Evicted archive rows count in archive_dropped,
+    the same as the existing count and age bounds. `size` is the caller's
+    measured size; the caller measures again after this.
+    """
+    live = set(state["runs"])
+    cutoff = now - HISTORY_PROTECT_SECONDS
+    queue = [(row["archived_at"], 0, index) for index, row in enumerate(state["archive"])
+             if row["archived_at"] < cutoff]
+    queue += [(row["created_at"], 1, key) for key, row in state["receipts"].items()
+              if row["lease_id"] not in live and row["created_at"] < cutoff]
+    queue.sort()
+    archived = set()
+    for _, kind, ref in queue:
+        if size <= HISTORY_TRIM_TARGET:
+            break
+        if kind == 0:
+            archived.add(ref)
+            size -= len(_canonical(state["archive"][ref])) + 1
+        else:
+            for table in ("receipts", "details"):
+                size -= len(_canonical(ref)) + len(_canonical(state[table].pop(ref))) + 2
+    if archived:
+        state["archive"] = [row for index, row in enumerate(state["archive"]) if index not in archived]
+        state["archive_dropped"] += len(archived)
+
+
 class WorkCoordinationStore:
     """Separate, versioned CAS store; a read of a missing file creates nothing."""
 
@@ -302,6 +341,10 @@ class WorkCoordinationStore:
                 state["version"] += 1
                 validate(state)
                 raw = _canonical(state)
+                if len(raw) > MAX_BYTES:
+                    _trim_history(state, len(raw), now=time.time())
+                    validate(state)
+                    raw = _canonical(state)
                 require(len(raw) <= MAX_BYTES, "coordination byte limit")
                 self.path.parent.mkdir(parents=True, exist_ok=True)
                 tmp = self.path.with_name(self.path.name + "." + uuid.uuid4().hex + ".tmp")

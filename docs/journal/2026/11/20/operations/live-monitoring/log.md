@@ -2,6 +2,43 @@
 
 ## 2026-11-22
 
+- 16:33Z 읽기 전용 틱(비교 기준 16:12Z; 추가 재시작·상태 수정 없음):
+  - **세 findings 모두 해소 ✅**: Celly `n1321 5bef77ec` → lease `done`, 검수 `finalized/approve`(`n1321-review-approve-20261122`; Celly는 이전 mod라 해소 경로는 미확인). Andy `n650 b592dde3` → `done`, `finalized/approve`(`n650-review-1`). Prody `n1215 cc525e33` finding 소멸.
+  - **Andy**(라우터 `54628`, ledger `v5866 → v5869`, MCP `766 ms`, forks 0 err): main `work_parallel_item_review`(n650 approve, 기대 `v2017`) `16:13:49Z`·`16:15:02Z` 두 번 모두 60초 `The operation timed out`, 그런데 결과는 `finalized/approve` — 호출 응답은 타임아웃이지만 결정은 반영됨(어느 호출이 반영했는지·지연 원인 미확인, 다음 틱 추적). `new_failures` `decision_refused_stop b592dde3` 1은 이 타임아웃 거부 기록. `/ca/mcp` reset 2, keep-alive mismatch 249(재기동 경고).
+  - **Celly**(라우터 `16340`·CLI 미재시작 그대로, ledger `v6547 → v6554`, MCP `703 ms`, forks 12 / 5 err): `findings=0`. `/ca/mcp` reset 9, 게이트웨이 `agent-aap…:20129` 실패 → transient retry 2(`16:17:13Z`). 대화: 후보 없음 정상 가드 1, side 원문 append 1. 세션 재시작 hold 계속.
+  - **KOBE**(ledger `v2952`, MCP `308 ms`, forks 0 err): keep-alive mismatch 249, 외부 SSE reset 3, side 원문 append 1.
+  - **Prody**(ledger `v581 → v589`, MCP `1,354 ms`, forks 24 / 1 err): `findings=0`. CLI 미재시작.
+  - 새로 입증된 미수정 제품 결함 없음. 미결: Andy 검수 호출 60초 타임아웃(결정은 반영), Celly·Prody 세션 재시작, Celly 라우터 재시작.
+
+- 16:12Z 읽기 전용 틱(비교 기준 15:53Z; 추가 재시작·상태 수정 없음):
+  - **Celly**(라우터 `16340` 그대로, CLI 미재시작, ledger `v6530 → v6547`, MCP `953 ms`): **신규 `findings=1`**: `n1321 5bef77ec P2 native=waiting` 완료 영수증 후 검수 행 없음 — `n1267`과 같은 모양. `002189d`는 Celly에 파일 설치만 됐고 세션이 재시작되지 않아 이전 mod가 돌고 있어 자동 정지가 동작하지 않음(라이브 미적용). 세션 재시작 요청은 `15:17:35Z` `hold_started` 이후 미실행. `restart_hold.py` 확인: 재시작이 보류되는 동안 그 CLI로의 대기 입력 전달은 모두 멈춤 → Celly main에 보낸 라우터 재시작 지시(15667)도 재시작 전까지 전달되지 않음. 대화: `workspace ownership was handed off; retained` 1, plan 분해 부족 정상 가드 1.
+  - **Andy**(라우터 `54628`, ledger `v5862 → v5866`, MCP `765 ms`, forks 0 err): `findings=1`: `n650 b592dde3 P5 native=running` 완료 영수증 후 `running`(완료 턴 마무리 중 패턴, 다음 틱 추적; 새 자동 정지는 `waiting`만 대상). keep-alive mismatch 235(재기동 경고). Walkie `400 Invalid operation arguments` 1(에이전트 인자).
+  - **KOBE**(라우터 `15056`, ledger `v2945 → v2952`, MCP `366 ms`, forks 24 / 1 err): keep-alive mismatch 232, 에이전트 diff 스크립트 exit 2 1.
+  - **Prody**(ledger `v580 → v581`, MCP `1,004 ms`): `findings=1`: `n1215 cc525e33 P1 native=running` 완료 영수증 후 `running`(다음 틱 추적). CLI 미재시작.
+  - 새로 입증된 미수정 제품 결함 없음(Celly `n1321`은 수정 완료·미적용 상태의 재발). 미결: Celly 세션 재시작 실행 여부(보류가 끝나지 않으면 Celly에는 수정이 적용되지 않음), Prody 세션 재시작, Andy `n650`·Prody `n1215` 다음 틱 해소 여부.
+
+- 15:53Z 읽기 전용 틱(비교 기준 15:32Z; 추가 재시작·상태 수정 없음):
+  - **Andy**(라우터 `54628`·source `84eb402c`, ledger `v5838 → v5862`, MCP `1,360 ms`, forks 0 err, `findings=0`): keep-alive `reachable_health_mismatch_active_client` 240(재기동한 라우터 fingerprint가 재시작하지 않은 CLI 감독 프로세스의 기대값과 달라 5초마다 기록되는 재기동 경고, KOBE에서 이미 관측된 패턴). `startup_prompt_auto_answer_unavailable … input_held=true` → 같은 초 `startup_prompt_input_released reason=main_output_after_launch` 1(정상 해제). 대화: Work 완료 순서 정상 가드 1, 에이전트 스크립트 오류 1.
+  - **Celly**(라우터 `16340`·source `3819b46e` 그대로, ledger `v6516 → v6530`, MCP `1,563 ms`, forks 11 / 7 err, `findings=0`): `/health` 첫 5초 요청 무응답 1회 → 재요청 `200 171 ms`. `15:33:50Z` `Work gate check (host round): pump failed` 1(미재시작 라우터·mod). 세션 재시작 hold·라우터 재시작 지시 모두 미실행.
+  - **KOBE**(라우터 `15056`, ledger `v2945`, MCP `161 ms`, forks 0 err): keep-alive mismatch 242(같은 재기동 경고), side 원문 append 1.
+  - **Prody**(ledger `v577 → v580`, MCP `984 ms`, forks 0 err): CLI 미재시작(claude.exe `3236`·`10956` 그대로).
+  - 새로 입증된 미수정 제품 결함 없음. 미결: Celly·Prody 세션 재시작 실행, Celly 라우터 재시작, 재기동 라우터와 미재시작 CLI 감독 프로세스 사이 keep-alive mismatch 경고(감독 프로세스 재시작 시 해소 예상, 미확인).
+
+- 15:32Z 틱(배포 직후 라이브 효과 확인; 이번 틱 추가 재시작·상태 수정 없음):
+  - **Andy**(라우터 `54628`, source `84eb402c`, ledger `v5822 → v5838`, MCP `1,984 ms`, forks 0 err): 라우터 재기동 `15:26:57Z`(`router_lifetime_restart reason=router_process_exited`, 내 pid 정지에 따른 keep-alive 재기동). 그 사이 `15:27:01–03Z` `MCP server "ciel-runtime-router" is not connected` 7건(재기동 창의 예상된 경고). **라이브 효과 확인 ✅**: `15:27:34Z` `Work fork API error (server_error) on n2595; scheduling up to 20 retries`, `15:28:53Z` `retry 1/20` — `249a99c` 포크 20회 재시도가 Andy에서 처음 실제 동작. 재기동 시 `cielairouter_gateway_central … discovery unavailable degraded=True; requests use the configured base URL` 1건(이후 `upstream_direct_request` 51건 정상 전송 확인, 설정된 base URL 사용).
+  - **KOBE**(라우터 `15056`, source `84eb402c`): 재기동 `15:29:36Z`, 같은 gateway central 경고 1건. **라이브 효과 ✅**: `15:31:07Z` `Work fork API error (empty_stream) on n96; scheduling up to 20 retries`. keep-alive `reachable_health_mismatch_active_client` 경고는 32건으로 감소(직전 240건대). Walkie flow step 인자 오류 1(에이전트).
+  - **Celly**(라우터 `16340` 그대로·source `3819b46e`, CLI 미재시작): ledger `v6505 → v6516`, `running+slot 8`, forks 12 / 6 err, `findings=0`. `15:30:21Z` `Parallel read … connection closed` 1(미재시작 라우터). 자기 라우터 재시작 지시(15667)는 아직 실행 안 됨. 세션 재시작 hold 유지.
+  - **Prody**(ledger `v577` 변화 없음, MCP `1,524 ms`): CLI 미재시작. 에이전트 스크립트 오류 1.
+  - 새로 입증된 미수정 제품 결함 없음. 추적: Celly 라우터·세션 재시작 실행, Prody 세션 재시작, 재기동 후 gateway central `degraded` 경고 반복 여부.
+
+- 15:31Z **`002189d` 배포·재시작(사용자 명시 지시: 수정 후 Andy·Celly·KOBE 등에 배포, 라우터 재시작, 각 세션에 처리 내용·인스트럭션 전달)**:
+  - 커밋 `002189d` → `feature/priority-models`·`beta` push. Publish run `45036570501` **success**, npm `@beta` = **`0.2.51-beta.20261122-150753.002189d`**.
+  - 파일 설치(`register.js`, 해시 `3e2026e718f7 → c534337858a2`, 백업 `.overlay-backups/overlay-002189d`): 로컬 3경로·Celly(G:)·KOBE·Prody 모두 해시 일치 확인.
+  - 세션 공지(`submit_input`, 4호스트): 수정 내용, 재시작 예고, "메인 검수를 못 해 막혀 있던 submitted 아이템이 있을 수 있으니 재시작 후 검수 행 확인 → approve/rework, 2분 내 안 열리면 `recover_submitted_review` 1회, 반복 거부 시 lease_id·원문 보고" 인스트럭션. 전 호스트 `ok:true`.
+  - CLI 재시작(`restart_session`, `--continue`): **Andy** `15:21:35Z` 재시작(새 claude.exe 34532), 공지 수신 `15:21:38Z`, ciel-work 로드 `15:22:18Z` 확인 ✅(재시작으로 실행 중이던 포크 3개 `stopped` — 재시작 복구 경로 대상). **KOBE** `15:19:26Z` 재시작(claude.exe 12504) ✅. **Celly** 요청 claim 후 `hold`(턴 종료 대기) — 미실행. **Prody** 새 claude.exe 미관측 — 미실행.
+  - 라우터 재시작(정확한 pid 정지 → 클라이언트 keep-alive가 설치된 새 코드로 재기동): **Andy** `81436 → 54628`, source `3819b46e → 84eb402c` ✅. **KOBE** `5704 → 15056`, source `3819b46e → 84eb402c` ✅. **Celly** `16340` 정지 `Access is denied`(다른 계정 프로세스) → Celly main에 자기 라우터 재시작 지시 전달(`submit_input` id 15667), 결과 미관측. **Prody** 라우터는 이미 `f5f9269` Python(이번 변경은 mod만이라 라우터 코드 변경 없음).
+  - Celly `n1267`: 이 배포 전에 `finalized/close`(`close-resolved:01eac389…`)로 종료됨(수정 효과 아님). main의 `15:14:50Z` approve는 `review already decided differently`로 거부(정상 가드).
+
 - 15:03Z 읽기 전용 틱(비교 기준 13:40Z; 운영 재시작·상태 수정 없음; 수정본은 아직 미설치):
   - **Celly**: `n1267 01eac389` 그대로(native `waiting`, 검수 행 없음). main이 Keep waiting 후 다시 움직임(ledger `v6440 → v6485`, board `v9074 → v9128`, `running+slot 1 → 8`). `new_failures`: `decision_refused_stop 01eac389` 1·`revival_refused 01eac389` 1 — main이 `13:57Z` 포크 메시지·검수 재시도 → 같은 idle proof 거부, `14:12:38Z` recovery 또 `cancelled`. 미재시작 라우터 `work_host_page` `ECONNREFUSED` 2·`Parallel read` timeout 1(`14:43–14:47Z`). 나머지는 정상 가드(중복 리스 6, 미승인 goal 4, 슬롯 상한 2, plan 버전 1).
   - **Andy**(`v5817`, MCP `828 ms`, forks 0 err): `13:46:22Z` `Parallel read failed: ECONNREFUSED` 1(미재시작 라우터, 반복 3회째), side 원문 append 1.

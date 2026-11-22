@@ -264,5 +264,128 @@ class CoordinationStoreTests(unittest.TestCase):
         self.assertEqual(1, len(self.store.projection(SCOPE, limit=1)["runs"]))
 
 
+class CoordinationHistoryBudgetTests(unittest.TestCase):
+    """Celly 2026-11-22: the sidecar held 2,097,109 of 2,097,152 bytes, mostly 1000 archive
+    rows and the receipt details of runs that had left `runs`. Nothing ever removed those,
+    so every reserve and every fork report failed with "coordination byte limit"."""
+
+    def setUp(self):
+        self.tmp = TemporaryDirectory()
+        self.path = Path(self.tmp.name) / "work-parallel-coordination.json"
+        self.store = WorkCoordinationStore(self.path)
+        state = self.store.read()
+        state = self.store.reconcile_roots(SCOPE, [{"root_id": "r1", "phase": "executing",
+                                                   "scope_digest": SCOPE_DIGEST}],
+                                          expected_version=state["version"])[0]
+        state = self.store.record_assignment(SCOPE, "live", manifest(), expected_version=state["version"])[0]
+        state, self.live_receipt = self.store.persist_receipt("live", "question", self.question("live"),
+                                                              expected_version=state["version"])
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    @staticmethod
+    def question(tag, todos=0):
+        return {"question": ("q " + tag + " ").ljust(1900, "x"), "decision_needed": "pick one",
+                "blocking_todos": [("t" + str(index)).ljust(200, "y") for index in range(todos)]}
+
+    @staticmethod
+    def canonical(state):
+        return json.dumps(state, ensure_ascii=False, allow_nan=False, sort_keys=True,
+                          separators=(",", ":")).encode("utf-8")
+
+    def write(self, state):
+        self.path.write_bytes(self.canonical(state))
+
+    def run_row(self, state, lease, *, at, todos=None):
+        row = json.loads(json.dumps(state["runs"]["live"]))
+        row.update({"lease_id": lease, "state": "terminal", "exit": None, "reserved_at": at,
+                    "state_changed_at": at})
+        if todos is not None:
+            row["assigned_todos"] = todos
+        return row
+
+    def add_receipt(self, state, lease, *, at, tag):
+        from ciel_runtime_support.work_parallel_receipts import _sha
+        body = self.question(tag)
+        key = _sha(body)
+        state["details"][key] = {"kind": "question", "body": body}
+        state["receipts"][key] = {"digest": key, "lease_id": lease, "kind": "question", "created_at": at}
+        return key
+
+    def fill_to_limit(self, state, *, old):
+        """Grow old history (archive rows, then receipts of archived-away runs) to the byte limit."""
+        from ciel_runtime_support.work_parallel_receipts import MAX_ARCHIVE, MAX_BYTES
+        index = 0
+        while len(state["archive"]) < MAX_ARCHIVE and len(self.canonical(state)) < MAX_BYTES - 40_000:
+            state["archive"].append({"run": self.run_row(state, "arch-%04d" % index, at=old + index),
+                                     "summary": {"state": "done", "outcome": "main accepted"},
+                                     "archived_at": old + index})
+            index += 1
+        while True:
+            key = self.add_receipt(state, "gone-%04d" % index, at=old + index, tag="gone-%04d" % index)
+            if len(self.canonical(state)) > MAX_BYTES - 1_500:
+                state["receipts"].pop(key)
+                state["details"].pop(key)
+                return
+            index += 1
+
+    def test_full_history_yields_to_a_new_reservation_and_keeps_live_and_recent_rows(self):
+        import time
+        from ciel_runtime_support.work_parallel_receipts import MAX_BYTES
+        now = time.time()
+        state = json.loads(self.path.read_bytes())
+        state["archive"].append({"run": self.run_row(state, "recent-arch", at=now - 60),
+                                 "summary": {"state": "done", "outcome": "main accepted"},
+                                 "archived_at": now - 60})
+        recent = self.add_receipt(state, "recent-gone", at=now - 60, tag="recent")
+        self.fill_to_limit(state, old=now - 5 * 86400)
+        state["archive"].sort(key=lambda row: row["archived_at"])
+        self.write(state)
+        before = self.store.read()
+        todos = [("todo-%03d-" % index).ljust(200, "z") for index in range(100)]
+        self.assertGreater(len(self.canonical(before)) + 20_000, MAX_BYTES)
+
+        after = self.store.record_assignment(SCOPE, "next", dict(manifest(2), assigned_todos=todos),
+                                             expected_version=before["version"])[0]
+
+        self.assertIn("next", after["runs"])
+        self.assertIn("live", after["runs"])
+        self.assertIn(self.live_receipt, after["receipts"])
+        self.assertIn(self.live_receipt, after["details"])
+        self.assertIn(recent, after["receipts"])
+        self.assertIn("recent-arch", [row["run"]["lease_id"] for row in after["archive"]])
+        size = self.path.stat().st_size
+        self.assertLessEqual(size, MAX_BYTES * 3 // 4)
+        evicted = len(before["archive"]) - len(after["archive"])
+        self.assertGreater(evicted, 0)
+        self.assertEqual(before["archive_dropped"] + evicted, after["archive_dropped"])
+        # Oldest first: what remains of the old archive is its newest tail.
+        kept = [row["run"]["lease_id"] for row in after["archive"]]
+        old = [row["run"]["lease_id"] for row in before["archive"]]
+        self.assertEqual(old[-len(kept):], kept)
+        self.assertEqual(set(after["receipts"]), set(after["details"]))
+
+    def test_live_runs_alone_over_the_limit_still_refuse_and_change_nothing(self):
+        import time
+        from ciel_runtime_support.work_parallel_receipts import MAX_BYTES
+        now = time.time()
+        state = json.loads(self.path.read_bytes())
+        todos = [("todo-%03d-" % index).ljust(200, "z") for index in range(100)]
+        index = 0
+        while len(self.canonical(state)) < MAX_BYTES - 25_000:
+            row = self.run_row(state, "busy-%04d" % index, at=now - 5 * 86400, todos=todos)
+            row["state"] = "active"
+            state["runs"][row["lease_id"]] = row
+            index += 1
+        self.write(state)
+        raw = self.path.read_bytes()
+        before = self.store.read()
+        with self.assertRaisesRegex(WorkParallelError, "coordination byte limit"):
+            self.store.record_assignment(SCOPE, "next", dict(manifest(2), assigned_todos=todos[:100]),
+                                         expected_version=before["version"])
+        self.assertEqual(raw, self.path.read_bytes())
+
+
 if __name__ == "__main__":
     unittest.main()
