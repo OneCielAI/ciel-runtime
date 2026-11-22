@@ -2,6 +2,14 @@
 
 ## 2026-11-22
 
+- 19:52Z 틱(비교 기준 19:33Z; 운영 재시작·상태 수정 없음) + **입증 결함 수정 `db7b257`(파일 설치만)**:
+  - **Celly**: MCP 지연 해소 — `probe_succeeded` 344 ms, 보드 직접 측정 500~825 ms(직전 틱 30 s 타임아웃은 19:34Z에 이미 회복). n1327 이전 포크 `aa316fb9`는 19:45Z `host_salvage`(native missing)로 `unreported` → 새 리스 `41be0eb8` running. 19:47:53Z 이전 포크로 보낸 메시지 거부는 정상 가드(`revival_refused` 1). **n1326 `reserved` + 포크 없음은 18:25:44Z 이후 1시간 50분째**(미결; 메인이 공지 후에도 처리하지 않음). 업스트림: `_Walkie_P3` 요청 `2cbdf102`가 late SSE retry 7회, 442 s 후 `budget_exhausted`로 멈춤(19:42:36Z, 게이트웨이 소유). 포크 오류 3(19:38~19:39Z).
+  - **KOBE**: 모니터 4초 프로브 `probe_failed`(4028 ms). 직후 직접 측정한 보드는 404~583 ms. keep-alive mismatch 240(기존). 라우터 2684 CPU는 19:25:52Z 이후 1062.6 s이고 10초 사이 +9.4 s였다.
+  - **Andy**: MCP 1000 ms, 포크 오류 1(`a03f3c68` n2605, 19:46:24Z). 메인 git 명령 인자 오류 1(에이전트 도구 사용). 라우터 68036 CPU는 19:17:24Z 이후 2412.8 s이고 10초 사이 +12.2 s였다.
+  - **Prody**: MCP 1068 ms, 변화 없음.
+  - **입증 결함 — 사이드 claim마다 전체 수신 파일 재읽기** [side-claim-receipt-scan](/2026/11/22/fixes/side-claim-receipt-scan/record.md): Andy 라우터 py-spy(멈춤 없는 샘플링, 30초) 결과, 표본의 41%가 `work_side_claim → side_reply_outbox.pending()`의 수신 5,459개(108 MB) 전체 읽기였다(호출당 6.5~7.0 s, 돌려줄 0개). 실패 테스트 → `StatVerdictCache`로 바뀐 파일만 읽게 수정(같은 복사본에서 재호출 0.42~0.49 s, 결과 동일) → Windows 격리, py310·py311 각 671건 통과 → `feature/priority-models`·`beta` push(`db7b257`) → 6개 경로 해시 검증 설치(`stat_verdict_cache.py` 신규 `3527ead69213`, `side_reply_outbox.py` `cfffe9fb7153 → 66f58ebd6bf8`, 백업 `overlay-db7b257`). **라우터는 재시작하지 않았으므로 라이브 미적용**(실행 중 라우터는 기존 모듈을 이미 import함). Publish `45065566013` success, npm `@beta` `0.2.51-beta.20261122-201721.db7b257`, tarball 두 파일 해시 = 설치본.
+  - 미결: n1326 예약 슬롯, 라우터 CPU 나머지(`ForkTurnWatch._poll` 24.5%), Celly·KOBE·Prody 수신 파일 수 미측정, db7b257 라이브 적용(라우터 재시작 필요, 사용자 결정).
+
 - 19:33Z 읽기 전용 틱(비교 기준 19:26Z; 재시작·상태 수정 없음):
   - **Celly MCP/보드 지연(새 관측, 원인 미확인)**: 모니터의 4초 프로브 `probe_failed`(4032 ms), board 응답 없음. 직접 측정: `19:33:47Z` 30초 타임아웃 → 17.6초 → 3.8초 → 2.5초 → 0.84초 → `19:34:35Z` 0.56초로 회복. 같은 시간대 Celly 메인에 `19:31:17Z` `auto continue could not read the Work status` 1회, 라우터 로그 `router_post_client_disconnected path=/ca/mcp` 13회(13:32:39~13:34:11 local, 클라이언트 쪽 타임아웃). 라우터 로그의 MCP 호출 수: 19:23~19:28Z `work_host_page` 961·`work_parallel_status` 156, 19:29~19:34Z `work_host_page` 477·`work_parallel_status` 88. 재시작 이전 구간에는 이 로그 줄이 없어 비교 기준이 없다. CPU는 다른 계정 프로세스라 읽지 못했다. → 재시작 직후의 부하인지, 계속되는 것인지 다음 틱에 같은 방법으로 비교한다. 제품 결함으로 단정하지 않는다.
   - Celly coordination `1,586,076 B`(v5819, 계속 쓰기 성공). byte limit 오류 0. running+slot 6(n1333·n1331·n1334·n1327·n1332 새 리스 `568e9cb9`), **n1326 `reserved` 포크 없음은 18:25:44Z 이후 계속**(1시간 이상, 미결). 포크 오류 3건(a7a25aa0·aa316fb9·af31a8e5 각 1). 로그: `cielairouter_late_sse_retry` 4(1/20에서 진행), `anthropic_sse_client_disconnected` 1, `channel_turn_projection_persistent` 2(observe_only).
