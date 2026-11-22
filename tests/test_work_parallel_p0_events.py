@@ -854,6 +854,64 @@ class P0EventTests(unittest.TestCase):
                       intent_id=reserved["intent_id"], lease_id="wrong",
                       dispatch_name=reserved["dispatch_name"])
 
+    def test_full_p0_clear_journal_evicts_oldest_done_before_prepare_set_and_clear(self):
+        # Celly 2026-11-22 07:33:58Z: 32 active/cleared roots + 32 superseded done
+        # clears reached MAX_CLEARS=64, so prune_done(keep=32) removed nothing and
+        # every new P0 prepare_set/prepare_clear failed with "P0 clear bound".
+        self.assertGreater(p0.MAX_CLEARS, p0.MAX_ROOTS)
+        side = p0_store(self.store)
+        with patch.object(p0, "MAX_CLEARS", 4):
+            # Seed root already has 1 done clear; add a 2nd done clear on root and
+            # 2 done clears on r1 -> 4 clears total (2 protected + 2 superseded).
+            for rid, created, stamps in (("root", 1.0, (10.0,)), ("r1", 11.0, (11.0, 12.0))):
+                for st in stamps:
+                    _, row = side.prepare_set(SCOPE, rid, created, 1, set_by="user",
+                                              expected_version=side.read()["version"], now=st)
+                    side.mark_clear(row["clear_id"], "board_committed", expected_version=side.read()["version"])
+                    side.mark_clear(row["clear_id"], "done", expected_version=side.read()["version"])
+            self.assertEqual(4, len(side.read()["clears"]))
+            # prune_done(keep=32) must still leave headroom below MAX_CLEARS
+            # (with keep clamped to MAX_CLEARS - 1 - len(protected)).
+            _, removed = side.prune_done(expected_version=side.read()["version"], keep=4)
+            self.assertGreaterEqual(removed, 1)
+            self.assertLess(len(side.read()["clears"]), 4)
+            # Refill to cap=4 with a superseded done clear, then prepare_set for new r2
+            _, dup = side.prepare_set(SCOPE, "r1", 11.0, 2, set_by="user",
+                                      expected_version=side.read()["version"], now=13.0)
+            side.mark_clear(dup["clear_id"], "board_committed", expected_version=side.read()["version"])
+            side.mark_clear(dup["clear_id"], "done", expected_version=side.read()["version"])
+            self.assertEqual(4, len(side.read()["clears"]))
+            _, r2 = side.prepare_set(SCOPE, "r2", 20.0, 3, set_by="user",
+                                     expected_version=side.read()["version"], now=20.0)
+            self.assertEqual("r2", r2["root_id"])
+            self.assertEqual(4, len(side.read()["clears"]))
+            side.mark_clear(r2["clear_id"], "board_committed", expected_version=side.read()["version"])
+            side.mark_clear(r2["clear_id"], "done", expected_version=side.read()["version"])
+            # prepare_clear when full must evict the remaining superseded done clear and keep validate() intact
+            _, cleared = side.prepare_clear(SCOPE, "r2", 20.0, "P2", 4, set_by="user",
+                                            expected_version=side.read()["version"], now=21.0)
+            self.assertEqual("P2", cleared["target_priority"])
+            self.assertEqual(4, len(side.read()["clears"]))
+            side.mark_clear(cleared["clear_id"], "board_committed", expected_version=side.read()["version"])
+            side.mark_clear(cleared["clear_id"], "done", expected_version=side.read()["version"])
+            # Add a 4th active root (evicting r2's superseded prepare_set row) -> now all 4 clears are protected newest rows
+            _, r3 = side.prepare_set(SCOPE, "r3", 30.0, 5, set_by="user",
+                                     expected_version=side.read()["version"], now=30.0)
+            side.mark_clear(r3["clear_id"], "board_committed", expected_version=side.read()["version"])
+            side.mark_clear(r3["clear_id"], "done", expected_version=side.read()["version"])
+            self.assertEqual(4, len(side.read()["clears"]))
+            # With all 4 slots holding required active/cleared newest operations, a 5th root cleanly hits P0 clear bound
+            with self.assertRaisesRegex(WorkParallelError, "P0 clear bound"):
+                side.prepare_set(SCOPE, "r4", 40.0, 6, set_by="user",
+                                 expected_version=side.read()["version"], now=40.0)
+            # Once r3 ends (sweep_roots), its done clear becomes evictable and r4 succeeds
+            side.sweep_roots(SCOPE, {"nodes": [{"id": "root", "parent_id": None, "created_at": 1.0, "status": "pending"},
+                                               {"id": "r1", "parent_id": None, "created_at": 11.0, "status": "pending"}]},
+                             expected_version=side.read()["version"], now=35.0)
+            _, r4 = side.prepare_set(SCOPE, "r4", 40.0, 6, set_by="user",
+                                     expected_version=side.read()["version"], now=40.0)
+            self.assertEqual("r4", r4["root_id"])
+
 
 if __name__ == "__main__":
     unittest.main()

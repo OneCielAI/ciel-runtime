@@ -27,7 +27,10 @@ MAX_BYTES = 2_097_152
 MAX_ROOTS = 256
 MAX_INTENTS = 256
 MAX_SENDS = 256
-MAX_CLEARS = 64
+# Must exceed MAX_ROOTS: validate() retains the newest clear row for every
+# active/cleared root marker (up to MAX_ROOTS), so MAX_CLEARS=64 deadlocked
+# once 32 roots + 32 kept superseded clears reached 64 (Celly 2026-11-22).
+MAX_CLEARS = 512
 MARKER_STATES = ("active", "cleared", "ended")
 SET_BY = ("user", "side_decision", "operator")
 ENDED_REASONS = ("priority_changed", "root_terminal", "root_missing")
@@ -43,6 +46,44 @@ OPEN_INTENT_STATES = frozenset(("intent", "reserved", "spawning", "bound"))
 NONTERMINAL_CLEAR_STATES = frozenset(("prepared", "board_committed"))
 INTENT_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 P0_DISPATCH_RE = re.compile(r"^work-p0-[0-9a-f]{32}$")
+
+
+def _protected_clear_ids(state):
+    """Newest clear_id for each active/cleared root marker (required by validate())."""
+    active_identities = {
+        (marker["scope"], marker["root_id"], marker["root_created_at"])
+        for marker in state["roots"].values()
+        if marker["state"] in ("active", "cleared")
+    }
+    latest = {}
+    for row in state["clears"].values():
+        identity = (row["scope"], row["root_id"], row["root_created_at"])
+        if identity not in active_identities:
+            continue
+        prior = latest.get(identity)
+        if prior is None or (row["created_at"], row["clear_id"]) > (
+                prior["created_at"], prior["clear_id"]):
+            latest[identity] = row
+    return {row["clear_id"] for row in latest.values()}
+
+
+def _evict_oldest_done_clear(state, limit):
+    """Make room for one new clear row by evicting the oldest unprotected completed row.
+
+    Never evicts non-terminal rows (prepared / board_committed) or the newest
+    operation of an active/cleared marker (which validate() requires).
+    """
+    if len(state["clears"]) < limit:
+        return
+    protected = _protected_clear_ids(state)
+    evictable = [
+        row for row in state["clears"].values()
+        if row["state"] in ("done", "cancelled") and row["clear_id"] not in protected
+    ]
+    if not evictable:
+        return
+    oldest = min(evictable, key=lambda row: (row["created_at"], row["clear_id"]))
+    state["clears"].pop(oldest["clear_id"], None)
 
 
 def empty_state():
@@ -438,6 +479,8 @@ class WorkParallelP0Store:
             state["roots"][key] = marker
             # Compatibility helper for already-canonical P1 fixtures/callers.
             # Production activation uses prepare_set and its prepared crash row.
+            _evict_oldest_done_clear(state, MAX_CLEARS)
+            require(len(state["clears"]) < MAX_CLEARS, "P0 clear bound")
             operation_id = uuid.uuid4().hex
             state["clears"][operation_id] = {
                 "clear_id": operation_id, "scope": scope, "root_id": root_id,
@@ -476,6 +519,7 @@ class WorkParallelP0Store:
                 require(len(open_rows) == 1 and open_rows[0]["target_priority"] == "P1",
                         "conflicting P0 priority operation")
                 return open_rows[0]
+            _evict_oldest_done_clear(state, MAX_CLEARS)
             require(len(state["clears"]) < MAX_CLEARS, "P0 clear bound")
             marker = state["roots"].get(key)
             if (marker is not None and marker["state"] == "active"
@@ -527,6 +571,7 @@ class WorkParallelP0Store:
                         and open_rows[0]["target_priority"] == target_priority,
                         "conflicting P0 priority operation")
                 return open_rows[0]
+            _evict_oldest_done_clear(state, MAX_CLEARS)
             require(len(state["clears"]) < MAX_CLEARS, "P0 clear bound")
             state["clears"][clear_id] = row
             marker.update(state="cleared", ended_at=stamp,
@@ -583,19 +628,14 @@ class WorkParallelP0Store:
     def prune_done(self, *, expected_version, keep=32):
         require(integer(keep, 0, MAX_CLEARS), "P0 priority retention")
         def apply(state):
-            latest = {}
-            for row in state["clears"].values():
-                identity = (row["scope"], row["root_id"], row["root_created_at"])
-                prior = latest.get(identity)
-                if prior is None or (row["created_at"], row["clear_id"]) > (
-                        prior["created_at"], prior["clear_id"]):
-                    latest[identity] = row
-            protected = {row["clear_id"] for row in latest.values()}
+            protected = _protected_clear_ids(state)
             done = sorted((row for row in state["clears"].values()
                            if row["state"] in ("done", "cancelled")
                            and row["clear_id"] not in protected),
                           key=lambda row: (row["created_at"], row["clear_id"]))
-            remove = done[:-keep] if keep else done
+            # Never let kept superseded rows pin total clears at MAX_CLEARS.
+            budget = max(0, min(keep, MAX_CLEARS - 1 - len(protected)))
+            remove = done[:-budget] if budget else done
             for row in remove:
                 state["clears"].pop(row["clear_id"], None)
             return len(remove)
