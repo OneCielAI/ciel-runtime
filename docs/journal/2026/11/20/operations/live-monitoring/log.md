@@ -10,6 +10,7 @@
   - **Andy**: coordination `2,074,076 B`(한도까지 약 23 KB) — 아직 트림은 일어나지 않았다. 다음 쓰기가 넘으면 트림된다. n2582·n2600·n2605 `server_error` → 1회 재시도로 3건 모두 `recovered`(19:20:36~41Z). `Work item n2605 already has lease…`는 정상 중복 파견 가드(18:56Z·19:21Z). `n2605`가 19:21:43Z에 새 리스로 다시 파견됐다. 19:21:13Z `refused (orphaned)`는 유령 리스 `56e71c66`에 메시지를 보내려다 거부된 것 = 가드.
   - **KOBE**: `walkie_send_message` `Invalid uuid at client_id` 1(18:00Z, 워키 쪽 인자 검증; ciel-runtime 밖). 작업 리스 waiting_input 9·stale 3 그대로, fork err 0. `work-parallel-stranded-v1.json` 없음(정상: 파일 미생성 시 빈 문서).
   - **Prody**: 19:2xZ 이후 새 오류 없음. `submitted` 6건 그대로, transcript 오류는 스크립트 인코딩(cp949)·MCP 인자 검증 등 사용자 작업 쪽. `claude_session_socket_unavailable(auth_key_unavailable → terminal fallback)` 10:37Z 1건 기존 미결.
+  - bc1bac5 공지 수신(transcript 확인): Andy 19:23:19Z(attachment, 라우터의 `channel_windows_console_unseen_failed age=23.7s` 경고와 무관하게 전달됨), Celly 19:23:18Z, KOBE 19:23:57Z(메인 응답 19:24:43Z), Prody 19:24:05Z.
   - 미결 변화 없음: Celly n1326 슬롯·n1332 unreported 리스, Celly orphaned인데 run이 active인 행 93개, KOBE mismatch 경고, `test_work_parallel_legacy_reviewer` 기존 오류.
 
 - 19:24Z **버전 확인 · Celly 보고 검증 · `bc1bac5` 수정·배포·라우터 재시작**(사용자 요청: 라우터 재시작 여부, Prody·KOBE·Celly 최신 여부, Celly 보고):
