@@ -2,7 +2,17 @@
 
 ## 2026-11-22
 
-- 19:25Z **버전 확인 · Celly 보고 검증 · `bc1bac5` 수정·배포·라우터 재시작**(사용자 요청: 라우터 재시작 여부, Prody·KOBE·Celly 최신 여부, Celly 보고):
+- 19:26Z 읽기 전용 틱(비교 기준 16:33Z, bc1bac5 라우터 재시작 이후):
+  - **네 호스트 모두 띄워진 새 라우터**: Andy 68036, Celly 67592, KOBE 2684(파일 동기화 후 2차 재시작), Prody 10036. 재시작 직후 `router_lifetime_restart reason=router_process_exited`가 각 1~2건 — 예상된 재기동 신호다. `external_event_sse_disconnected EOFError` Andy 9·Celly 4·KOBE 4(카테고리 eof, 과거와 같은 정상 재연결 부류). KOBE keep-alive mismatch 49 + 11(재시작하기 전·후)은 기존 미결 경고. 라우터 기동 시 gateway `degraded=True`(Andy·KOBE 각 1) 기존.
+  - **MCP/보드**: 4호스트 모두 `probe_succeeded`, board=work MCP version 일치(Andy 10490/781 ms, Celly 9280/719 ms, KOBE 537/404 ms, Prody 6714/773 ms). findings 0, 새 포크 오류 Andy·KOBE 0. Prody 포크 오류 2건(16:xx대), Celly 16건.
+  - **bc1bac5 결과 ✅**: Celly coordination `1,584,444 B`(수정 직후 1,579,616). **`coordination byte limit` 오류가 19:11:13Z 이후 더 없다**(수정 전 18:25·18:47·18:49·19:00·19:11 총 5회). 그 뒤 n1331·n1334·n1327 reserve가 모두 성공해 running+slot으로 떴고(19:22~19:23Z), n1333은 `empty_stream` 1회 후 자동 재시도로 복구됐다. n1209가 소유한 n1331이 실제로 돌고 있다. **n1326 슬롯(c58382cab38e, 18:25:44Z 예약, 포크 없음)은 아직 그대로** — Celly 메인 쪽 처리 대기.
+  - **Celly 포크 보고 복구 시도**: 메인이 19:26:21Z에 n1332 포크(a9c2a65c8)에 보고 재전송을 지시 → 19:26:26Z `unreported`(host_salvage)라 거부. 이는 정의된 가드(끝난 리스에 메시지를 보내면 포크가 되살아나므로 거부)이며, 새 라우터가 아니라 리스 자체의 상태 문제다(미결).
+  - **Andy**: coordination `2,074,076 B`(한도까지 약 23 KB) — 아직 트림은 일어나지 않았다. 다음 쓰기가 넘으면 트림된다. n2582·n2600·n2605 `server_error` → 1회 재시도로 3건 모두 `recovered`(19:20:36~41Z). `Work item n2605 already has lease…`는 정상 중복 파견 가드(18:56Z·19:21Z). `n2605`가 19:21:43Z에 새 리스로 다시 파견됐다. 19:21:13Z `refused (orphaned)`는 유령 리스 `56e71c66`에 메시지를 보내려다 거부된 것 = 가드.
+  - **KOBE**: `walkie_send_message` `Invalid uuid at client_id` 1(18:00Z, 워키 쪽 인자 검증; ciel-runtime 밖). 작업 리스 waiting_input 9·stale 3 그대로, fork err 0. `work-parallel-stranded-v1.json` 없음(정상: 파일 미생성 시 빈 문서).
+  - **Prody**: 19:2xZ 이후 새 오류 없음. `submitted` 6건 그대로, transcript 오류는 스크립트 인코딩(cp949)·MCP 인자 검증 등 사용자 작업 쪽. `claude_session_socket_unavailable(auth_key_unavailable → terminal fallback)` 10:37Z 1건 기존 미결.
+  - 미결 변화 없음: Celly n1326 슬롯·n1332 unreported 리스, Celly orphaned인데 run이 active인 행 93개, KOBE mismatch 경고, `test_work_parallel_legacy_reviewer` 기존 오류.
+
+- 19:24Z **버전 확인 · Celly 보고 검증 · `bc1bac5` 수정·배포·라우터 재시작**(사용자 요청: 라우터 재시작 여부, Prody·KOBE·Celly 최신 여부, Celly 보고):
   - **정정**: 15:31Z·16:12Z·16:33Z 기록의 "Celly는 CLI 미재시작이라 `002189d` mod 라이브 미적용"은 틀렸다. Celly·Andy·KOBE·Prody transcript 모두 `15:08:58Z~15:09:12Z`에 `ciel-work: reloaded (19 hooks…)`(설치 파일 핫리로드)가 있고, Celly에서 새 코드 경로 문구 `Work fork stopped after its completion receipt (held waiting)`가 `15:12:33Z`(n1267), `15:56:17Z`(n1319), `16:11:51Z`(n1321)에 나왔다. 세 검수 모두 2~6분 안에 `finalized`(close/approve/approve)됐다.
   - **설치 버전(파일 해시 vs HEAD `002189d`, `ciel_runtime_support` 588개)**: `register.js`는 세 호스트 모두 `c534337858a2` ✅. Prody는 npm `0.2.51-beta.20261122-150753.002189d` 새 설치(18:38Z 전후 원인 미확인)로 다른 파일은 `runtime_constants.py`(publish 때 VERSION 줄 치환, `npm-publish.yml:126`)뿐이다. Celly·KOBE의 `fork_turn_watch.py`·`work_parallel_finalization.py`는 HEAD와 내용이 같고 줄바꿈만 CRLF다. **KOBE의 `claude_stream_recovery_runtime.py`(=`a75870f`)와 `secure_json_repository.py`(=`0cd6c60`)는 `5038a08`/`99320bc` 이전 버전**(미설치 상태, 미결). `work.test.ts`는 테스트 파일이라 실행에 쓰이지 않는다. `/health`의 `source_fingerprint 84eb402c`는 이 파일들을 포함하지 않아 버전 증거가 될 수 없다.
   - **재시작 관측(원인 미확인)**: Celly는 `16:42:26Z`에 새 launch(`reason=launch`, router `running=False`)로 라우터 16792와 CLI가 함께 시작됐다. Andy는 `18:34:29Z` 새 launch로 라우터 32996이 떴다. Prody 라우터는 8560(18:38:42Z), KOBE와 Prody 모두 `18:39Z` `Work mode is on`.
