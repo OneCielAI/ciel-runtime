@@ -33,8 +33,11 @@ function setup(on, extra = {}) {
     if (Object.hasOwn(HOST_REPLIES, e.tool)) {
       s.hostCalls.push(e)
       if (s.offline) return { deny: 'offline' }
-      // A test may answer the gate check itself (the batched tick, 2026-11-18).
-      const reply = e.tool === 'work_side_gate_check' && s.gateReply ? s.gateReply(e.args) : HOST_REPLIES[e.tool]
+      // A test may answer the gate check or parallel status itself.
+      const reply = e.tool === 'work_side_gate_check' && s.gateReply ? s.gateReply(e.args)
+        : e.tool === 'work_parallel_status' && s.parallelStatus ? s.parallelStatus(e.args)
+        : e.tool === 'work_parallel_event' && s.parallelEvent ? s.parallelEvent(e.args)
+        : HOST_REPLIES[e.tool]
       return { value: { isError: false, content: [{ type: 'text', text: JSON.stringify(reply) }] } }
     }
     // A stand-in Walkie server for the gate tick's thread reads.
@@ -1727,4 +1730,106 @@ test('pane preserves same-session items and auto-recovers after transient router
   expect(await foreignPane.find({ text: /Preserved work item/ })).toBeUndefined()
   expect(await foreignPane.find({ text: /Work & SSE unavailable for this conversation\./ })).toBeDefined()
   await foreignPane.unmount()
+})
+
+test('fork transient API error holds host_salvage, retries 1m×10 then 10m interval, and clears on recovery', async ($, on) => {
+  const s = hints(on); const clock = mock.clock(on)
+  const sends = []
+  const salvages = []
+  on('session.send', (_, e) => { sends.push(e); return { isDelivered: true } })
+  let apiError = {
+    agent_id: 'fork-api-1', retryable: true, error_uuid: 'err-1',
+    last_progress_uuid: 'prog-1', kind: 'server_error 503', compaction: false, record_at: 1000,
+  }
+  s.agents = [{ id: 'fork-api-1', type: 'fork', status: 'failed', name: 'work-auto-f1' }]
+  s.parallelStatus = () => ({
+    version: 5, active_device: 1, policy: { enabled: true, max_active: 5, p1_reserved: 1 },
+    leases: {
+      'lease-api-1': {
+        id: 'lease-api-1', scope: 'claude:session-a', item_id: 'n1', priority: 'P1',
+        state: 'running', host_id: 'fork-api-1', slot: true, owner_process: 'own',
+        agent_name: 'work-auto-f1',
+      },
+    },
+    coordination: { runs: [], receipts: [] },
+    fork_api_errors: apiError ? { 'lease-api-1': apiError } : {},
+  })
+  s.parallelEvent = args => {
+    if (args.event === 'host_salvage') { salvages.push(args); return { salvaged: true, receipt_digest: 'd'.repeat(64) } }
+    return { recorded: true }
+  }
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  await $.turn.start({ turnId: 't-busy', text: 'working' })
+  await clock.advance(16000)
+  expect(salvages.length).toBe(0)
+  expect(sends.length).toBe(0)
+  // First 10 retries: 1 minute apart.
+  for (let i = 1; i <= 10; i++) {
+    await clock.advance(60000)
+    expect(sends.length).toBe(i)
+    expect(sends[i - 1].text).toContain(`[ciel-runtime 포크 재시도 ${i}/20]`)
+    expect(salvages.length).toBe(0)
+  }
+  // 11th retry waits 10 minutes (not 1 minute).
+  await clock.advance(60000)
+  expect(sends.length).toBe(10)
+  await clock.advance(540000)
+  expect(sends.length).toBe(11)
+  expect(sends[10].text).toContain('[ciel-runtime 포크 재시도 11/20]')
+  // Fork recovers -> chain clears and stops retrying.
+  apiError = null
+  s.agents = [{ id: 'fork-api-1', type: 'fork', status: 'running', name: 'work-auto-f1' }]
+  await clock.advance(120000)
+  expect(sends.length).toBe(11)
+  expect(s.logs.some(l => l.includes('Work fork API retry recovered'))).toBe(true)
+  // Fresh auto-compaction failure on new progress UUID starts a fresh compact retry chain.
+  s.agents = [{ id: 'fork-api-1', type: 'fork', status: 'failed', name: 'work-auto-f1' }]
+  apiError = {
+    agent_id: 'fork-api-1', retryable: true, error_uuid: 'err-cmp-1',
+    last_progress_uuid: 'prog-2', kind: 'auto_compact_failed', compaction: true, record_at: 2000,
+  }
+  await clock.advance(16000)
+  await clock.advance(60000)
+  expect(sends.filter(x => x.text.includes('자동 컴팩트 실패')).length).toBe(1)
+  expect(salvages.length).toBe(0)
+})
+
+test('fork transient API error exhausts at 20/20 and hands off to exit contract', async ($, on) => {
+  const s = hints(on); const clock = mock.clock(on)
+  const sends = []
+  const salvages = []
+  on('session.send', (_, e) => { sends.push(e); return { isDelivered: true } })
+  s.gateReply = () => ({ interval_minutes: 999, queued: false, reason: 'no_gates' })
+  const apiError = {
+    agent_id: 'fork-api-2', retryable: true, error_uuid: 'err-ex-1',
+    last_progress_uuid: 'prog-ex', kind: 'overloaded_error 529', compaction: false, record_at: 1000,
+  }
+  s.agents = [{ id: 'fork-api-2', type: 'fork', status: 'failed', name: 'work-auto-f2' }]
+  s.parallelStatus = () => ({
+    version: 5, active_device: 1, policy: { enabled: false, max_active: 5, p1_reserved: 1 },
+    leases: {
+      'lease-api-2': {
+        id: 'lease-api-2', scope: 'claude:session-a', item_id: 'n2', priority: 'P1',
+        state: 'running', host_id: 'fork-api-2', slot: true, owner_process: 'own',
+        agent_name: 'work-auto-f2',
+      },
+    },
+    coordination: { runs: [], receipts: [] },
+    fork_api_errors: { 'lease-api-2': apiError },
+  })
+  s.parallelEvent = args => {
+    if (args.event === 'host_salvage') { salvages.push(args); return { salvaged: true, receipt_digest: 'd'.repeat(64) } }
+    return { recorded: true }
+  }
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  await $.turn.start({ turnId: 't-busy', text: 'working' })
+  await clock.advance(16000)
+  for (let i = 1; i <= 10; i++) await clock.advance(60000)
+  for (let i = 11; i <= 20; i++) await clock.advance(600000)
+  expect(sends.filter(x => x.text.includes('[ciel-runtime 포크 재시도')).length).toBe(20)
+  expect(salvages.length).toBe(0)
+  // After final 60s grace expires, exhausted -> no 21st API retry, hands off to exit contract.
+  await clock.advance(65000)
+  expect(sends.filter(x => x.text.includes('[ciel-runtime 포크 재시도')).length).toBe(20)
+  expect(s.logs.some(l => l.includes('exhausted (20/20)'))).toBe(true)
 })

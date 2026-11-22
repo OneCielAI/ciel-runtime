@@ -2,6 +2,59 @@
 
 ## 2026-11-22
 
+- 07:50Z 기능 구현·검증 완료 — Work 포크 일시적 API 오류·자동 컴팩트 실패 20회 자동 재시도(`1분×10 + 10분×10`):
+  - **구현 내용**:
+    - `ciel_runtime_support/work_fork_api_retry.py`(신규): 포크 트랜스크립트(`subagents/agent-<id>.jsonl`) 말미 128 KiB를 stat 캐시(mtime_ns+size)·심볼릭링크 거부로 안전 읽기하고, 메인과 동일한 `runtime_input_retry.classify_claude_api_error()`, `claude_typed_turn_resend.auto_compact_failed()`, `fork_turn_watch.is_empty_stream_error()` 및 `truncatedAfterOutput` 판별을 적용해 일시적 API 오류·자동 컴팩트 실패만 추출(`last_progress_uuid` 포함, 본문·비밀 비노출; 400/인증/사용량한도/`resendCannotCure` 비일시 오류 및 정상 응답 제외).
+    - `ciel_runtime_support/work_parallel_mcp.py`: `work_parallel_status` 호스트 전용 뷰(`host_view=True`, 모델·`gate`·`version` 제외)에 `fork_api_errors` 투영 추가.
+    - `ciel_runtime_support/work_texts.py`, `texts.generated.js`: 관리 텍스트 `mod_fork_api_retry`·`mod_fork_compact_retry` 추가(코드 하드코딩 없음, REST/웹/CLI 실시간 편집 가능).
+    - `ciel_runtime_support/claude_mods/ciel-work/hooks/register.js`: `running` 소유 Work 포크가 `fork_api_errors`에 일시적 API 오류/컴팩트 실패로 감지되면 `parallelEnsureExitContract`(`host_salvage`)를 보류하고 `$.clock.after` 기반으로 `1분×10 + 10분×10`(최대 20회) + 최종 60초 유예 스케줄로 `authorizeResume` + `$.session.send` 재시도 전송. 진행(`last_progress_uuid` 변경 또는 오류 해소) 시 즉시 체인 해제·복구 로그, 비일시 오류·20회 소진·세션 종료 시 타이머 정리 후 기존 종료 계약(`host_salvage`)으로 인계. 부수적으로 `scheduleNativeObservation`이 `session.start` 초기 `cachedSession=null` 시 15초 후 중단되던 결함도 함께 수정.
+  - **검증 결과**:
+    - 실패-우선 RED → GREEN: `tests/test_work_fork_api_retry.py`(3/3), `work.test.ts` 신규 2건(1m×10 + 10m 전환 + 복구 + 컴팩트 재시도, 20/20 소진 후 종료 계약 인계).
+    - `ruff check`: `All checks passed!`.
+    - `claude plugin validate ciel-work` PASS, `claude plugin test ciel-work`: **93/93 PASS**(`29.21s`).
+    - 실제 격리 `claude.exe` 로드(스텁 업스트림): `ADMITTED: 2 LOADED: 2 BAD: 0`.
+    - Windows 격리 회귀 6개 스위트 **277/277 PASS**(`test_work_fork_api_retry`, `test_work_texts`, `test_fork_turn_watch`, `test_work_fork_gate`, `test_router_io_performance`, `test_work_mod_write_gate`).
+    - 기존 Linux Docker 컨테이너: `ciel-runtime-test-py310` **277/277 PASS**, `ciel-runtime-test-py311` **277/277 PASS**.
+
+- 07:32Z 읽기 전용 틱(비교 기준 07:12Z, 20분 창; 운영 재시작·상태 수정 없음):
+  - **인프라·배포 상태**: `1c53f39` npm `@beta` 게시 및 4호스트 파일 설치 유지, 운영 라우터 미재시작. G: 여유 `186.48 GB`(−0.19 GB), `/health` Andy `101 ms` · Celly `26 ms`. 전 호스트 `terminal: unobserved`, `workflow: disabled`, `new_failures=0`.
+  - **Andy** (`v5661 → v5668`, board `v10330 → v10333` 476노드/60루트, MCP `1,437 ms`, forks 5 scanned / 0 err, **`findings=0`, `tx_errors=0`, `/ca/mcp` reset 0건**): `open_leases`: `submitted 20`, `waiting_input 13`, `running+slot 1`. 라우터: 외부 SSE EOF 16·reset 6, transcript timeout 2, `turn_projection_persistent` 1.
+  - **Celly** (`v6366 → v6375`, board `v8961 → v8971` 290노드/24루트, MCP `547 ms`, `/ca/mcp` reset 0건, forks 7 scanned / 7 err):
+    - `open_leases`: `waiting_input 14`, `running+slot 5`, `submitted 1`. `findings=1`(`submitted, completion receipt, no review row: n1267 01eac389 P1 native=waiting last=07:30 miss=None` — 2분 전 제출, 포크 `waiting` 유지 중, 다음 틱 추적).
+    - 라우터: 미재시작 라우터 `15550` 반복 로그 209건, 외부 SSE EOF 18·reset 5, transcript timeout 10, 모델 reset 6, `turn_projection_persistent` 5.
+    - 대화(11건): `07:22:00Z` `work_side_handoff: invalid side receipt identity` 1건(미재시작 라우터; `a5d7df5` 설치 완료), Walkie 재기동/400/404 6건, side append 2건, 파일/스크립트 2건.
+    - 포크 오류 확인(`a6c4372c1a3d25c95` `07:19–07:28Z`): `completion artifact SHA256 required` 5건·`workspace fields` 2건·`handoff fields` 1건 등 미재시작 구 라우터의 `work_parallel_report` 스키마/축약 오류 반복.
+  - **KOBE** (`v2891 → v2902`, board `v432 → v435` 60노드/7루트, MCP `1,144 ms`, forks 24 scanned / 3 err, `findings=0`): `open_leases`: `waiting_input 8`, `running+slot 1`. 라우터: keep-alive 235, 외부 SSE EOF 15·reset 3·timeout 2, transcript timeout 4, `turn_projection_persistent` 4, `runtime_activity_context_usage_failed` WinError 5 1. 대화(4건): side append/already 2, Walkie 재기동 1, `07:31:37Z` `work_side_handoff: side handoff not found` 1.
+  - **Prody** (`v420 → v429`, board `v6499 → v6500` 33노드/7루트, MCP `1,352 ms`, forks 24 scanned / 5 err, `findings=0`, 라우터 경고 0건): `open_leases`: `submitted 6`, `reserved+slot 1`, `waiting_input 2`. 대화(2건): side append 1, `07:25:05Z` `could not read Work status` 1(미재시작 라우터).
+  - 새로 입증된 미수정 제품 결함 없음(Celly `n1267` `01eac389` 다음 틱 추적).
+
+- 07:12Z 읽기 전용 틱(비교 기준 06:50Z, 22분 창; 운영 재시작·상태 수정 없음):
+  - **Publish 완료 확인 ✅**: `1c53f39` GitHub Publish run `44995302048` **`completed / success`**, npm `@beta` = **`0.2.51-beta.20261122-064730.1c53f39`** 게시 확인. 4호스트 `overlay-1c53f39` 파일 설치 완료, 운영 라우터 미재시작으로 실행 중 라우터는 기존 코드 유지. G: 여유 `186.67 GB`(06:50Z 190.91 GB 대비 −4.24 GB), `/health` Andy `129 ms` · Celly `17 ms`. 전 호스트 **`findings=0`, `new_failures=0`**, `terminal: unobserved`, `workflow: disabled`.
+  - **Andy** (`v5660 → v5661`, board `v10328 → v10330` 476노드/60루트, MCP `1,219 ms`, forks 4 scanned / 0 err): `open_leases`: `submitted 20`, `waiting_input 12`, `running+slot 2`. 라우터: 외부 SSE EOF 19·BrokenPipe 2, `/ca/mcp` reset 2(00:53:05). 대화(1건): `06:50:46Z` `could not read Work status` 1건(미재시작 라우터).
+  - **Celly** (`v6366` 유지, board `v8957 → v8961` 293노드/24루트, MCP `1,891 ms`, forks 7 scanned / 4 err): `open_leases`: `waiting_input 14`, `running+slot 6`. 라우터: 미재시작 라우터의 `15550` 반복 로그 236건, 외부 SSE EOF 19·BrokenPipe 2·reset 1, 모델 reset 3, transcript timeout 1, `turn_projection_persistent` 1, **`/ca/mcp` reset 0건**. 대화(4건): 정상 P3 정원 가드 1, 에이전트 스크립트 2, `07:07:44Z` `could not read Work status` 1건. 포크 오류 확인: `ae69b2a3c95e4382a`가 `06:52–07:09Z` 사이 `completion coverage`/`completion coverage fields` 검증 실패를 13회 반복(미재시작 구 라우터의 축약 오류 문구; 현재 디스크 `work_parallel_receipts.py:143–144`는 상세 필드 안내 반영됨, 라우터 재시작 대기), `ac1337d2b89a67835`는 Playwright/에이전트 스크립트 오류.
+  - **KOBE** (`v2885 → v2891`, board `v431 → v432` 60노드/7루트, MCP `923 ms`, forks 24 scanned / 1 err): `open_leases`: `waiting_input 8`, `running+slot 3`. 라우터: keep-alive 270, 외부 SSE EOF 21·BrokenPipe 1, 모델/late SSE retry 6, `turn_projection_persistent` 6, `/ca/mcp` reset 1(`22:57:36`). 대화(6건): side 원문 append/already 5, `07:11:26Z` 정상 검수 가드(`Exact owned submitted lease and completion receipt required`) 1.
+  - **Prody** (`v408 → v420`, board `v6497 → v6499` 33노드/7루트, MCP `1,267 ms`, forks 24 scanned / 0 err): `open_leases`: `submitted 6`, `reserved+slot 1`, `running+slot 1`, `waiting_input 1`. 라우터 경고 0건, 대화 오류 0건.
+  - 새로 입증된 미수정 제품 결함 없음.
+
+- 06:50Z 읽기 전용 틱(비교 기준 06:12Z, 38분 창; 운영 재시작·상태 수정 없음):
+  - **인프라·배포 상태**: `1c53f39` GitHub Publish run `44995302048`은 `npm publish --access public --tag beta` 완료 후 `Verify published tarball` `in_progress`(npm 메타데이터 `beta`는 아직 `c35b735` 표시). 4호스트 `overlay-1c53f39` 파일 설치 완료, 운영 라우터 미재시작으로 실행 중 라우터는 기존 코드 유지. G: 여유 `190.91 GB`, `/health` Andy `126 ms` · Celly `35 ms`. 전 호스트 **`findings=0`, `new_failures=0`**, `terminal: unobserved`, `workflow: disabled`.
+  - **공통 업스트림 일시 단절(06:30:26–43Z / 로컬 00:30, KOBE 22:30)**: Andy·Celly·KOBE 3호스트 동시 `cielairouter` 503/connection reset → transient retry 정상 복구.
+  - **Andy** (`v5641 → v5660`, board `v10317 → v10328` 476노드/60루트/정지 145/actionable 45, MCP `2,297 ms`, forks `partial` 4 scanned / 1 err):
+    - `open_leases`: `submitted 20`, `waiting_input 11`, `running+slot 3`.
+    - 라우터(로컬 00:12–00:49): 외부 SSE EOF 35·reset 4, **`/ca/mcp` reset 22**(00:17:15~, 미재시작 라우터), 모델 reset 5, 업스트림 transient/late SSE retry 7, transcript timeout 3, `turn_projection_persistent` 2.
+    - 대화(7건)·포크(1건): `06:17–06:35Z` `work_host_page` `ECONNREFUSED`/`connection closed` 6건 + 포크 `a27ba8765e3de110b`(`06:17:15Z`) `work_host_page was refused or failed` 1건(모두 미재시작 라우터의 백로그 5·비축약 페이징에서 발생; `e562169`+`c35b735` 디스크 설치 완료·재시작 대기), `06:17:20Z` `Git ownership/branch changed; retained` 1건.
+  - **Celly** (`v6349 → v6366`, board `v8925 → v8957` 293노드/24루트/정지 95/actionable 9, MCP `3,110 ms`, forks `partial` 7 scanned / 1 err):
+    - `open_leases`: `waiting_input 14`, `running+slot 6`.
+    - 라우터(로컬 00:12–00:49): `15550 stale_unconfirmed` 반복 로그 **395건**(미재시작 라우터; `c35b735` 재시작 후 1회로 억제 예정), 외부 SSE EOF 37, `/ca/mcp` reset 4, 모델 reset 5, 업스트림 retry/failover 4, `runtime_activity_*` WinError 5 4, transcript timeout 3, `turn_projection_persistent` 2.
+    - 대화(25건)·포크(1건): `06:47:11Z` `Parallel read failed: invalid external search result schema` 1건(미재시작 라우터; `a5d7df5` 디스크 설치 완료), 정상 가드 1(`work_side_status` host-only), plan version 충돌 2, 에이전트 스크립트/Walkie 400 다수. 포크 `aa703456ffdc9b155`(`06:17:45Z`) `completion artifact SHA256 required` 정상 가드 1건.
+  - **KOBE** (`v2866 → v2885`, board `v422 → v431` 60노드/7루트/정지 11/actionable 4, MCP `276 ms`, forks `partial` 24 scanned / 5 err):
+    - `open_leases`: `waiting_input 8`, `running+slot 3`.
+    - 라우터(로컬 22:12–22:50): keep-alive 432, 외부 SSE EOF 27·BrokenPipe 4, 업스트림 transient retry 20, 모델 reset 4, `anthropic_stream_runaway_repetition`/`recovery` 각 4/2(`_API_KEYS-SSE-1`, 정상 가드).
+    - 대화(11건): side 원문 append/already 7, 정상 가드 1(`changing the active goal requires user_requested=true`), `06:19:41Z` `parked lease 5a3af070a66 ... not a slot-released wait` 1건(선행 재개 경합), Walkie 네트워크 1, 에이전트 python 오류 1.
+  - **Prody** (`v402 → v408`, board `v6493 → v6497` 33노드/7루트/정지 6/actionable 3, MCP `2,713 ms`, forks `partial` 24 scanned / 0 err):
+    - `open_leases`: `submitted 6`, `reserved+slot 1`, `running+slot 1`, 라우터 경고 0건. 대화(6건): side 원문 append/already 5, 에이전트 python 오류 1.
+  - 새로 입증된 미수정 제품 결함 없음(관측된 `ECONNREFUSED`/`work_host_page`/`15550` 반복/`invalid external search result schema`는 모두 `e562169`+`a5d7df5`+`c35b735`로 디스크 설치 완료, 라우터 재시작 대기 중).
+
 - 06:46Z 기능 구현·검증 완료 — 사이드 액터 동작 중 포크 가시화 및 직접 전달(`relay` + `no_reply`):
   - **구현 내용**:
     - `ciel_runtime_support/side_workload.py`: `project_active_forks()`, `format_active_forks_lines()` 추가 및 `project(..., active_forks=...)`에 `active_forks` 배열과 노드별 `active_fork` 표시 추가(토큰·비밀정보 비노출, 현재 세션 `running`/`waiting_input` 바인딩 포크 한정).

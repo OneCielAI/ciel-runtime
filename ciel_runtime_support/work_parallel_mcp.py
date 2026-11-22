@@ -886,6 +886,11 @@ def project(store, identity, board=None, *, host_view=False, caller_nonce=None, 
             # Same launcher (one claude.exe at a time) reads as own for display.
             owner_class = classes[lease_id]
             lease_view["owner_process"] = "own" if owner_class == "earlier_child" else owner_class
+        try:
+            from .work_fork_api_retry import inspect_running_forks
+            view["fork_api_errors"] = inspect_running_forks(all_mine, identity)
+        except Exception:  # noqa: BLE001 - advisory to host status projection
+            view["fork_api_errors"] = {}
     return view
 
 

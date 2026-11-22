@@ -106,6 +106,15 @@ TEXTS: dict[str, str] = {
         "Direct handoff: the side actor did not post an outbound reply or create a new Work item so your running "
         "session can handle this message directly. Respond on the source thread if a reply is needed, and incorporate "
         "any in-scope detail into your current work. This is not new execution approval and does not change your approved scope."),
+    # Work fork automatic retry after transient API error or auto-compaction failure (1m x 10, 10m x 10).
+    'mod_fork_api_retry': (
+        "[ciel-runtime 포크 재시도 {attempt}/{max}] 직전 턴이 일시적인 API 오류({kind})로 멈췄습니다. "
+        "이미 마친 작업은 반복하지 말고 끊긴 지점부터 이어서 진행한 뒤 완료 시 work_parallel_report로 보고하세요. "
+        "(lease: {lease}, item: {item})"),
+    'mod_fork_compact_retry': (
+        "[ciel-runtime 포크 재시도 {attempt}/{max}] 직전 턴이 자동 컴팩트 실패로 멈췄습니다. "
+        "컴팩트를 다시 진행한 뒤 이미 마친 작업은 반복하지 말고 이어서 진행하세요. "
+        "(lease: {lease}, item: {item})"),
 }
 
 

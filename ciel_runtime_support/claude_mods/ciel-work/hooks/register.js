@@ -3535,6 +3535,10 @@ async function parallelObserveNative($) {
     // not at the next turn end or restart (Celly n1070).
     let absentObserved = 0
     try { absentObserved = await parallelRestartSubmitted($, state, agents) } catch { /* Retried at the next observation. */ }
+    // Work forks stopped on a transient API error or auto-compaction failure
+    // retry on the same 1m×10 + 10m×10 (20 max) schedule as main instead of
+    // being salvaged after two nudges.
+    try { parallelProcessForkApiRetries($, state, identity) } catch { /* Advisory to native observation. */ }
     // Main can stay idle while a fork ends unreported and is dropped: the
     // periodic observation applies the same graced exit contract.
     try { await parallelSettleEndedForks($, state, agents, identity) } catch { /* Retried at the next observation. */ }
@@ -3554,16 +3558,18 @@ async function parallelObserveNative($) {
     return { open: open.length, confirmed, result }
   } finally { if (nativeObserving === flight) nativeObserving = null }
 }
-function scheduleNativeObservation($) {
+function scheduleNativeObservation($, expectedIdentity = null) {
   if (nativeTimer) return
   const lifecycle = starts
-  const identity = cachedSession
+  const pinned = expectedIdentity || cachedSession
   nativeTimer = $.clock.after(15000, async () => {
     nativeTimer = null
-    if (lifecycle !== starts || !identity || await sessionId($).catch(() => null) !== identity) return
+    if (lifecycle !== starts) return
+    const current = await sessionId($).catch(() => null)
+    if (!current || (pinned && current !== pinned)) return
     let observed = null
     try { observed = await parallelObserveNative($) } catch { /* Unknown host state: try again on the next trigger. */ }
-    if (lifecycle === starts && observed?.open) scheduleNativeObservation($)
+    if (lifecycle === starts && observed?.open) scheduleNativeObservation($, current)
   })
 }
 function sideOwned(row) {
@@ -3621,12 +3627,154 @@ let parallelPumpRunning = false
 let parallelPumpAgain = false
 let parallelRetry = null
 const retiredParallelAgents = new Set()
+// Work-fork transient API error retry schedule (parity with main TypedTurnResend):
+// 10 attempts at 1 min, then 10 attempts at 10 min (20 retries total, ~110 min),
+// then 60 s grace before handing off to the normal exit contract (host_salvage).
+const FORK_API_RETRY_FIRST_COUNT = 10
+const FORK_API_RETRY_FIRST_MS = 60000
+const FORK_API_RETRY_SECOND_MS = 600000
+const FORK_API_RETRY_MAX = 20
+const FORK_API_RETRY_FINAL_GRACE_MS = 60000
+const FORK_API_RETRY_OFFLINE_BACKOFF_MS = 30000
+const forkApiRetries = new Map()
+function clearForkApiRetry(key) {
+  const chain = forkApiRetries.get(key)
+  if (!chain) return
+  if (chain.timer) { try { chain.timer.cancel() } catch {}; chain.timer = null }
+  forkApiRetries.delete(key)
+}
+function cancelForkApiRetryTimers() {
+  for (const chain of forkApiRetries.values()) {
+    if (chain.timer) { try { chain.timer.cancel() } catch {}; chain.timer = null }
+  }
+}
+function forkApiRetryActive(scope, lease, state) {
+  const apiErr = state?.fork_api_errors?.[lease?.id]
+  if (!lease || lease.state !== 'running' || !lease.host_id || !ownLeaseProcess(lease)) return false
+  if (apiErr?.retryable !== true || apiErr.agent_id !== lease.host_id) return false
+  const chain = forkApiRetries.get(scope + ':' + lease.id)
+  if (chain && chain.exhausted && chain.lastProgressUuid === String(apiErr.last_progress_uuid || '')) return false
+  return true
+}
+function armForkApiRetryTimer($, scope, key, chain, delayMs) {
+  if (chain.timer) { try { chain.timer.cancel() } catch {}; chain.timer = null }
+  chain.timer = $.clock.after(delayMs, async () => {
+    chain.timer = null
+    if (forkApiRetries.get(key) !== chain || chain.lifecycle !== starts) return
+    if (await sessionId($).catch(() => null) !== scope) { clearForkApiRetry(key); return }
+    const fresh = await hostStatus($).catch(() => null)
+    if (forkApiRetries.get(key) !== chain || chain.lifecycle !== starts) return
+    if (!fresh) { armForkApiRetryTimer($, scope, key, chain, FORK_API_RETRY_OFFLINE_BACKOFF_MS); return }
+    const lease = fresh.leases?.[chain.leaseId]
+    if (!lease || lease.state !== 'running' || !ownLeaseProcess(lease) || lease.host_id !== chain.agentId || parallelHasReceipt(fresh, lease)) {
+      clearForkApiRetry(key); return
+    }
+    const apiErr = fresh.fork_api_errors?.[chain.leaseId]
+    if (!apiErr || apiErr.retryable !== true || apiErr.agent_id !== chain.agentId) {
+      if (chain.attempts > 0 && !chain.exhausted) {
+        $.ui.log('Work fork API retry recovered: ' + chain.itemId + ' (' + chain.agentId.slice(0, 12) + ') after ' + chain.attempts + ' attempt(s)')
+      }
+      clearForkApiRetry(key); return
+    }
+    const progUuid = String(apiErr.last_progress_uuid || '')
+    if (progUuid !== chain.lastProgressUuid) {
+      chain.lastProgressUuid = progUuid
+      chain.lastErrorUuid = String(apiErr.error_uuid || '')
+      chain.kind = String(apiErr.kind || 'api_error')
+      chain.compaction = apiErr.compaction === true
+      chain.attempts = 0
+      chain.exhausted = false
+      $.ui.log('Work fork API error (' + chain.kind + ') after progress on ' + chain.itemId + ' (' + chain.agentId.slice(0, 12) + '); resetting retry chain.')
+      armForkApiRetryTimer($, scope, key, chain, FORK_API_RETRY_FIRST_MS)
+      return
+    }
+    if (chain.attempts >= FORK_API_RETRY_MAX) {
+      chain.exhausted = true
+      $.ui.log('Work fork API retries exhausted (' + FORK_API_RETRY_MAX + '/' + FORK_API_RETRY_MAX + ') on '
+        + chain.itemId + ' (' + chain.agentId.slice(0, 12) + '); handing off to exit contract.')
+      void parallelObserveNative($).catch(() => {})
+      return
+    }
+    chain.attempts++
+    chain.lastErrorUuid = String(apiErr.error_uuid || chain.lastErrorUuid)
+    chain.kind = String(apiErr.kind || chain.kind)
+    chain.compaction = apiErr.compaction === true
+    const vars = {
+      attempt: chain.attempts, max: FORK_API_RETRY_MAX, kind: chain.kind,
+      lease: lease.id, item: lease.item_id,
+    }
+    const text = chain.compaction ? T('mod_fork_compact_retry', vars) : T('mod_fork_api_retry', vars)
+    const resumeName = lease.agent_name || lease.dispatch_name || chain.agentName
+    if (resumeName) authorizeResume(lease.id, resumeName)
+    try { await $.session.send({ to: { agentId: lease.host_id }, text }) } catch {}
+    $.ui.log('Work fork API retry ' + chain.attempts + '/' + FORK_API_RETRY_MAX + ' (' + chain.kind + ') → '
+      + lease.item_id + ' (' + lease.host_id.slice(0, 12) + ')')
+    const nextDelay = chain.attempts < FORK_API_RETRY_FIRST_COUNT ? FORK_API_RETRY_FIRST_MS
+      : chain.attempts < FORK_API_RETRY_MAX ? FORK_API_RETRY_SECOND_MS
+        : FORK_API_RETRY_FINAL_GRACE_MS
+    armForkApiRetryTimer($, scope, key, chain, nextDelay)
+  })
+}
+function parallelProcessForkApiRetries($, state, scope) {
+  const leases = state?.leases || {}
+  const errors = state?.fork_api_errors || {}
+  for (const [key, chain] of [...forkApiRetries]) {
+    if (!key.startsWith(scope + ':')) continue
+    const lease = leases[chain.leaseId]
+    const apiErr = errors[chain.leaseId]
+    if (!lease || lease.state !== 'running' || lease.host_id !== chain.agentId || parallelHasReceipt(state, lease)
+        || apiErr?.retryable !== true || apiErr.agent_id !== chain.agentId) {
+      if (chain.attempts > 0 && !chain.exhausted && lease && (lease.state === 'running' || parallelHasReceipt(state, lease))) {
+        $.ui.log('Work fork API retry recovered: ' + chain.itemId + ' (' + chain.agentId.slice(0, 12) + ') after ' + chain.attempts + ' attempt(s)')
+      }
+      clearForkApiRetry(key)
+    }
+  }
+  for (const lease of Object.values(leases)) {
+    if (!lease || lease.state !== 'running' || !lease.host_id || !ownLeaseProcess(lease)) continue
+    if (parallelHasReceipt(state, lease)) continue
+    const apiErr = errors[lease.id]
+    if (apiErr?.retryable !== true || apiErr.agent_id !== lease.host_id) continue
+    const key = scope + ':' + lease.id
+    const progUuid = String(apiErr.last_progress_uuid || '')
+    const prior = forkApiRetries.get(key)
+    if (prior && prior.exhausted && prior.lastProgressUuid === progUuid) continue
+    parallelAbsentSince.delete(lease.id)
+    parallelExitAttempts.delete(key)
+    if (!prior || prior.agentId !== lease.host_id || prior.lastProgressUuid !== progUuid) {
+      if (prior) clearForkApiRetry(key)
+      const chain = {
+        leaseId: lease.id, itemId: lease.item_id, agentId: lease.host_id,
+        agentName: lease.agent_name || lease.dispatch_name || '',
+        lastProgressUuid: progUuid, lastErrorUuid: String(apiErr.error_uuid || ''),
+        kind: String(apiErr.kind || 'api_error'), compaction: apiErr.compaction === true,
+        attempts: 0, exhausted: false, timer: null, lifecycle: starts,
+      }
+      forkApiRetries.set(key, chain)
+      $.ui.log('Work fork API error (' + chain.kind + ') on ' + lease.item_id + ' (' + lease.host_id.slice(0, 12)
+        + '); scheduling up to ' + FORK_API_RETRY_MAX + ' retries (1m×10, 10m×10).')
+      armForkApiRetryTimer($, scope, key, chain, FORK_API_RETRY_FIRST_MS)
+    } else {
+      prior.kind = String(apiErr.kind || prior.kind)
+      prior.compaction = apiErr.compaction === true
+      prior.lastErrorUuid = String(apiErr.error_uuid || prior.lastErrorUuid)
+      if (!prior.timer && !prior.exhausted) {
+        const nextDelay = prior.attempts < FORK_API_RETRY_FIRST_COUNT ? FORK_API_RETRY_FIRST_MS
+          : prior.attempts < FORK_API_RETRY_MAX ? FORK_API_RETRY_SECOND_MS
+            : FORK_API_RETRY_FINAL_GRACE_MS
+        armForkApiRetryTimer($, scope, key, prior, nextDelay)
+      }
+    }
+  }
+}
 function cancelParallelTimers() {
   if (nativeTimer) { try { nativeTimer.cancel() } catch {}; nativeTimer = null }
   if (parallelRetry) { try { parallelRetry.cancel() } catch {}; parallelRetry = null }
+  cancelForkApiRetryTimers()
 }
 function resetParallelHostState() {
   cancelParallelTimers()
+  forkApiRetries.clear()
   parallelPending.clear(); parallelBound.clear(); parallelResuming.clear(); parallelHostRetryAttempts.clear()
   // Native agent ids are unique: ownership tombstones survive a lifecycle reset
   // so a late notification from a fork of the previous lifecycle stays out of main.
@@ -3680,11 +3828,17 @@ async function parallelEnsureExitContract($, state, lease, row, reason = 'native
   if (!lease?.host_id) return false
   const retry = hostRetry ? hostRetryAttempt(lease.id) : null
   if (retry?.exitAttempted) return false
-  const key = (await sessionId($)) + ':' + lease.id
+  const scope = await sessionId($)
+  const key = scope + ':' + lease.id
   if (lease.state !== 'running' || parallelHasReceipt(state, lease)) {
+    clearForkApiRetry(key)
     parallelExitAttempts.delete(key)
     await stopParallelAgent($, lease.host_id)
     return true
+  }
+  if (forkApiRetryActive(scope, lease, state)) {
+    parallelProcessForkApiRetries($, state, scope)
+    return false
   }
   const prior = parallelExitAttempts.get(key) || { attempts: 0, failures: 0, at: 0 }
   if (prior.attempts > 0 && minWaitMs > 0 && Date.now() - (prior.at || 0) < minWaitMs) return false
