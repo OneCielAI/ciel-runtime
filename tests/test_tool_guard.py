@@ -37,7 +37,7 @@ class ToolGuardTests(unittest.TestCase):
         self.assertIn("SubagentStop", TOOL_GUARD_EVENTS_WITHOUT_MATCHER)
         self.assertEqual(("Stop",), DEFAULT_TOOL_GUARD_HOOK_POLICY.retired_events)
 
-    def install_into(self, hooks: dict) -> dict:
+    def install_into(self, hooks: dict, without_permission_request: bool = False) -> dict:
         with tempfile.TemporaryDirectory() as tmp:
             settings_path = Path(tmp) / "settings.json"
             settings_path.write_text(json.dumps({"hooks": hooks}), encoding="utf-8")
@@ -45,7 +45,7 @@ class ToolGuardTests(unittest.TestCase):
                 mock.patch.object(ciel_runtime, "CLAUDE_SETTINGS_PATH", settings_path),
                 mock.patch.object(ciel_runtime, "ciel_runtime_tool_guard_command", return_value=GUARD_COMMAND),
             ):
-                ciel_runtime.install_tool_guard_hooks()
+                ciel_runtime.install_tool_guard_hooks(without_permission_request=without_permission_request)
             return json.loads(settings_path.read_text(encoding="utf-8"))
 
     def test_install_removes_the_guard_from_stop_and_keeps_other_stop_hooks(self):
@@ -58,6 +58,30 @@ class ToolGuardTests(unittest.TestCase):
         stop = [hook["command"] for group in data["hooks"]["Stop"] for hook in group["hooks"]]
         self.assertEqual(["other-app-hook claude", "echo keep"], stop)
         self.assertEqual([GUARD_COMMAND], [hook["command"] for group in data["hooks"]["SubagentStop"] for hook in group["hooks"]])
+
+    def test_install_without_permission_request_keeps_other_handlers(self):
+        # Claude Code 2.1.330 waives the dangerous-removal prompt in
+        # bypassPermissions under CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS
+        # only while no classic PermissionRequest hook is registered at all, so
+        # the launcher installs Ciel's own handler conditionally: without the
+        # event it keeps the person's handlers but never adds its own.
+        guard = {"type": "command", "command": "/usr/bin/python3 /old/ciel-runtime-tool-guard.py"}
+        other = {"type": "command", "command": "other-app-hook claude"}
+        data = self.install_into(
+            {"PermissionRequest": [{"hooks": [guard]}, {"hooks": [other]}]},
+            without_permission_request=True,
+        )
+        commands = [hook["command"] for group in data["hooks"]["PermissionRequest"] for hook in group["hooks"]]
+        self.assertEqual(["other-app-hook claude"], commands)
+        self.assertTrue(any(
+            hook["command"] == GUARD_COMMAND
+            for group in data["hooks"]["PreToolUse"]
+            for hook in group["hooks"]
+        ))
+        # With the event installed, the handler is present as before.
+        data = self.install_into({"PermissionRequest": [{"hooks": [dict(guard)]}]})
+        commands = [hook["command"] for group in data["hooks"]["PermissionRequest"] for hook in group["hooks"]]
+        self.assertEqual([GUARD_COMMAND], commands)
 
     def test_install_drops_a_stop_event_that_only_held_the_guard(self):
         data = self.install_into({"Stop": [{"hooks": [{"type": "command", "command": "py /old/ciel-runtime-tool-guard.py"}]}]})

@@ -1,0 +1,14 @@
+ ▐▛███▛█   Claude Code v2.1.330
+▝▜██████▀  fixture-main · API Usage Billing
+ ▝▝   ▝▝   D:\Temp\rm-waiver-o9xs540w\workspace
+⚠ Model "fixture-main" isn't recognized · context assumed to be 1m tokens · update Claude Code, or see the docs
+⚠ CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS is set, so dangerous rm commands can run without a prompt in bypass  permissions mode once managed settings
+ and plugin hooks have loaded. If you didn't set it, check your shell profile.
+▎ Debug mode enabled · logging to D:\Temp\rm-waiver-o9xs540w\claude-debug.txt
+❯ RUN-CMD apply the patch
+  Ran 1 shell command · 1 failed
+● STUB-DONE
+✻ Sautéed for 2s · done 12:44 PM
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────❯
+❯
+                           (shift+tab to cycle)

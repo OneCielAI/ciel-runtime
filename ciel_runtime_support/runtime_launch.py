@@ -834,15 +834,17 @@ def run_claude(
             "claude_anthropic_routed_launch backend=ciel-runtime-router upstream=anthropic",
         )
     env.update(launch_env)
-    if dangerous_rm_auto_allow.apply_launch_env(cfg, env):
-        router_log("INFO", f"claude_dangerous_rm_auto_allow env={dangerous_rm_auto_allow.ENV_NAME}=1")
+    removal_waiver = dangerous_rm_auto_allow.apply_launch_env(cfg, env)
+    if removal_waiver:
+        router_log("INFO", f"claude_dangerous_rm_auto_allow env={dangerous_rm_auto_allow.ENV_NAME}=1 "
+                           f"{dangerous_rm_auto_allow.WAIVER_ENV_NAME}=1 permission_request_hook=withheld")
     if not use_native_anthropic:
         preserve_anthropic_auth = anthropic_routed_enabled(provider, pcfg)
         for key in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
             if key not in launch_env and not preserve_anthropic_auth:
                 env.pop(key, None)
         install_ciel_runtime_slash_commands(include_advisor=provider != "anthropic")
-        install_tool_guard_hooks()
+        install_tool_guard_hooks(without_permission_request=removal_waiver)
         install_ciel_runtime_statusline()
     claude = install_claude_code_if_missing()
     if not claude:

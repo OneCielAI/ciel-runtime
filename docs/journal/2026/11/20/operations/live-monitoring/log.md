@@ -2,6 +2,42 @@
 
 ## 2026-11-23
 
+- 18:38:17–18:39:31Z 틱(직전 17:32Z). 이 작업은 운영 세션·라우터 재시작과 상태 파일 변경을 하지 않았다.
+  - **Andy**: 원장 v6314→6320, 보드 v10846→10865. submitted 21→22, waiting_input 2. MCP 766ms. 포크 오류 0. n1166 지속.
+    - auto continue 상태 읽기 실패 공지 1(18:34:55Z). 같은 틱의 MCP는 성공했다. 이 공지는 이제 Andy·Celly·KOBE·Prody 네 호스트 모두에서 관측됐다. 원인은 미확인이며 추적 중이다.
+    - 라우터 경고는 SSE EOF 65, 연결 reset, 관측 전용 projection, late SSE 재시도 3(각 1회 시도)다.
+  - **Celly**: 원장 v8245→8288, 보드 v9921→9982(활성 n1209→n1389). running+slot 2→5, waiting_input 8. MCP 1406ms.
+    - new_failures 4건은 모두 정상 가드로 분류한다.
+      - `revival_refused 8938d91b` 1: 18:19:20Z, 메인이 unreported 리스의 포크 a5fbb4f9에 메시지를 보냈고 거부됐다.
+      - `decision_refused_stop` 3(8938d91b 2, 9a145fc1 1): 18:19:46·18:20:11Z `stranded decision`, 18:25:46Z `review decision` 거부.
+      - 거부 문구가 단계 이름뿐이라 이유가 드러나지 않는다. 문구 품질만 추적하고 결함으로 보지 않는다.
+    - 메인 대화의 다른 가드 거부
+      - n1384 재개 거부 2(18:07:16·18:08:20Z): 목표 미승인.
+      - 활성 목표 변경 거부 1: `user_requested` 없음.
+      - 계획에 단계 없음 1.
+    - side appended/already 쌍 1(419efa58437a)과 `workspace ownership was handed off; retained` 1(18:18:30Z)이 반복된다.
+    - 포크 오류 표본 30건(17:35–18:34Z, agent 6개)을 출처별로 나눴다.
+      - Work 포크 가드: TaskStop·TaskList 6, worktree 밖 Write 1.
+      - 보고 검증: 질문 형식 2, 보고 종류 2, SHA256 1.
+      - 하네스 sleep 차단 1.
+      - 외부: GitHub 권한, SSH 호스트 키, Walkie 400, ripgrep timeout 3.
+      - 나머지는 에이전트 스크립트 오류다.
+    - 제품 결함은 입증되지 않았다.
+  - **KOBE**: 원장 v3068→3074, 보드 v704→709. 열린 리스는 submitted 1에서 **waiting_input 1**이 됐다.
+    - 이 리스는 n107 rework 포크 95728c76(host ade9088c, slot 없음)이다. 질문 evidence는 "NAS run 모드가 LA 10:34 PST 창 밖이라 rc=2"다.
+    - 9677d0f 라우터가 라이브인 첫 질문 대기다.
+      - 18:35:35Z와 18:40:13Z에 게이트 재확인이 10건 큐에 들어갔다.
+      - 사이드가 이 포크에 `fork_answers` 또는 `ask_main`으로 답했는지는 이 계정으로 side 인박스를 읽을 수 없어 확인하지 못했다. 다음 틱에 대화 기록으로 확인한다.
+    - 18:30:45Z 메인이 ask_main 알림에 `work_side_handoff`를 불러 "side handoff not found"를 받았다. 도구 안내대로의 정상 응답이다.
+    - 압축 실패가 반복된다: 18:05–18:06Z에 업스트림 입력 한도 초과 400 8회, transient_stopped 4회. 메인은 18:03Z 사용자 `/compact` 뒤 18:25:44Z에 이어 붙었다.
+    - **사용자 지적 18:35:32Z "각각의 우선순위별로 포크를 실행해야지?"**
+      - 18:36:06Z native 포크 확인 0, 18:39:09Z 게이트 라운드 "attention P0,P1,P2,P3"이다.
+      - 우선순위별 자동 디스패치가 KOBE에서도 아직 돌지 않는 것으로 관측된다. 원래 요구(재시작 후 큐 재디스패치)의 미결 항목이다.
+  - **Prody**: 원장 v672→680, 보드 v6872→6885. submitted 7, MCP 811ms, 포크 오류 0.
+    - 새 대화 오류 4건: 버전 충돌 가드 1, 메인 스크립트 3(cp949 인코딩 등).
+    - **9677d0f 모드 재로드 17:52:22Z 관측.** 이제 네 호스트 모두 9677d0f 모드를 로드했다. 첫 SSH는 banner timeout이었고, 재시도에서 성공했다.
+  - **사용자 요청(Celly "can't rule out a dangerous removal" 승인 창) 조사·수정 진행 중**: 아래 2026-11-23 18:5xZ 항목에 기록한다.
+
 - 17:32:13–17:32:37Z 틱(직전 17:14:46Z) + KOBE 압축 확인 17:33Z. 이 작업은 운영 세션·라우터 재시작과 상태 파일 변경을 하지 않았다.
   - **Andy**: 원장 v6305→6314, 보드 v10842→10846. running+slot 1→0, waiting_input 2, submitted 21. MCP 1016ms. 포크 표본 5/오류 0, 새 대화 오류 0. n1166 지속. 라우터 신규 줄은 외부 SSE EOF 17, 모델 연결 reset 3, 업스트림 SSE 오류 이벤트 1(17:15:41Z, `_Walkie_S_Tier_Only`), 관측 전용 projection 경고 2라서 결함으로 보지 않는다.
   - **Celly**: 원장 v8245 그대로, 보드 v9913→9921. waiting_input 8, running+slot 2. MCP 579ms(2틱 연속 정상). 포크 표본 4/오류 0, 새 대화 오류 0. 라우터는 keep-alive TaskList 합성 20, SSE EOF 18, 모델 연결 reset 15(모두 경고 수준).

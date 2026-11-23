@@ -11,6 +11,21 @@ class DangerousRmAutoAllowTests(unittest.TestCase):
         self.assertNotIn(option.ENV_NAME, env)
         self.assertFalse(option.enabled({option.CONFIG_KEY: "yes"}))
 
+    def test_waiver_env_is_set_from_the_option_and_never_inherited(self):
+        # Claude Code 2.1.330 waives the dangerous-removal prompt in
+        # bypassPermissions only under its own switch, and the option must
+        # own it: a launch with the option off strips any inherited value.
+        env = {option.WAIVER_ENV_NAME: "1"}
+        option.apply_launch_env({}, env)
+        self.assertNotIn(option.WAIVER_ENV_NAME, env)
+        config = {}
+        option.toggle(config)
+        option.apply_launch_env(config, env)
+        self.assertEqual("1", env[option.WAIVER_ENV_NAME])
+        option.toggle(config)
+        option.apply_launch_env(config, env)
+        self.assertNotIn(option.WAIVER_ENV_NAME, env)
+
     def test_toggle_turns_the_launch_switch_on_and_off(self):
         config = {}
         option.toggle(config)

@@ -134,7 +134,7 @@ class RuntimeAssetContext:
             )
         ).install()
 
-    def install_tool_guard_hooks(self) -> None:
+    def install_tool_guard_hooks(self, without_permission_request: bool = False) -> None:
         install_tool_guard_hook_settings(
             self.compatibility.tool_guard_command(),
             self.tool_guard.default_hook_policy,
@@ -143,6 +143,7 @@ class RuntimeAssetContext:
                 install_legacy_shim=self.compatibility.install_legacy_shim,
                 warn=self.effects.warn,
             ),
+            without_permission_request=without_permission_request,
         )
 
     def install_statusline(self) -> None:
@@ -254,8 +255,8 @@ class RuntimeAssetCompatibilityApi:
     def install_legacy_tool_guard_shim(self) -> None:
         self.context().install_legacy_tool_guard_shim()
 
-    def install_tool_guard_hooks(self) -> None:
-        self.context().install_tool_guard_hooks()
+    def install_tool_guard_hooks(self, without_permission_request: bool = False) -> None:
+        self.context().install_tool_guard_hooks(without_permission_request=without_permission_request)
 
     def install_statusline(self) -> None:
         self.context().install_statusline()

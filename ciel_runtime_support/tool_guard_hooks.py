@@ -133,7 +133,14 @@ def install_tool_guard_hook_settings(
     command: str | None,
     policy: ToolGuardHookPolicy,
     services: ToolGuardHookServices,
+    without_permission_request: bool = False,
 ) -> None:
+    """Install the guard; ``without_permission_request`` leaves that event's handler out.
+
+    Claude Code's removal-prompt waiver in bypassPermissions holds only while no
+    classic PermissionRequest hook is registered, so the dangerous-removal option
+    takes the guard's own handler out of that event (the person's handlers stay).
+    """
     if not command:
         services.warn("tool guard hook was not installed; ciel-runtime-tool-guard was not found.")
         return
@@ -149,9 +156,19 @@ def install_tool_guard_hook_settings(
         return
 
     changed = False
-    all_events = tuple((event, True) for event in policy.events_with_matcher) + tuple(
-        (event, False) for event in policy.events_without_matcher
+    withheld = ("PermissionRequest",) if without_permission_request else ()
+    all_events = tuple((event, True) for event in policy.events_with_matcher if event not in withheld) + tuple(
+        (event, False) for event in policy.events_without_matcher if event not in withheld
     )
+    for event in withheld:
+        groups = hooks.get(event)
+        if not isinstance(groups, list):
+            continue
+        if _remove_guard_handlers(groups, policy.legacy_markers):
+            changed = True
+        if not groups:
+            del hooks[event]
+            changed = True
     for event, with_matcher in all_events:
         groups = hooks.setdefault(event, [])
         if not isinstance(groups, list):

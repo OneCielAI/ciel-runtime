@@ -1,0 +1,55 @@
+{
+ "variant": "fixed",
+ "claude_version": "2.1.330 (Claude Code)",
+ "hook_events": [
+  "ConfigChange",
+  "CwdChanged",
+  "Elicitation",
+  "ElicitationResult",
+  "InstructionsLoaded",
+  "Notification",
+  "PermissionDenied",
+  "PostCompact",
+  "PostToolBatch",
+  "PostToolUse",
+  "PostToolUseFailure",
+  "PreCompact",
+  "PreToolUse",
+  "SessionEnd",
+  "SessionStart",
+  "Setup",
+  "StopFailure",
+  "SubagentStart",
+  "SubagentStop",
+  "TaskCompleted",
+  "TaskCreated",
+  "TeammateIdle",
+  "UserPromptExpansion",
+  "UserPromptSubmit",
+  "WorktreeCreate",
+  "WorktreeRemove"
+ ],
+ "permission_request_hook": false,
+ "env": {
+  "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM": "1",
+  "CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS": "1",
+  "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1"
+ },
+ "ready": true,
+ "prompt_seen": false,
+ "tool_result_seen": true,
+ "tool_results": [
+  {
+   "is_error": true,
+   "content": "\"Exit code 129\\nTraceback (most recent call last):\\r\\n  File \\\"<stdin>\\\", line 3, in <module>\\r\\nFileNotFoundError: [Errno 2] No such file or directory: 'src/ui"
+  }
+ ],
+ "requests": 2,
+ "elapsed_s": 11.6,
+ "kill": "SUCCESS: The process with PID 90240 (child process of PID 69260) has been terminated.",
+ "debug_lines": [
+  "2026-11-23T18:44:15.301Z [WARN] CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS is set, so dangerous rm commands can run without a prompt in bypass permissions mode once managed settings and plugin hooks have loaded. If you didn't set it, check your shell profile."
+ ],
+ "profile_unchanged": true,
+ "note": "tool_results trimmed; the command is the Celly fork command of 17:28:28Z with its cd path pointed at the scratch workspace"
+}
