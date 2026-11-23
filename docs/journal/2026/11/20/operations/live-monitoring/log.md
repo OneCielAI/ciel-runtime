@@ -2,6 +2,34 @@
 
 ## 2026-11-23
 
+- 23:34:24–23:37Z 틱(직전 23:20Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
+  - **Celly: 라우터가 프리즈 상태다(사용자 정의: 20초 무응답 = 동작 안 함)**
+    - 23:36–23:37Z `/health` 3회가 모두 20초 시간 초과였다. 23:20Z 틱에 이어 이번 틱도 MCP 프로브가 `probe_failed TimeoutError`(4,031 ms)다.
+    - 17:15 로컬(23:15Z) 이후 20초 이상 로그 공백 6회: 47, 20, 94, 23, 20, 26초.
+    - `router_post_client_disconnected`가 10분 단위로 6, 11, 14건으로 늘고 있다.
+    - 포크 쪽 증거
+      - 23:31:54Z a579844f의 Write가 `Work status unavailable: router connection or snapshot could not be verified. [router-error; wg-mwtwfwul-8m]`로 거부됐다.
+      - 23:32:37Z a0cd0cf1은 `Work coordination changed; reread`.
+    - 리스: running+slot 6→4, waiting_input 6→8, 원장 8385→8392.
+    - 23:20Z 기록의 "프로세스는 살아 있다"는 동작 판단으로 틀린 표현이었다. 프로세스 생존은 동작 증거가 아니다. 정정한다.
+    - 원인은 미확인이다. 23:1xZ 측정에서 G: 디스크 큐 12, 전송당 2–11초였다.
+    - 라우터 재시작은 이 틱의 금지 범위라 하지 않았다.
+  - Celly 포크 도구 오류 8건(23:27–23:32Z)
+    - `work_parallel_report` question evidence 2,000자 초과 4건(2432/2243/2057/3536자): 라우터 입력 한도 가드다.
+    - walkie `threads_stop` client_id uuid 검증 오류 1건: 인자 오류.
+    - PowerShell `verify-signed-distributions.ps1` Exit 1 1건: 작업 자체의 실패.
+    - 위 라우터 오류 2건.
+  - Andy
+    - running+slot 6→5, submitted 21→23, accepted 1, 원장 6678→6693. MCP 797 ms 정상.
+    - 포크 a1f6c1c6이 `work_parallel_report`로 `worker may only report question, completion or handoff`와 `completion artifact SHA256 required`를 받았다(23:26Z). 보고 형식 가드다.
+    - n1166 검수 행 누락이 계속된다.
+  - KOBE: running+slot 3, 원장 3118로 변화 없음. MCP 314 ms 정상. 포크 오류 1건(23:21:50Z, 미분류).
+  - Prody
+    - 관측이 복구됐다(23:20Z 틱은 ssh `lost connection`). MCP 752 ms 정상.
+    - submitted 7, 원장 704. 포크 오류 5건(23:21–23:34Z, 미분류).
+    - 메인 22:22Z Python SyntaxError와 23:33Z WMS 점검 Exit 2는 세션 자체 스크립트다.
+  - side-fresh 중복 실행: 재현 테스트를 아직 작성하지 않았다. 수정도 없다.
+
 - 23:10–23:20Z **Celly 라우터 상태 확인**(사용자 질문 "라우터가 죽은 것 같은데"). 읽기 전용이다.
   - 프로세스는 살아 있다.
     - 라우터 91384가 9385를 listen 중이고 연결이 2개 있다.
