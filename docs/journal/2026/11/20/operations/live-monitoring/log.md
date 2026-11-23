@@ -2,6 +2,29 @@
 
 ## 2026-11-23
 
+- 20:52:31–20:53:09Z 틱(직전 20:32Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
+  - **100.64.0.x 단절 지속(1시간째)**
+    - 20:53:28Z TCP 시도에서 8787(Walkie), 1004(KOBE), 1004(Prody) 모두 6초 timeout이었다. KOBE·Prody는 관측할 수 없다.
+    - Walkie 전송 실패가 이어진다.
+      - Andy: transcript 161, SSE 24, agent_runtime_event 재시도.
+      - Celly: transcript 149, SSE 23.
+    - Andy_Main 재현(20:39–20:41Z)과 일치한다.
+      - 공개 readiness는 200이다.
+      - 내부 주소는 Ciel Bridge /32 경로로 나가는데 8787과 1004가 timeout이다.
+      - Andy 쪽 Walkie MCP의 마지막 성공 응답은 19:52:52.864Z다.
+    - Andy_Main이 Celly에 Bridge 경로 대조를 전달해 달라고 요청했다. Celly 운영 세션 쓰기는 승인 범위 밖이라 보류하고 사용자에게 보고했다.
+  - **Andy: 예약 슬롯 2개가 포크 없이 유지된다(새 관측)**
+    - n2175 P5 rework 리스 4cfc92ff는 20:33:07Z, n2654 P1 auto 리스 696df191은 20:38:41Z에 `reserved+slot`이 됐다. 20:52Z까지 host_id가 없다(14–19분).
+    - 같은 사이 20:33:20Z·20:44:01Z 게이트 라운드는 "re-pumped"였고, 20:35:39Z native 포크 확인은 0이었다.
+    - 원장은 v6385→6474(+89)다.
+    - 포크가 바인딩되지 않은 원인은 미확인이다. 이 대화에서 메인의 Agent 호출이나 spawn 거부는 관측되지 않았다.
+    - 재시작 후 자동 디스패치 요구와 직결되는 미결 항목이라, 다음 틱에 바인딩되는지 본다.
+  - **Andy 기타**: submitted 24→23. 새 대화 오류는 walkie disconnected 1, 경로 없음 1, planning 편집 가드 1이다.
+  - **Celly**: waiting_input 13→12, running+slot 0→2.
+    - `channel_stdin_proxy_blocked`(로컬 14:33:39, message 16046, `prior_submission_failed/stale_unconfirmed`, skipped) 1건이 났다. 11-21에 기록한 가드 패턴이다.
+    - 포크 a5b21e3b 오류 5: bash 따옴표 EOF 2, Write 도구 없음 3. Write가 그 포크에 노출되지 않은 이유는 미확인이고 에이전트 측 사용 오류로 분류한다.
+    - 메인 오류 3: 보드 버전 충돌, walkie 끊김, auto continue 상태 읽기 실패.
+
 - 20:32:19–20:32:54Z 틱(직전 20:12Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
   - **100.64.0.x 단절 지속(40분째)**: 20:33:18Z에 TCP 연결을 시도했다. Walkie 8787, KOBE·Prody ssh 1004 모두 6초 timeout이다. KOBE·Prody는 관측할 수 없다.
     - Andy·Celly 라우터의 Walkie 전송 실패가 계속된다.
