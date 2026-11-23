@@ -1,0 +1,53 @@
+{
+ "variant": "otherhook",
+ "claude_version": "2.1.330 (Claude Code)",
+ "hook_events": [
+  "ConfigChange",
+  "CwdChanged",
+  "Elicitation",
+  "ElicitationResult",
+  "InstructionsLoaded",
+  "Notification",
+  "PermissionDenied",
+  "PermissionRequest",
+  "PostCompact",
+  "PostToolBatch",
+  "PostToolUse",
+  "PostToolUseFailure",
+  "PreCompact",
+  "PreToolUse",
+  "SessionEnd",
+  "SessionStart",
+  "Setup",
+  "StopFailure",
+  "SubagentStart",
+  "SubagentStop",
+  "TaskCompleted",
+  "TaskCreated",
+  "TeammateIdle",
+  "UserPromptExpansion",
+  "UserPromptSubmit",
+  "WorktreeCreate",
+  "WorktreeRemove"
+ ],
+ "permission_request_hook": true,
+ "env": {
+  "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM": "1",
+  "CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS": "1",
+  "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1"
+ },
+ "ready": true,
+ "prompt_seen": true,
+ "tool_result_seen": false,
+ "tool_results": [],
+ "requests": 1,
+ "elapsed_s": 10.2,
+ "kill": "SUCCESS: The process with PID 19784 (child process of PID 81452) has been terminated.",
+ "debug_lines": [
+  "2026-11-23T21:15:24.134Z [WARN] CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS has no effect in this session: dangerous rm commands keep their usual checks.",
+  "2026-11-23T21:15:30.232Z [DEBUG] executePermissionRequestHooks called for tool: Bash",
+  "2026-11-23T21:15:30.359Z [DEBUG] Hooks: PermissionRequest:Bash [\"C:/Program Files/Python311/python.exe\" \"D:/Temp/rm-waiver-bp_47dvj/other_hook.py\"] finished with status 0 (116ms)"
+ ],
+ "profile_unchanged": true,
+ "note": "fixed launcher output plus one third-party PermissionRequest hook that answers nothing"
+}

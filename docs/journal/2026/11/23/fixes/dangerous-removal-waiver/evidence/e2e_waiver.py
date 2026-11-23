@@ -157,6 +157,10 @@ if VARIANT == "baseline":
     without = False
 elif VARIANT == "fixed":
     without = option.apply_launch_env(config, env)
+elif VARIANT == "otherhook":
+    # Fixed launcher output plus a third-party PermissionRequest hook that
+    # answers nothing (Andy's profile carries one: orca-agent-hook.exe claude).
+    without = option.apply_launch_env(config, env)
 elif VARIANT == "hookwaive":
     option.apply_launch_env(config, env)
     without = False
@@ -166,6 +170,12 @@ install_tool_guard_hook_settings(guard_command, DEFAULT_TOOL_GUARD_HOOK_POLICY,
                                  ToolGuardHookServices(repository=repo, install_legacy_shim=lambda: None, warn=print),
                                  without_permission_request=without)
 settings = json.loads((CFG / "settings.json").read_text(encoding="utf-8"))
+if VARIANT == "otherhook":
+    other = OWNED / "other_hook.py"
+    other.write_text("import sys\nsys.stdin.read()\n", encoding="utf-8")
+    settings.setdefault("hooks", {}).setdefault("PermissionRequest", []).append(
+        {"matcher": "*", "hooks": [{"type": "command", "command": f'"{sys.executable.replace(chr(92), "/")}" "{str(other).replace(chr(92), "/")}"'}]})
+    (CFG / "settings.json").write_text(json.dumps(settings), encoding="utf-8")
 (CFG / ".claude.json").write_text(json.dumps({
     "hasCompletedOnboarding": True, "theme": "dark", "bypassPermissionsModeAccepted": True,
     "projects": {str(WS): {"hasTrustDialogAccepted": True}, str(WS).replace("\\", "/"): {"hasTrustDialogAccepted": True}}}),

@@ -93,3 +93,15 @@ timestamp: 2026-11-23T19:05:00Z
   - Celly 세션에 반영하려면 다음 둘이 모두 필요하다. 둘 다 이 작업의 금지 범위 밖이다.
     - Celly 워크스페이스에서 옵션 `17. Dangerous delete prompt`를 켠다. 지금 실행 중인 Celly claude.exe에는 옵션 env가 없다.
     - Celly 세션을 다시 실행한다.
+
+# 라이브 관측과 한계 (2026-11-23 21:0xZ)
+
+- Andy는 21:00:25Z에 사용자가 재시작했다(Walkie MCP 재연결을 확인하려는 재시작으로, 이 작업이 한 것이 아니다).
+  - 21:00:59Z 실행 로그에 `claude_dangerous_rm_auto_allow env=CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM=1 CLAUDE_CODE_EVEN_MORE_DANGEROUSLY_SKIP_PERMISSIONS=1 permission_request_hook=withheld`가 찍혔다.
+  - 3d475f9 실행 코드가 Andy에서 라이브다.
+- ❗ Andy의 `~/.claude/settings.json`에는 Ciel 외의 PermissionRequest 훅이 남아 있다(`…/agent-hooks/orca-agent-hook.exe claude`).
+- 실엔진 `otherhook` 구성으로 확인했다(수정된 런처 출력에 아무 답도 하지 않는 타사 PermissionRequest 훅 하나를 더함).
+  - 결과는 **질문이 그대로 표시되고 명령은 실행되지 않음**이다([otherhook](/docs/journal/2026/11/23/fixes/dangerous-removal-waiver/evidence/otherhook-screen.txt)).
+  - 따라서 Claude Code 2.1.330의 면제는 다른 PermissionRequest 훅이 하나라도 있으면 꺼진다. Andy에서는 이 수정만으로 질문이 사라지지 않는다.
+- Celly의 `settings.json` PermissionRequest에는 Ciel guard 하나만 있다(18:0xZ 확인). 옵션을 켜고 다시 실행하면 이 수정으로 처리기가 빠진다.
+- 남은 결정(사용자): Andy의 타사 PermissionRequest 훅을 어떻게 할지 정해야 한다. 그 훅은 이 제품의 것이 아니라 손대지 않았다.

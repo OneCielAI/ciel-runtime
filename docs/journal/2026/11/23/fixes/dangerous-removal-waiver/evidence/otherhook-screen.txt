@@ -1,0 +1,17 @@
+ │
+ │ p='src/server/connection.rs'; b=open(p,'rb').read(); crlf=b'\r\n' in b; s=b.decode('utf-8'); nl='\r\n' if crlf else
+ │ '\n'
+ │ rep('''        #[cfg(target_os = "macos")]
+ │         reset_input_ondisconn();
+ │         loop {''','''        #[cfg(target_os = "macos")]
+   …
+ │ EOF
+ │ git diff --stat
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ │ Claude Code can't be sure it read this command the way the shell will, so it can't rule out a dangerous removal.
+ │ Read the command, and don't go ahead if you can't tell what it does.
+ ⚠ Claude Code will automatically block this request in 1:56, to avoid holding up an unattended session
+ Do you want to proceed?
+ ❯ 1. Yes                                                                                                                  2. No
+ ↑ 120 more lines
+ Esc to cancel · Tab to amend

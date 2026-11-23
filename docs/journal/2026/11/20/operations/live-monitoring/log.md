@@ -2,6 +2,21 @@
 
 ## 2026-11-23
 
+- 21:13:05–21:13:40Z 틱(직전 20:52Z). 이 작업은 운영 세션·라우터 재시작과 상태 파일 변경을 하지 않았다.
+  - **Andy 사용자 재시작(21:00Z, 이 작업이 한 것 아님)**
+    - 사용자 대화: 20:59:55Z "실패이유는 뭐지?", 21:00:12Z "그럼 재시작하면되는지해볼까?", 21:02:55Z "재시작해도 동일하게 안되는데?".
+    - 맥락은 Walkie MCP 단절이다. 재시작 뒤에도 같은 이유는 100.64.0.x 단절이 계속되기 때문이다(21:13:58Z에도 8787·1004 timeout).
+    - 재시작 순서
+      - 21:00:25Z Claude 종료, 라우터 lifetime 종료.
+      - 21:00:57Z 라우터 재기동(hotfix5 경로).
+      - 21:00:59Z orphan sweep가 3건을 풀었다: 48ddbead·348c823f waiting_input, 4cfc92ff reserved(n2175 P5), 모두 owner=dead.
+    - **재시작 후 자동 디스패치 관측**: native 포크 확인이 21:02:40Z 2, 21:03:15Z 3이었고 21:09:07Z 1, 21:11:31Z 0으로 줄었다. submitted는 23→25다. 직전 틱에서 바인딩되지 않던 reserved 2건은 재시작으로 정리됐다.
+    - 3d475f9가 라이브다(실행 로그 `… permission_request_hook=withheld`).
+    - 다만 Andy 프로필에 타사 PermissionRequest 훅(orca-agent-hook)이 있어, 실엔진 `otherhook` 구성에서 질문이 그대로 남는다. 결정이 필요하다([기록](/docs/journal/2026/11/23/fixes/dangerous-removal-waiver/record.md)).
+    - 메인의 새 대화 오류 11건은 네트워크·서비스 진단 스크립트 실패(Bridge, tailscale, WinDivert 조회 등)다.
+  - **Celly**: waiting_input 12, running+slot 2→1, 원장 v8327→8334. side 원문 전달 1, 메인 스크립트 문법 오류 3, 포크 오류 3. 모두 에이전트 측이다.
+  - **KOBE·Prody**: 관측 불가(100.64.0.x 단절 지속, 21:13:58Z).
+
 - 20:52:31–20:53:09Z 틱(직전 20:32Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
   - **100.64.0.x 단절 지속(1시간째)**
     - 20:53:28Z TCP 시도에서 8787(Walkie), 1004(KOBE), 1004(Prody) 모두 6초 timeout이었다. KOBE·Prody는 관측할 수 없다.
