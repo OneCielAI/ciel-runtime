@@ -2,6 +2,15 @@
 
 ## 2026-11-23
 
+- 15:14–15:40Z 사용자 화면(Celly P0 장부 256/256) 조사, cc2bac9 배포, 라이브 확인. 운영 세션·라우터 재시작과 상태 파일 변경 없음(아래 정리는 Celly 메인이 한 것).
+  - Celly P0:
+    - 라이브 라우터 지문 `84eb402c`(fcce6d7 이전)라서 cancelled 행만 비울 수 있었고, 장부가 256/256으로 막혔다.
+    - 15:13Z에 Celly 메인이 사용자 승인을 받아 181행을 정리했다(256→75, 백업 있음).
+    - 정리 뒤 현재 scope의 새 intent는 15:14Z 기준 0이다. 상세는 [celly-p0-ledger-full](/docs/journal/2026/11/23/operations/celly-p0-ledger-full/record.md).
+  - cc2bac9 배포: Publish 45205553069 success, npm beta `0.2.51-beta.20261123-152815.cc2bac9`, 4개 파일 6개 루트에 15:39:33–15:39:47Z 설치(설치 전 base, 설치 후 new).
+  - 모드 재로드: Andy 15:39:49Z, Celly 15:39:35Z, KOBE 15:41:42Z, Prody 15:42:09Z. Celly의 5e02ee7 모드 재로드는 15:16:37Z였다. Prody는 5e02ee7 모드를 한 번도 로드하지 않았다.
+  - 위험 구간 `root_id` 호출은 네 호스트 모두 0건이다. 기록은 [cc2bac9 verification](/docs/journal/2026/11/23/releases/cc2bac9/verification.md).
+
 - 14:37:18–14:39:05Z 틱(직전 13:07:38Z)과 5e02ee7 배포. 운영 세션·라우터 재시작과 상태 파일 변경 없음.
   - 배포: 5e02ee7을 feature/priority-models·beta에 push했다. Publish 45193606117 success. npm beta `0.2.51-beta.20261123-142311.5e02ee7`, gitHead 5e02ee72cd63가 일치하고, 배포본 14개 파일이 오버레이 new와 해시가 같다.
     - 해시 확인 오버레이(`overlay-5e02ee7`): 로컬 hotfix5·`.local/share` 13개(`docs/` 없는 레이아웃), npm 전역·Celly 14개 14:36:38Z, KOBE 14:36:55Z, Prody 14:37:08Z. 설치 전 모두 base, 설치 후 모두 new.
