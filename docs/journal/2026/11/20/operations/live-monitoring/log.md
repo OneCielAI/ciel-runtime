@@ -2,6 +2,15 @@
 
 ## 2026-11-23
 
+- 11:12–11:31Z 틱(직전 10:32Z)과 fcce6d7 배포 후 라이브 확인. 운영 재시작·상태 파일 변경 없음.
+  - 배포: fcce6d7을 feature/priority-models·beta에 push, Publish 45160770706 success, npm beta `0.2.51-beta.20261123-105743.fcce6d7`. 해시 확인 오버레이 15/15: 로컬 3루트(Andy가 쓰는 hotfix5 루트 포함, 11:04:48Z), Celly, KOBE, Prody.
+  - 모드 라이브: 재로드 Celly 11:04:51Z, KOBE 11:11:06Z, Prody 11:11:40Z, Andy 11:19:22Z(`reloaded (19 hooks`). 라우터 Python 변경(P0 정리, 계보 채택, `question_wait` 능력 광고)은 네 라우터 모두 설치 전에 시작돼 아직 라이브 아님.
+  - Celly 사이드: 재로드 뒤 영수증 6건 전부 processed, 격리 0. 새 side 액터 9개 중 2개가 교정(`your answer was refused`)을 받고 processed로 끝났다 — 교정 전달 수정의 라이브 효과 확인. 재로드 전 마지막 실패 전달 11:01:29Z.
+  - Andy: 제출 21, 대기 4→1, 실행 1→0, 원장 v6188, 보드 v10720. 사용자 보고(큐 미로드·재시작 후 포크 미재개·프리즈·우선순위 집계) 조사 → [andy-restart-redispatch](/docs/journal/2026/11/23/operations/andy-restart-redispatch/record.md). 큐는 REST·웹 UI에서 로드, Work 모드 시작 16 s 내 동작, 재시작 때 리스 4건 모두 `waiting_input`, n2594는 10:59:10Z 자동 재실행 후 다시 `waiting_input`. 우선순위 집계는 보드와 일치하며 후보 0(대기·계획·열린 리스). 메인 첫 응답 중앙값 42 s, 최대 309 s(입력 489,863 토큰). 도구 오류 `n1937/n1953 is not a goal` 11:02Z(메인 호출 인자).
+  - Celly: 대기 6·실행 2, 원장 v8035, 보드 v9732, findings 0. newfail `decision_refused_stop` 79a47125×3·4d5e0a08×1(원인 미확인). 검수 오류 10:42–10:55Z.
+  - KOBE: 보드 v672→674, findings 1→0(n102 finding 소멸 사유 미확인). side 실패 원본 전달 10:50·10:57Z(재로드 전).
+  - Prody: 보드 v6801→6802, side 실패 원본 전달(재로드 전).
+
 - 10:32:34–10:32:52Z 읽기 전용 틱(직전 10:15Z). 4호스트 수집 성공. 운영 재시작·상태 파일 변경·배포 없음.
   - Andy: 제출 21→22·실행 2→1(대기 4), 원장 v6167→6169, 보드 v10706→10711, MCP 406ms, findings 1(n1166 유지). auto continue가 Work 상태를 못 읽음 10:20:06Z 1건(원인 미확인). 세션 자체 셸 오류 2(10:22:56Z exit 127, 10:29:34Z 읽기 스크립트 exit 1) — 제품 결함 아님. 라우터: SSE EOF 16, `cielairouter_transient_retry` 9(같은 operation 재시도 포함, 업스트림 일시 오류 재시도 경로).
   - Celly: 제출 2→3·대기 6→4·실행 2→3, 원장 v7965→7976, 보드 v9697→9703, MCP 250ms. n1381 `P0 intent bound` finding 지속. side 영수증 87(processed 73, quarantined 14) — 격리 증가 없음. P0 intent 256 지속(current scope 0).
