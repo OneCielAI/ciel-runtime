@@ -159,10 +159,37 @@ def _validate_detail(kind, body):
         _workspace(body["workspace"], optional=kind == "host_salvage")
         _require_text(body["next_step"], "handoff", "next_step")
     elif kind == "question":
-        _require_fields(body, "question", ("question", "blocking_todos", "decision_needed"))
+        _require_fields(
+            body, "question", ("question", "blocking_todos", "decision_needed"),
+            ("waiting_on", "release_hint"))
         _require_text(body["question"], "question text", "question")
         _require_text(body["decision_needed"], "question text", "decision_needed")
         _bounded_strings(body["blocking_todos"], "question blocking todos", chars=200)
+        if ("waiting_on" in body) != ("release_hint" in body):
+            raise WorkParallelError(
+                "question_wait requires waiting_on and a structured release_hint before parking")
+        if "waiting_on" in body:
+            waiting_on = body["waiting_on"]
+            if not isinstance(waiting_on, str):
+                raise WorkParallelError(
+                    "question_wait waiting_on: non-empty string up to 120 chars required")
+            _require_text(waiting_on, "question_wait", "waiting_on", 120)
+            if waiting_on != " ".join(waiting_on.split()):
+                raise WorkParallelError(
+                    "question_wait waiting_on must be one normalized, non-empty line")
+            hint = body["release_hint"]
+            hint_shape = ("question release_hint needs condition and lookup "
+                          "(1..600 chars each; optional prompt 1..400)")
+            if type(hint) is not dict or not {"condition", "lookup"} <= set(hint) <= {
+                    "condition", "lookup", "prompt"}:
+                raise WorkParallelError(hint_shape)
+            for field, limit in (("condition", 600), ("lookup", 600), ("prompt", 400)):
+                if field not in hint:
+                    continue
+                if (not isinstance(hint[field], str) or not hint[field].strip()
+                        or hint[field] != " ".join(hint[field].split())):
+                    raise WorkParallelError(hint_shape)
+                _require_text(hint[field], "question release_hint", field, limit)
     elif kind == "review":
         _require_fields(body, "review", ("receipt_id", "pass", "coverage", "findings", "verification"))
         require(text(body["receipt_id"], 200) and type(body["pass"]) is bool, "review values")

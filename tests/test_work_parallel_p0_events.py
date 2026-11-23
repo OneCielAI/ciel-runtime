@@ -110,6 +110,86 @@ class P0EventTests(unittest.TestCase):
             self.assertIn(row["intent_id"], after)
             self.assertEqual(1, len(before & set(after)))
 
+    def _bound_launch(self):
+        reserved = self.reserve()
+        args = {key: reserved[key] for key in ("intent_id", "lease_id", "dispatch_name")}
+        self.call("p0_launch_assignment", {"internal": True}, **args)
+        self.call("p0_launch_spawning", {"internal": True}, **args)
+        self.call("bind", {"host_id": "agent-" + reserved["lease_id"][:8],
+                           "agent_name": reserved["dispatch_name"]}, lease_id=reserved["lease_id"])
+        return reserved
+
+    def _sweep_lease(self, lease_id):
+        """The ledger dropped a finished lease (swept); its P0 intent stays bound."""
+        def apply(doc):
+            doc["leases"].pop(lease_id)
+        self.store._change(apply, self.store.read()["version"])
+
+    def test_full_p0_journal_of_retired_launches_still_admits_a_new_p0(self):
+        # Celly 2026-11-23: 256 intents, all bound/terminal evidence of leases that
+        # were done, orphaned or gone (0 cancelled). Only cancelled rows were ever
+        # evicted, so every new P0 intent failed "P0 intent bound" and the P0
+        # items ran as ordinary P1 leases under the P1 slot limit.
+        self.board.doc["nodes"].append(dict(self.board.doc["nodes"][1], id="item2", title="item2"))
+        side = p0_store(self.store)
+        with patch.object(p0, "MAX_INTENTS", 2):
+            first = self._bound_launch()
+            second = self._bound_launch()
+            self.assertEqual({"bound"}, {row["state"] for row in side.read()["intents"].values()})
+            self._sweep_lease(first["lease_id"])
+            self._sweep_lease(second["lease_id"])
+            third = self.reserve()
+            intents = side.read()["intents"]
+        self.assertEqual("ready", third["dispatch"])
+        self.assertIn(third["intent_id"], intents)
+        self.assertEqual(2, len(intents))
+        # Exactly one retired row made room; the other retired row is kept.
+        self.assertEqual(1, len({first["intent_id"], second["intent_id"]} & set(intents)))
+
+    def test_full_p0_journal_keeps_evidence_that_can_still_authorize(self):
+        self.board.doc["nodes"].append(dict(self.board.doc["nodes"][1], id="item2", title="item2"))
+        side = p0_store(self.store)
+        with patch.object(p0, "MAX_INTENTS", 2):
+            live = self._bound_launch()       # lease still running: approval evidence
+            parked = self._bound_launch()
+            self.call("unreported", {"proof": "native turn ended without a report"},
+                      lease_id=parked["lease_id"])
+            # An unreported result may still be recovered; a running lease is live.
+            with self.assertRaisesRegex(WorkParallelError, "P0 intent bound"):
+                side.create_intent({"scope": SCOPE, "root_id": "root", "root_created_at": 1.0,
+                                    "item_id": "item3", "continuation": "initial",
+                                    "predecessor_lease_id": None},
+                                   expected_version=side.read()["version"])
+            self.assertEqual({live["intent_id"], parked["intent_id"]}, set(side.read()["intents"]))
+
+    def test_retired_intent_selection_is_exact(self):
+        side = p0_store(self.store)
+        rows = {}
+        for index, (state, lease) in enumerate((
+                ("terminal", "L-done"), ("terminal", "L-orphaned"), ("terminal", "L-unreported"),
+                ("bound", "L-gone"), ("bound", "L-running"), ("bound", "L-open-send"),
+                ("intent", None), ("cancelled", None))):
+            intent_id = "%032x" % (index + 1)
+            rows[intent_id] = {"intent_id": intent_id, "scope": SCOPE, "root_id": "root",
+                               "root_created_at": 1.0, "item_id": "item", "continuation": "initial",
+                               "predecessor_lease_id": None, "dispatch_name": "work-p0-" + intent_id,
+                               "state": state, "lease_id": lease, "dispatch_without_approval": True,
+                               "created_at": 10.0 + index, "updated_at": 10.0 + index}
+        state = {"intents": rows, "sends": {"s": {"parent_intent_id": "%032x" % 6, "state": "uncertain"}}}
+        leases = {"L-done": "done", "L-orphaned": "orphaned", "L-unreported": "unreported",
+                  "L-running": "running", "L-open-send": "orphaned"}
+        evictable = [row["intent_id"] for row in p0.evictable_intents(state, leases, observed_at=100.0)]
+        # cancelled first, then retired leases oldest first; unreported, live,
+        # open-send parents and unbound intents are kept.
+        self.assertEqual(["%032x" % 8, "%032x" % 1, "%032x" % 2, "%032x" % 4], evictable)
+        # A lease absent from a snapshot older than the intent's last change may
+        # simply not be written yet: never treated as retired.
+        late = [row["intent_id"] for row in p0.evictable_intents(state, leases, observed_at=12.5)]
+        self.assertEqual(["%032x" % 8, "%032x" % 1, "%032x" % 2], late)
+        # No ledger snapshot: only cancelled rows, exactly as before.
+        self.assertEqual(["%032x" % 8], [row["intent_id"] for row in p0.evictable_intents(state, None, observed_at=100.0)])
+        del side
+
     def test_a_p0_fork_row_says_it_runs_as_p0(self):
         # Celly 2026-11-17: the lease keeps the goal's canonical P1 and the panes
         # labelled the running P0 fork P1. The row carries the effective priority.
@@ -123,6 +203,27 @@ class P0EventTests(unittest.TestCase):
         rows = [row for group in view["forks"].values() if isinstance(group, list) for row in group
                 if isinstance(row, dict) and row.get("lease_id") == reserved["lease_id"]]
         self.assertEqual([("P1", "P0")], [(row["priority"], row["effective_priority"]) for row in rows])
+
+    def test_a_p0_wait_projected_in_planning_is_resumable(self):
+        reserved = self.reserve()
+        args = {key: reserved[key] for key in ("intent_id", "lease_id", "dispatch_name")}
+        self.call("p0_launch_assignment", {"internal": True}, **args)
+        self.call("p0_launch_spawning", {"internal": True}, **args)
+        self.call("bind", {"host_id": "agent", "agent_name": reserved["dispatch_name"]},
+                  lease_id=reserved["lease_id"])
+        item = next(node for node in self.board.doc["nodes"] if node["id"] == "item")
+        item["waiting_on"] = "dependency"
+        self.store._change(lambda doc: doc["leases"][reserved["lease_id"]].update(
+            state="waiting_input", slot=False, usage=0, idle_proof="waiting"),
+            self.store.read()["version"])
+        first = m.project(self.store, SCOPE, self.board.doc, host_view=True)["leases"][reserved["lease_id"]]
+        self.assertEqual((False, True, False), (first["wait_clear_now"], first["wait_seen"], first["wait_cleared"]))
+        item["waiting_on"] = ""
+        row = m.project(self.store, SCOPE, self.board.doc, host_view=True)["leases"][reserved["lease_id"]]
+        self.assertEqual("planning", self.board.doc["phase"])
+        self.assertEqual((True, True), (row["wait_clear_now"], row["wait_cleared"]))
+        result = self.call("p0_reacquire", {}, lease_id=reserved["lease_id"])
+        self.assertTrue(result["slot_reacquired"])
 
     def test_a_terminal_lease_does_not_keep_its_old_p0_intent_open(self):
         # Andy: orphaned n2471/n2452 kept a bound intent; reserve reused the
@@ -395,6 +496,58 @@ class P0EventTests(unittest.TestCase):
         self.assertNotIn(lease["id"], receipts.coordination_store(self.store).read()["runs"])
         intent = p0_store(self.store).read()["intents"][intent["intent_id"]]
         self.assertEqual(("intent", None), (intent["state"], intent["lease_id"]))
+
+    def test_spawn_winning_after_cleanup_snapshot_keeps_the_reservation(self):
+        reserved = self.reserve()
+        args = {key: reserved[key] for key in ("intent_id", "lease_id", "dispatch_name")}
+        self.call("p0_launch_assignment", {"internal": True}, **args)
+        side = p0_store(self.store)
+        side.prepare_clear(SCOPE, "root", 1.0, "P1", self.board.doc["version"], set_by="user",
+                           expected_version=side.read()["version"])
+        read = self.store.read
+        spawned = []
+
+        def read_after_spawn():
+            if not spawned:
+                with patch.object(self.store, "read", side_effect=read):
+                    spawned.append(self.call("p0_launch_spawning", {"internal": True}, **args))
+            return read()
+
+        # Cleanup reads the sidecar first. Win the spawn CAS before cleanup
+        # can act on that stale reserved row, without sleeps or live processes.
+        with patch.object(self.store, "read", side_effect=read_after_spawn):
+            self.assertEqual([], m._release_unlaunched_ended_p0(self.store, SCOPE))
+        self.assertEqual("spawning", spawned[0]["state"])
+        self.assertEqual("reserved", read()["leases"][reserved["lease_id"]]["state"])
+        self.assertIn(reserved["lease_id"], receipts.coordination_store(self.store).read()["runs"])
+
+    def test_failed_lease_release_preserves_the_reservation_for_retry(self):
+        reserved = self.reserve()
+        side = p0_store(self.store)
+        side.prepare_clear(SCOPE, "root", 1.0, "P1", self.board.doc["version"], set_by="user",
+                           expected_version=side.read()["version"])
+        ident = reserved["lease_id"]
+        with patch.object(self.store, "release_unbound", side_effect=OSError("fixture write failure")):
+            self.assertEqual([(ident, ["lease"])], m._release_unlaunched_ended_p0(self.store, SCOPE))
+        self.assertEqual("reserved", side.read()["intents"][reserved["intent_id"]]["state"])
+        self.assertIn(ident, receipts.coordination_store(self.store).read()["runs"])
+        self.assertEqual([(ident, [])], m._release_unlaunched_ended_p0(self.store, SCOPE))
+        self.assertNotIn(ident, self.store.read()["leases"])
+
+    def test_cleanup_winning_blocks_spawn_even_if_sidecar_update_fails(self):
+        reserved = self.reserve()
+        args = {key: reserved[key] for key in ("intent_id", "lease_id", "dispatch_name")}
+        self.call("p0_launch_assignment", {"internal": True}, **args)
+        side = p0_store(self.store)
+        side.prepare_clear(SCOPE, "root", 1.0, "P1", self.board.doc["version"], set_by="user",
+                           expected_version=side.read()["version"])
+        with patch.object(type(side), "release_reservation", side_effect=OSError("fixture write failure")):
+            self.assertEqual([(reserved["lease_id"], ["p0_intent"])],
+                             m._release_unlaunched_ended_p0(self.store, SCOPE))
+        self.assertEqual("reserved", side.read()["intents"][reserved["intent_id"]]["state"])
+        with self.assertRaisesRegex(WorkParallelError, "P0 launch identity"):
+            self.call("p0_launch_spawning", {"internal": True}, **args)
+        self.assertNotIn(reserved["lease_id"], self.store.read()["leases"])
 
     def test_a_spawning_p0_launch_is_not_released_when_its_root_is_cleared(self):
         reserved = self.reserve()

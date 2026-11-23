@@ -19,6 +19,7 @@ const HELP = [
   '• Planning: the model builds a plan with work_plan_set: goal → phases → tasks → verifiable steps. Reading is allowed; direct file edits wait. Bash/PowerShell use native permissions and sandboxing, not Work gates.',
   '• New requests: an independent request becomes its own numbered item ("2. …") and waits in the queue behind the active item; a change to an existing item is added under that item.',
   '• Executing: after work_execute (automatic, or your approval when set to ask) the model works step by step and marks each step done with evidence.',
+  '• Parallel rule of thumb: inspect work_parallel_status first; P0 is a separate capacity-excluded lane while P1-P5 use per-priority slots. Reuse an existing lease/fork; submitted waits for main review and waiting_input with slot=false occupies no execution slot. See the bundled ciel-work:work-operations skill for the full operating contract.',
   '• Above the prompt: compact by default (done/total + current step); [+] / w expands, [-] collapses. Progress / Queue / Completed are read-only button tabs; Prev / Next (p / n) page the list; w opens the Inspector. Ctrl+X Tab focuses · Tab/↑↓ select · Enter inspects · Esc returns. Tiny screens use Inspect Work. Rows of other plugins stay below the Work rows; the band scrolls to them.',
   '• /work-mode (or /work-mode view): Work & SSE pane — Work tree (w), SSE receipts with P1 filter (s), and every Work setting (g); in the Work tree, f focuses the selected item, a appends it to the focus, b opens its parent, u/d move a queued goal up or down; side actors are native forks inheriting the main context; Work and side forks use the per-priority and side fork model settings (inherit keeps the main model). Mobile and narrow screens get a single-column touch layout.',
   '• /work-mode expand / compact: toggle the inline list · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode parallel: fork slots, leases and the next Agent name · /work-mode help: this help',
@@ -2602,8 +2603,20 @@ async function parallelCall($, name, args = {}, observed = {}, scope = null) {
 async function hostStatus($) {
   const writes = hostWrites
   const state = await parallelCall($, 'work_parallel_status', {}, await hostProcess($))
-  if (state && typeof state === 'object') hostReadStamp.set(state, writes)
+  if (state && typeof state === 'object') {
+    hostReadStamp.set(state, writes)
+    routerQuestionWait = Array.isArray(state.capabilities) && state.capabilities.includes('question_wait')
+  }
   return state
+}
+// Whether the router serving this session accepts waiting_on/release_hint in a
+// question's detail (2026-11-23). A router from before it refuses those keys
+// (exact field set), and an installed mod can run against a router that was
+// not restarted yet, so a fork is given the question_wait contract only when
+// the last host status advertised it.
+let routerQuestionWait = false
+function forkRules() {
+  return T('mod_fork_rules') + (routerQuestionWait ? '\n\n' + T('mod_fork_question_wait') : '')
 }
 // The ledger version alone, for an event's expected_version: one small reply
 // instead of the whole paged host status (router: projection "version"). A
@@ -3088,8 +3101,8 @@ async function parallelToolCall($, e, next) {
         tool: 'Agent', subagent_type: 'fork', name: key,
         description: 'Work ' + label,
         prompt: 'Execute only approved Work item ' + label
-          + '. Report question or result through work_parallel_event. Do not configure policy or accept your result. '
-          + T('mod_fork_rules'),
+          + '. Report question or result through work_parallel_report using the exact worker_token. Do not configure policy or accept your result. '
+          + forkRules(),
         required_parameters: { name: key },
         instruction: 'Call the native Agent tool with every returned field unchanged, including required_parameters.name. Omitting name is denied before any worker starts; /work-mode parallel shows the pending name.' }) }
     }
@@ -3160,7 +3173,7 @@ async function parallelP0Spawn($) {
   const prompt = 'Execute exactly this P0 Work assignment immediately. Native fork context and permissions are inherited; '
     + 'the configured P0 fork model is applied by the request gate. '
     + 'Report a question or result only through work_parallel_report using the exact worker_token. '
-    + 'Do not configure policy or accept your result. ' + T('mod_fork_rules') + ' Assignment JSON:\n' + parallelAssignment(request)
+    + 'Do not configure policy or accept your result. ' + forkRules() + ' Assignment JSON:\n' + parallelAssignment(request)
   await parallelEvent($, { event:'p0_launch_spawning', intent_id:request.intent_id,
     lease_id:request.lease_id, dispatch_name:key }, { internal:true })
   let spawned
@@ -3232,7 +3245,7 @@ async function parallelDirectSpawn($, key, request) {
     const p0Prompt = 'Execute exactly this P0 Work assignment immediately. Native fork context and permissions are inherited; '
       + 'the configured P0 fork model is applied by the request gate. '
       + 'Report a question or result only through work_parallel_report using the exact worker_token. '
-      + 'Do not configure policy or accept your result. ' + T('mod_fork_rules') + ' Assignment JSON:\n' + parallelAssignment(request)
+      + 'Do not configure policy or accept your result. ' + forkRules() + ' Assignment JSON:\n' + parallelAssignment(request)
     await parallelEvent($, { event:'p0_launch_spawning', intent_id:request.intent_id,
       lease_id:request.lease_id, dispatch_name:p0Key }, { internal:true })
     let p0Spawn
@@ -3266,7 +3279,7 @@ async function parallelDirectSpawn($, key, request) {
     + reworkHandoffWarning(request)
     + (request.role === 'resume' && request.rework_evidence ? 'Main requested rework: ' + clipped(request.rework_evidence, 1600) + '. ' : '')
     + 'Report a question or result only through work_parallel_report using the exact worker_token. '
-    + 'Do not configure policy or accept your result. ' + T('mod_fork_rules') + ' Assignment JSON:\n' + parallelAssignment(request)
+    + 'Do not configure policy or accept your result. ' + forkRules() + ' Assignment JSON:\n' + parallelAssignment(request)
   const rework = request.role === 'resume'
   // The capability above is host-only. Persist the exact launch name before
   // the native call; after an unknown outcome the backend refuses token rotation.

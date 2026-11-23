@@ -154,6 +154,32 @@ class CoordinationStoreTests(unittest.TestCase):
                                                        expected_version=state["version"])
         self.assertEqual(60, cases)
 
+    def test_question_release_hint_is_a_strict_optional_release_pair(self):
+        from ciel_runtime_support.work_parallel_receipts import _validate_detail
+
+        paired = {"question": "q", "blocking_todos": ["i1"], "decision_needed": "pick one",
+                  "waiting_on": "Ticket answer",
+                  "release_hint": {"condition": "Answer recorded", "lookup": "Read ticket"}}
+        _validate_detail("question", paired)
+        # Existing no-wait histories remain readable, but a supplied hint fragment
+        # must not silently turn into a malformed question_wait.
+        _validate_detail("question", {k: v for k, v in paired.items()
+                                      if k not in ("waiting_on", "release_hint")})
+        failures = [
+            ({k: v for k, v in paired.items() if k != "waiting_on"},
+             "question_wait requires waiting_on and a structured release_hint"),
+            ({k: v for k, v in paired.items() if k != "release_hint"},
+             "question_wait requires waiting_on and a structured release_hint"),
+            ({**paired, "waiting_on": "x" * 121}, "121 chars"),
+            ({**paired, "release_hint": {"lookup": "only lookup"}},
+             "question release_hint needs condition and lookup"),
+            ({**paired, "release_hint": {"condition": "yes", "lookup": "read", "approval": True}},
+             "question release_hint needs condition and lookup"),
+        ]
+        for body, expected in failures:
+            with self.subTest(body=body), self.assertRaisesRegex(WorkParallelError, expected):
+                _validate_detail("question", body)
+
     def test_completion_receipt_is_final_against_later_receipts(self):
         self.approve()
         state = self.assign()

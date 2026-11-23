@@ -1,0 +1,1 @@
+{ "name": "stop-fault", "version": "0.1.0", "description": "Test-only: refuses the first two TaskStop calls for the first task id, logs every TaskStop" }

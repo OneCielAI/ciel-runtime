@@ -665,6 +665,288 @@ class MainReviewTests(unittest.TestCase):
         self.call("event", {}, event="reacquire", lease_id=reserve["lease_id"])
         return reserve["lease_id"]
 
+    def _question(self, item_id=None, **extra):
+        reserve = self.call("event", {"fork": True, "workspace_repo": str(self.repo)},
+                            event="reserve", item_id=item_id or self.board.item, priority="P1")
+        self.call("event", {"host_id": "worker-" + reserve["lease_id"][:8]},
+                    event="bind", lease_id=reserve["lease_id"])
+        base = {"lease_id": reserve["lease_id"], "worker_token": reserve["worker_token"],
+                "event": "question", "plan_version": self.board.read()["version"],
+                "evidence": "which file?"}
+        base.update(extra)
+        return reserve["lease_id"], base
+
+    def test_parallel_status_advertises_the_question_wait_contract(self):
+        # The mod sends a fork the waiting_on/release_hint contract only when
+        # the router lists it; this router accepts that detail shape.
+        self.assertIn("question_wait", self.call("status", {})["capabilities"])
+
+    def test_question_wait_records_structured_gate_and_resumes_original_lease(self):
+        from ciel_runtime_support.side_work_decision import apply as side_apply
+        from ciel_runtime_support import work_gate_check as gate_check
+        from ciel_runtime_support import work_workflow_prompts as prompts
+
+        receipt = "a" * 64
+        detail = {
+            "question": "Which tracker marks ticket 227 approved?",
+            "blocking_todos": [self.board.item],
+            "decision_needed": "Read ticket 227 and post a yes/no decision.",
+            "waiting_on": "Ticket 227 decision",
+            "release_hint": {
+                "condition": "Ticket 227 has an affirmative decision",
+                "lookup": "Read ticket 227's latest decision reply",
+                "prompt": "Accept only an explicit yes/no decision.",
+            },
+        }
+        lease_id, base = self._question(detail=detail)
+        with patch.object(m, "ledger", return_value=self.store):
+            reported = json.loads(m.report(base, self.board, self.config))
+
+        item = self.node()
+        coord = m.coordination(self.store)
+        question_receipt = next(row for row in coord.read()["receipts"].values()
+                                if row["lease_id"] == lease_id)
+        board_via_report = self.board.read()
+        host_unreleased = m.project(self.store, SCOPE, board_via_report, host_view=True)
+
+        self.assertEqual(("waiting_input", False, True),
+                         (reported["state"], self.store.read()["leases"][lease_id]["slot"],
+                          reported["slot_released"]))
+        self.assertEqual("Ticket 227 decision", item["waiting_on"])
+        self.assertEqual("Ticket 227 has an affirmative decision", item["release_hint"]["condition"])
+        self.assertEqual("Read ticket 227's latest decision reply", item["release_hint"]["lookup"])
+        self.assertEqual("Accept only an explicit yes/no decision.", item["release_hint"]["prompt"])
+        self.assertEqual(detail["release_hint"],
+                         coord.detail(question_receipt["digest"])["release_hint"])
+
+        gates = gate_check.gates(board_via_report)
+        gate_text = gate_check.event_text(gates, 10)
+        self.assertEqual([self.board.item], [row["id"] for row in gates if row["id"] == self.board.item])
+        for phrase in ("Ticket 227 decision", "Ticket 227 has an affirmative decision",
+                       "Read ticket 227's latest decision reply"):
+            self.assertIn(phrase, gate_text)
+        self.assertFalse(m.parked_wait_cleared(board_via_report, self.board.item))
+        self.assertFalse(host_unreleased["leases"][lease_id]["wait_cleared"])
+        self.assertFalse(host_unreleased["leases"][lease_id]["wait_clear_now"])
+
+        result = side_apply(
+            self.board.store,
+            receipt,
+            {
+                "action": "update",
+                "kind": "request",
+                "item_id": self.board.item,
+                "note": "Ticket 227 now contains an explicit affirmative decision.",
+                "summary": "Read the latest Ticket 227 reply; it says yes.",
+                "reply": "Ticket 227 decision confirmed.",
+                "release_waits": [{"id": self.board.item, "waiting_on": "Ticket 227 decision"}],
+            },
+            board_via_report["version"],
+            gate_check=True,
+        )
+        board_via_release = self.board.read()
+        host_released = m.project(self.store, SCOPE, board_via_release, host_view=True)
+        self.assertEqual([{"id": self.board.item, "waiting_on": "Ticket 227 decision"}],
+                         result.get("released_waits"))
+        self.assertTrue(m.parked_wait_cleared(board_via_release, self.board.item))
+        self.assertTrue(host_released["leases"][lease_id]["wait_clear_now"])
+        self.assertTrue(host_released["leases"][lease_id]["wait_seen"])
+        self.assertTrue(host_released["leases"][lease_id]["wait_cleared"])
+        self.assertNotIn("release_hint", self.node())
+
+        # The original lease's own plan version remains the resume authority,
+        # even though board transactions advanced while it waited.
+        self.call("event", {}, event="reacquire", lease_id=lease_id)
+        plan_version = self.store.read()["leases"][lease_id]["plan_version"]
+        self.call("event", {}, event="resume", lease_id=lease_id,
+                  plan_version=plan_version, evidence="Ticket 227 answered yes")
+        self.assertEqual("running", self.store.read()["leases"][lease_id]["state"])
+        self.assertIn("lease가 waiting_input이면 그 포크가 실제로 기다리는 원래 답",
+                      prompts.DEFAULTS["gate_actor"])
+        self.assertIn("명시적으로 제공된 원래 답으로 검증한 경우에 한해 해제합니다",
+                      prompts.DEFAULTS["gate_recheck"])
+
+    def test_question_wait_is_not_faked_from_missing_or_malformed_detail(self):
+        doc, item_three = self.board.transaction(
+            lambda d: tree.add_node(d, self.board.root, "Item three", within_scope=True),
+            expected_version=self.board.read()["version"])
+        item_choices = {"missing_wait": self.board.item, "orphan_hint": self.board.item2}
+        cases = (
+            ("missing_wait", {
+                "question": "Which ticket?", "blocking_todos": [self.board.item],
+                "decision_needed": "Choose a ticket.",
+                # A no-wait question is valid and must never fabricate a board wait.
+            }, None),
+            ("orphan_hint", {
+                "question": "Which ticket?", "blocking_todos": [self.board.item2],
+                "decision_needed": "Choose a ticket.",
+                "release_hint": {"condition": "Ticket answered", "lookup": "Read the ticket"},
+            }, "question_wait requires waiting_on and a structured release_hint before parking"),
+            ("malformed_hint", {
+                "question": "Which ticket?", "blocking_todos": [item_three],
+                "decision_needed": "Choose a ticket.",
+                "waiting_on": "Ticket decision",
+                "release_hint": {"lookup": "Read the ticket"},
+            }, "question release_hint needs condition and lookup \\(1\\.\\.600 chars each; optional prompt 1\\.\\.400\\)"),
+        )
+        for name, detail, expected in cases:
+            with self.subTest(case=name):
+                board_before = self.board.read()
+                item_id = item_choices.get(name, item_three)
+                lease_id, base = self._question(item_id=item_id, detail=detail)
+                coord_before = m.coordination(self.store).read()
+                with patch.object(m, "ledger", return_value=self.store):
+                    if expected is None:
+                        m.report(base, self.board, self.config)
+                        self.assertEqual(("waiting_input", False),
+                                         (self.store.read()["leases"][lease_id]["state"],
+                                          self.store.read()["leases"][lease_id]["slot"]))
+                        self.assertEqual(board_before, self.board.read())
+                        continue
+                    with self.assertRaisesRegex(WorkParallelError, expected):
+                        m.report(base, self.board, self.config)
+                self.assertEqual("running", self.store.read()["leases"][lease_id]["state"])
+                self.assertTrue(self.store.read()["leases"][lease_id]["slot"])
+                self.assertEqual(board_before, self.board.read())
+                self.assertEqual(coord_before["version"],
+                                 m.coordination(self.store).read()["version"])
+
+    def test_question_wait_rejects_wrong_item_existing_wait_and_overlong_label(self):
+        good_hint = {"condition": "Answer is recorded", "lookup": "Read the answer"}
+        # Reserve these assigned leaves before any stale wait is introduced.
+        wrong_lease, wrong_base = self._question(item_id=self.board.item, detail={
+            "question": "Which ticket?", "blocking_todos": [self.board.item2],
+            "decision_needed": "Choose a ticket.", "waiting_on": "Ticket decision",
+            "release_hint": good_hint,
+        })
+        overlong_lease, overlong_base = self._question(item_id=self.board.item2, detail={
+            "question": "Which ticket?", "blocking_todos": [self.board.item2],
+            "decision_needed": "Choose a ticket.", "waiting_on": "x" * 121,
+            "release_hint": good_hint,
+        })
+        cases = (
+            ("wrong_item", wrong_lease, wrong_base, "assigned Work item"),
+            ("overlong_wait", overlong_lease, overlong_base,
+             "question_wait waiting_on: 121 chars exceeds max 120"),
+        )
+        for name, lease_id, base, expected in cases:
+            with self.subTest(case=name):
+                board_before = self.board.read()
+                with patch.object(m, "ledger", return_value=self.store):
+                    with self.assertRaisesRegex(WorkParallelError, expected):
+                        m.report(base, self.board, self.config)
+                self.assertEqual("running", self.store.read()["leases"][lease_id]["state"])
+                self.assertTrue(self.store.read()["leases"][lease_id]["slot"])
+                self.assertEqual(board_before, self.board.read())
+
+        existing_wait_item = self.board.item2
+        lease_id = overlong_lease
+        base = {**overlong_base, "detail": {
+            "question": "Which ticket?", "blocking_todos": [existing_wait_item],
+            "decision_needed": "Choose a ticket.", "waiting_on": "Ticket decision",
+            "release_hint": good_hint,
+        }}
+        self.board.transaction(lambda d: tree.update_node(
+            d, existing_wait_item, waiting_on="Existing approval"),
+            expected_version=self.board.read()["version"])
+        board_before = self.board.read()
+        with patch.object(m, "ledger", return_value=self.store):
+            with self.assertRaisesRegex(WorkParallelError, "already has a recorded wait"):
+                m.report(base, self.board, self.config)
+        self.assertEqual("running", self.store.read()["leases"][lease_id]["state"])
+        self.assertTrue(self.store.read()["leases"][lease_id]["slot"])
+        self.assertEqual(board_before, self.board.read())
+
+    def test_question_wait_board_write_happens_before_receipt_or_lease_parking(self):
+        detail = {
+            "question": "Which ticket?", "blocking_todos": [self.board.item],
+            "decision_needed": "Choose a ticket.", "waiting_on": "Ticket decision",
+            "release_hint": {"condition": "Ticket answered", "lookup": "Read the ticket"},
+        }
+        lease_id, base = self._question(detail=detail)
+        coord_before = m.coordination(self.store).read()["version"]
+
+        class BoardWriteFails:
+            def __init__(self, inner):
+                self.inner = inner
+
+            def read(self):
+                return self.inner.read()
+
+            def transaction(self, *args, **kwargs):
+                raise tree.WorkPlanError("simulated board write failure")
+
+        with patch.object(m, "ledger", return_value=self.store):
+            with self.assertRaises(tree.WorkPlanError) as refused:
+                m.report(base, BoardWriteFails(self.board), self.config)
+        self.assertEqual("simulated board write failure", str(refused.exception))
+        self.assertEqual("running", self.store.read()["leases"][lease_id]["state"])
+        self.assertTrue(self.store.read()["leases"][lease_id]["slot"])
+        self.assertEqual(coord_before, m.coordination(self.store).read()["version"])
+
+    def test_question_wait_is_one_shot_and_conflict_keeps_the_original_wait(self):
+        detail = {
+            "question": "Which ticket?", "blocking_todos": [self.board.item],
+            "decision_needed": "Choose a ticket.", "waiting_on": "Ticket decision",
+            "release_hint": {"condition": "Ticket answered", "lookup": "Read the ticket"},
+        }
+        first_lease, first = self._question(detail=detail)
+        with patch.object(m, "ledger", return_value=self.store):
+            m.report(first, self.board, self.config)
+        before = self.board.read()
+        coord_after_first = m.coordination(self.store).read()["version"]
+
+        with patch.object(m, "ledger", return_value=self.store):
+            with self.assertRaisesRegex(WorkParallelError, "lease is not active"):
+                m.report({**first, "detail": {**detail, "waiting_on": "Other decision"}},
+                         self.board, self.config)
+
+        # A second lease for this same item cannot be created while either the
+        # parked lease or the recorded wait remains. The one-shot guarantee
+        # above (plus the existing-wall refusal test) is therefore the proof;
+        # do not fabricate a second lease around those fences.
+        self.assertEqual(("waiting_input", False),
+                         (self.store.read()["leases"][first_lease]["state"],
+                          self.store.read()["leases"][first_lease]["slot"]))
+        self.assertEqual(before, self.board.read())
+        self.assertEqual(coord_after_first,
+                         m.coordination(self.store).read()["version"])
+        self.assertEqual("Ticket decision", self.node()["waiting_on"])
+
+    def test_question_wait_does_not_move_blocked_status_or_ancestors(self):
+        self.board.transaction(lambda d: tree.update_node(
+            d, self.board.item, status="in_progress"),
+            expected_version=self.board.read()["version"])
+        before = self.board.read()
+        detail = {
+            "question": "Which ticket?", "blocking_todos": [self.board.item],
+            "decision_needed": "Choose a ticket.", "waiting_on": "Ticket decision",
+            "release_hint": {"condition": "Ticket answered", "lookup": "Read the ticket"},
+        }
+        lease_id, base = self._question(detail=detail)
+        with patch.object(m, "ledger", return_value=self.store):
+            m.report(base, self.board, self.config)
+        after = self.board.read()
+        owners = ("id", "parent_id", "title", "status", "phase", "priority")
+        self.assertEqual([{key: node[key] for key in owners if key in node} for node in before["nodes"]],
+                         [{key: node[key] for key in owners if key in node} for node in after["nodes"]])
+        self.assertEqual("in_progress", self.node()["status"])
+        self.assertEqual("Ticket decision", self.node()["waiting_on"])
+
+    def test_question_wait_refuses_root_item_and_its_ancestors_stay_unchanged(self):
+        detail = {
+            "question": "Which ticket?", "blocking_todos": [self.board.root],
+            "decision_needed": "Choose a ticket.", "waiting_on": "Ticket decision",
+            "release_hint": {"condition": "Ticket answered", "lookup": "Read the ticket"},
+        }
+        lease_id, base = self._question(item_id=self.board.root, detail=detail)
+        before = self.board.read()
+        with patch.object(m, "ledger", return_value=self.store):
+            with self.assertRaisesRegex(WorkParallelError, "must be recorded on a leaf"):
+                m.report(base, self.board, self.config)
+        self.assertEqual("running", self.store.read()["leases"][lease_id]["state"])
+        self.assertEqual(before, self.board.read())
+
     def test_a_wrong_question_detail_names_the_required_fields_and_keeps_the_lease(self):
         # Andy 2026-11-21: a fork sent detail={"reason": ...} with event=question and
         # got only "question fields", so it could not tell what the report needs.

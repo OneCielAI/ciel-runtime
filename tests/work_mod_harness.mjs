@@ -202,7 +202,7 @@ const scenarios = {
     })
     $.clock.after=(delay,callback)=>{timers.push({delay,callback});return{cancel(){}}}
     await handlers['session.start']($,{isInteractive:false},next(undefined))
-    const tick=timers.find(t=>t.delay===2000); await tick.callback(); await sleep(10)
+    const tick=timers.find(t=>t.delay===2000); await tick.callback(); await startSettled($)
     const appended=(state.appended||[]).map(row=>row.message.content[0].text)
     return {appended:appended.length,carriesOriginal:appended.length===1&&appended[0].includes(original),calls}
   },
@@ -781,6 +781,60 @@ const scenarios = {
     const unrelated=await handlers['agent.spawn']($,{name:'ordinary-fork',description:'ordinary',subagentType:'fork',fork:true},unrelatedNext)
     return {attempts,reached,unrelated}
   },
+  // Claude Code 2.1.330 real load (2026-11-23, run3-5): the host's correction
+  // $.session.send to its own side actor raised agent.spawn with resume.agentId
+  // and the actor's own "Side SSE ..." description; register.js refused it
+  // ("Side SSE native fork authorization did not match its pending host
+  // record"), so the actor never got the correction (Celly: 0 of 15 failed
+  // side actors received one). The correction resume of that exact owned actor
+  // must pass; a resume of any other id in the side namespace stays denied.
+  async 'side-correction-resume-of-owned-actor'() {
+    const id='c'.repeat(64); let claimed=false; const timers=[]; const outcome={}
+    const {$,state}=host(async(tool,args)=>{
+      if(tool==='work_status') return text({ ...snapshot(), side_intake_enabled:true })
+      if(tool==='work_side_status') return text({ enabled:true, side_inbox_receipts:[] })
+      if(tool==='work_parallel_status') return text({version:1,policy:{enabled:true,paused:false},leases:{}})
+      if(tool==='work_side_claim'){
+        if(claimed) return text({claim:null,settings:{max_active:1}})
+        claimed=true
+        return text({claim:{receipt_id:id,generation:'10000000000000000000000000000011',text:'event',route:{},lease_until:Date.now()/1000+600,
+          workload:{version:5,truncated:false,nodes:[],queue_order:[]}},settings:{max_active:1}})
+      }
+      if(tool==='work_side_fail') { (state.failed ||= []).push(args); return text({}) }
+      return text({})
+    })
+    $.clock.after=(delay,callback)=>{timers.push({delay,callback});return{cancel(){}}}
+    let description=null
+    $.agent.spawn=async args=>{
+      const own=async input=>({agentId:'side-actor-1'}); own.origin={plugin:'ciel-work'}
+      description=args.description
+      return handlers['agent.spawn']($,{...args,fork:true,parentAgentId:undefined},own)
+    }
+    // The engine: a send to an idle/completed agent resumes it through agent.spawn.
+    const resumeVia=(agentId,desc)=>{
+      const fn=async input=>({agentId:input.resume.agentId}); fn.origin={plugin:'ciel-work'}
+      return handlers['agent.spawn']($,{subagentType:'fork',description:desc,prompt:'',resume:{agentId}},fn)
+    }
+    $.session.send=async args=>{
+      (state.sent ||= []).push(args)
+      const started=await resumeVia(args.to.agentId,description)
+      return started?.deny ? {isDelivered:false,reason:'a plugin declined the resume: '+started.deny} : {isDelivered:true}
+    }
+    await handlers['session.start']($,{isInteractive:false},next(undefined))
+    await timers.find(t=>t.delay===2000).callback()
+    // The actor answered without a decision JSON: one correction is sent.
+    await handlers['turn.complete']($,{agentId:'side-actor-1',reason:'answer',answer:'nothing to do'},next(undefined))
+    outcome.firstSend=(state.sent||[]).length
+    outcome.failedAfterFirst=(state.failed||[]).length
+    // The same resume for an id the host never spawned stays refused.
+    outcome.foreign=await resumeVia('someone-else',description)
+    // Run any delayed retry, so a refusal that only shows up later is caught.
+    for (const t of timers.splice(0)) if (t.delay===1500) await t.callback()
+    outcome.sends=(state.sent||[]).length
+    outcome.failed=(state.failed||[]).map(f=>f.category)
+    outcome.logs=state.logs.filter(l=>/correct/.test(String(l)))
+    return outcome
+  },
   async 'side-time-limit-handoff-bounded'() {
     const handoff={event_id:'limit-1',item_id:'n9',kind:'time_limit',summary:'Deployment window closes',question:'Can this finish?',
       time_limit:{text:'Complete before maintenance closes',due_at:'2026-11-11T03:00:00Z',evidence:'change ticket CHG-42'},
@@ -803,6 +857,55 @@ const scenarios = {
     await mainTurn($,'T')
     const stop=await handlers['classic.Stop']($,{session_id:'S1'},next({}))
     return {context:(prompt.context||[]).join('\n'),block:stop?.block||''}
+  },
+  async 'side-retirement-retries-denied-stop'() {
+    const { $, state } = host(async tool => tool === 'work_status'
+      ? text({ ...snapshot(), side_intake_enabled: true }) : text({}))
+    state.agents = [
+      { id:'retired', type:'ciel-work:side-fresh', status:'idle', description:'Side SSE abcdef123456' },
+      { id:'foreign', type:'fork', status:'idle', description:'Unrelated fork' },
+    ]
+    const stops = [], timers = []
+    $.clock.after = (delay, callback) => { timers.push({delay, callback}); return {cancel(){}} }
+    $.tool.call = async ({task_id}) => {
+      stops.push(task_id)
+      if (stops.length === 1) return {deny:'stop refused'}
+      if (stops.length === 3) state.agents[0].status = 'killed'
+      return {result:{task_id, task_type:'local_agent', message:'stopped'}}
+    }
+    await handlers['session.start']($,{isInteractive:false},next(undefined))
+    const retry = timers.find(t => t.delay === 1000)
+    const beforeRetry = timers.length
+    if (retry) await Promise.all([retry.callback(), retry.callback()])
+    const confirm = timers.slice(beforeRetry).find(t => t.delay === 2000)
+    if (confirm) await Promise.all([confirm.callback(), confirm.callback()])
+    return { stops }
+  },
+  // Claude Code 2.1.330 real load (2026-11-23): a fresh side actor is listed
+  // "completed" once its turn ends, and TaskStop on it answers a tool error
+  // "Task <id> is not running (status: completed)" with no task_id.
+  async 'side-retirement-of-a-completed-actor'() {
+    const { $, state } = host(async tool => tool === 'work_status'
+      ? text({ ...snapshot(), side_intake_enabled: true }) : text({}))
+    state.agents = [
+      { id:'done-side', type:'ciel-work:side-fresh', status:'completed', description:'Side SSE abcdef123456' },
+      { id:'foreign', type:'fork', status:'idle', description:'Unrelated fork' },
+    ]
+    const stops = [], timers = []
+    $.clock.after = (delay, callback) => { timers.push({delay, callback}); return {cancel(){}} }
+    $.tool.call = async ({task_id}) => {
+      stops.push(task_id)
+      return {ref:1, result:'Error: Task ' + task_id + ' is not running (status: completed)',
+        text:'<tool_use_error>Task ' + task_id + ' is not running (status: completed)</tool_use_error>'}
+    }
+    await handlers['session.start']($,{isInteractive:false},next(undefined))
+    for (let round = 0; round < 5; round++) {
+      const due = timers.splice(0)
+      if (!due.length) break
+      for (const timer of due) await timer.callback()
+    }
+    await new Promise(resolve => setTimeout(resolve, 20))
+    return { stops, pending: timers.length, unconfirmed: state.logs.filter(t => /cleanup unconfirmed/.test(String(t))) }
   },
   async 'side-notification-isolation'() {
     const { $, state } = host(async tool => tool === 'work_status'
@@ -1821,6 +1924,35 @@ const scenarios = {
     $.agent.spawn=async args=>{spawned.push(args);return {agentId:'agent-'+spawned.length}}
     await handlers['session.start']($,{isInteractive:true},next(undefined))
     return {spawned:spawned.length,reserve}
+  },
+  // A router from before question_wait refuses waiting_on/release_hint in a
+  // question's detail (exact field set), so a fork it serves must not be told
+  // to send them. The contract is appended only when the router's parallel
+  // status advertises the capability (mode: 'old' | 'new').
+  async 'parallel-fork-prompt-question-wait-capability'() {
+    const mode = process.argv[3]
+    let reserve=0; const spawned=[]
+    const {$}=host(async(tool,args)=>{
+      if(tool==='work_status') return text(snapshot())
+      if(tool==='work_parallel_status') return text({version:9,active_device:0,
+        policy:{enabled:true,paused:false,priority_limits:{P1:1,P2:0,P3:0,P4:0,P5:0}},leases:{},
+        ...(mode==='new' ? {capabilities:['question_wait']} : {})})
+      if(tool==='work_parallel_event'){
+        if(args.event==='reserve_next'){
+          if(++reserve>1) return {isError:true,...text('no eligible candidate')}
+          return text({lease_id:'L1',plan_version:7,item_id:'n2',priority:'P1',worker_token:'e'.repeat(64)})
+        }
+        return text({})
+      }
+      return text({})
+    })
+    $.session.repo=async()=>null; $.session.root=async()=>'/repo'
+    $.agent.spawn=async args=>{spawned.push(args);return {agentId:'agent-new'}}
+    await handlers['session.start']($,{isInteractive:true},next(undefined))
+    await sleep(20)
+    const prompt=spawned[0]?.prompt||''
+    return {spawned:spawned.length,hasContract:prompt.includes('question_wait detail is exactly'),
+      hasOkf:prompt.includes('OKF'),namesWaitFields:/waiting_on|release_hint/.test(prompt)}
   },
   async 'parallel-report-refills-released-slot'() {
     let reserve=0; const spawned=[]

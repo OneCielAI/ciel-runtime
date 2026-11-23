@@ -9,6 +9,7 @@ import secrets
 import time
 from pathlib import Path
 from . import work_plan_tree as tree
+from .durable_file_lock import exclusive_file_lock
 from .work_parallel import (WorkParallelStore, WorkParallelConflict, WorkParallelError,
                             active_by_priority, digest, hash_worker_token, integer, require,
                             text, worker_token_matches)
@@ -62,7 +63,7 @@ def schemas():
         "work_parallel_configure": "On the user's natural-language request, persist Work 병렬 실행 limits (concurrent fork sessions per priority, launch rate, rework limit) or pause. This never limits registering or queueing Work items. Pass changes and expected_version from work_parallel_status. Does not approve a plan.",
         "work_parallel_run": "Dispatch an approved Work item: the packaged host starts the fork itself and returns the started lease/agent. You do not call the Agent tool or supply a name for this dispatch. Requires item_id, priority, role and expected_version. Codex is unsupported until its native adapter passes capability tests.",
         "work_parallel_event": "Coordinator lifecycle and authenticated host observations for Work forks. Main in Claude can request recover_submitted_review with the exact lease_id; the local host verifies native termination before publishing review. Workers report through work_parallel_report.",
-        "work_parallel_report": "Worker-only question/completion/handoff report. Requires the exact lease_id and one-use worker_token. Completion needs artifact+evidence; handoff needs a host-stored detail_digest. A successful report releases the fork slot; no session_id or host token.",
+        "work_parallel_report": "Worker-only question/completion/handoff report. Requires the exact lease_id and one-use worker_token. Completion needs artifact+evidence; handoff needs a host-stored detail_digest. A question that waits outside the original fork must use detail.waiting_on (one normalized line, max 120) with detail.release_hint {condition, lookup} where lookup is the read-only task/message/file/CI/deadline evidence to verify. Pairless or malformed question_wait is refused before parking; never pass item_id, answer, approval, or execution authorization. A plain question may omit the release pair; external instruction is not approval. A successful report releases the fork slot; no session_id or host token.",
         "work_parallel_item_review": "Main-session only decision for a bounded pending completed item. Requires lease_id, decision (approve|rework), decision_id, evidence and expected_finalization_version. The host authenticates main; workers and forks are denied. Rework returns a host dispatch intent and never exposes a worker token to main.",
     }
     discovery_item_schema = {
@@ -156,14 +157,17 @@ def _root_for(board, item_id):
     return current
 
 
-def parked_wait_cleared(board, item_id):
+def parked_wait_cleared(board, item_id, *, p0_authorized=False):
     """True when nothing on the board holds a parked worker's item now (Stage 3).
 
     Clear: the item is unfinished, its goal's phase is executing, and neither
-    the item nor any ancestor has waiting_on or the blocked status. Anything
-    unknown is not clear, so the host never resumes on a guess. This alone is
-    not "the wait was cleared": a worker question parks the lease without
-    recording waiting_on (``_worker_event``), so see ``_parked_wait_marks``.
+    the item nor any ancestor has waiting_on or the blocked status. An exact
+    already-launched P0 intent already carried dispatch authorization through
+    planning, so that exception is accepted only from the host projection when
+    it has verified the intent owns this lease. Anything unknown is not clear,
+    so the host never resumes on a guess. This alone is not "the wait was
+    cleared": a worker question parks the lease without recording waiting_on
+    (``_worker_event``), so see ``_parked_wait_marks``.
     """
     nodes = {node["id"]: node for node in (board or {}).get("nodes", [])}
     current = nodes.get(item_id)
@@ -174,7 +178,8 @@ def parked_wait_cleared(board, item_id):
             return False
         parent = current.get("parent_id")
         if parent is None:
-            return current.get("status") != "done" and tree.root_phase(board, current["id"]) == "executing"
+            return current.get("status") != "done" and (
+                p0_authorized or tree.root_phase(board, current["id"]) == "executing")
         current = nodes.get(parent)
         if current is None:
             return False
@@ -446,6 +451,8 @@ EVIDENCE_GROUPS = ("confirmed", "waiting", "reservation", "uncertain", "validati
 # in its own group until a legacy accept consumes it (then it is ended).
 GROUP_LABELS = {"legacy_reviewer": "Legacy reviewer (57dbfb3, read-only, draining)"}
 MODEL_LEASE_LIMIT = 24
+# Report contracts this router accepts, advertised in every parallel status.
+PARALLEL_CAPABILITIES = ("question_wait",)
 MODEL_ENDED_LIMIT = 8
 MODEL_TEXT_LIMIT = 180
 MAX_ENDED_REVIEWS = 20
@@ -610,13 +617,6 @@ def project(store, identity, board=None, *, host_view=False, caller_nonce=None, 
             workspace_path = _host_workspace_path(source)
             if workspace_path is not _NO_WORKSPACE_PATH:
                 row["workspace_path"] = workspace_path
-            # Host-only: a parked worker the mod may resume on its own lease
-            # (wait_cleared below, once every row is projected).
-            if source["state"] == "waiting_input" and not source.get("slot") and board is not None:
-                try:
-                    row["wait_clear_now"] = parked_wait_cleared(board, source["item_id"])
-                except Exception:
-                    row["wait_clear_now"] = False
             if p0_doc is not None and board is not None:
                 intent_rows = [value for value in p0_doc["intents"].values()
                                if value["lease_id"] == ident
@@ -641,6 +641,16 @@ def project(store, identity, board=None, *, host_view=False, caller_nonce=None, 
                                        authorization="p0_dispatch_without_approval")
                     except WorkParallelError:
                         pass
+            # Host-only: a parked worker the mod may resume on its own lease
+            # (wait_cleared below, once every row is projected). A P0 fork that
+            # was launched through planning keeps that exact authorization here.
+            if source["state"] == "waiting_input" and not source.get("slot") and board is not None:
+                try:
+                    row["wait_clear_now"] = parked_wait_cleared(
+                        board, source["item_id"],
+                        p0_authorized=row.get("effective_priority") == "P0")
+                except Exception:
+                    row["wait_clear_now"] = False
         if ident in hidden:
             row.pop("dispatch_name", None)
             row.pop("agent_name", None)
@@ -818,7 +828,11 @@ def project(store, identity, board=None, *, host_view=False, caller_nonce=None, 
             "codex_adapter": "unsupported",
             "limitations": ["dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations",
                             "external discovery requires a configured authenticated source connector"],
-            "wait_boost": _wait_boost_status(store, identity, board)}
+            "wait_boost": _wait_boost_status(store, identity, board),
+            # Report contracts this router accepts. The mod gives a fork the
+            # question_wait contract (waiting_on + release_hint in a question's
+            # detail) only when this lists it: an older router refuses them.
+            "capabilities": list(PARALLEL_CAPABILITIES)}
     if host_view:
         # The Work pane and /work-mode parallel show the same durable rows and
         # server texts as web, REST and ctl. Never in a model's own status.
@@ -1227,6 +1241,147 @@ def _approval_changed(cstate, board, lease_id):
         return True
 
 
+def _question_detail(lease, args, evidence):
+    """Return the unvalidated question body for the receipt validator."""
+    detail = args.get("detail")
+    if isinstance(detail, dict):
+        return copy.deepcopy(detail)
+    return {
+        "question": evidence,
+        "blocking_todos": [lease["item_id"]],
+        "decision_needed": evidence,
+    }
+
+
+def _validate_question_detail_before_write(detail):
+    """Validate a question body before any durable write; return its hint."""
+    from .work_parallel_receipts import _validate_detail
+    _validate_detail("question", detail)
+    if "release_hint" not in detail:
+        return None
+    return tree.normalize_release_hint(detail["release_hint"])
+
+
+def _record_question_wait(board_store, lease, detail):
+    """Record question_wait on the assigned leaf before any receipt is written.
+
+    ``waiting_on`` is the exact external answer/decision state this fork waits
+    for. ``release_hint.lookup`` is the read-only evidence target by which the
+    side/gate actor verifies it; neither value is an answer, approval, or
+    authorization to execute. The lease's own item is the only writable target,
+    even if caller arguments name another item (no item_id is consulted here).
+    Only the exact leaf is changed; status and ancestors stay untouched.
+    """
+    item_id = lease["item_id"]
+    waiting_on = detail["waiting_on"]
+    try:
+        release_hint = tree.normalize_release_hint(detail["release_hint"])
+    except tree.WorkPlanError as error:
+        raise WorkParallelError(str(error)) from None
+
+    def mutate(doc):
+        nodes = doc["nodes"]
+        by_id = {node["id"]: node for node in nodes}
+        if item_id not in by_id:
+            raise WorkParallelError("unknown assigned Work item")
+        assigned = detail.get("blocking_todos")
+        if (type(assigned) is not list or len(assigned) != 1
+                or type(assigned[0]) is not str or assigned[0] != item_id):
+            raise WorkParallelError(
+                "question_wait blocking_todos must be exactly the one assigned Work item; "
+                "a duplicate or extra entry is refused before parking")
+        if any(node["parent_id"] == item_id for node in nodes):
+            raise WorkParallelError("question_wait must be recorded on a leaf Work item")
+        index = next(i for i, row in enumerate(nodes) if row["id"] == item_id)
+        node = nodes[index]
+        if node["status"] == "done":
+            raise WorkParallelError("question_wait requires an unfinished assigned Work item")
+        if str(node.get("waiting_on") or "").strip():
+            raise WorkParallelError("assigned Work item already has a recorded wait")
+        replacement = dict(node)
+        replacement["waiting_on"] = waiting_on
+        replacement["release_hint"] = copy.deepcopy(release_hint)
+        replacement["updated_at"] = time.time()
+        nodes[index] = replacement
+
+    from .work_plan_store import WorkPlanConflict
+
+    for _ in range(4):
+        try:
+            version = board_store.read()["version"]
+            board_store.transaction(mutate, expected_version=version)
+            return
+        except (WorkParallelError, tree.WorkPlanError):
+            raise
+        except Exception as error:
+            if isinstance(error, WorkPlanConflict) or (
+                    "plan changed" in str(error) and "version" in str(error)):
+                continue
+            raise WorkParallelError(str(error)) from error
+    raise WorkParallelConflict("Work plan changed; question_wait not recorded")
+
+
+def _worker_question(store, board_store, lease, coord, assignment, args, evidence):
+    """Persist a question, recording a paired external wait before parking."""
+    detail = _question_detail(lease, args, evidence)
+    raw = args.get("detail")
+    provided = raw if isinstance(raw, dict) else {}
+    top_level_wait = args.get("waiting_on")
+    top_level_hint = args.get("release_hint")
+    if "waiting_on" in detail or "release_hint" in detail:
+        supplied_wait = ((top_level_wait is not None
+                          and provided.get("waiting_on") != top_level_wait)
+                         or (top_level_hint is not None
+                             and provided.get("release_hint") != top_level_hint))
+        if supplied_wait:
+            raise WorkParallelError(
+                "question_wait requires detail.waiting_on/release_hint; "
+                "top-level wait fields are not recorded")
+        if "waiting_on" not in detail or "release_hint" not in detail:
+            raise WorkParallelError(
+                "question_wait requires waiting_on and a structured release_hint before parking")
+        detail["release_hint"] = _validate_question_detail_before_write(detail)
+    elif top_level_wait is not None or top_level_hint is not None:
+        raise WorkParallelError(
+            "question_wait requires waiting_on and a structured release_hint before parking; "
+            "put both in detail because top-level wait fields are not recorded")
+
+    # A missing coordination assignment cannot durably bind a structured
+    # question_wait back to this exact lease, so decline rather than fabricate
+    # a board wait or park a receipt that the side cannot trace.
+    if "waiting_on" in detail and assignment is None:
+        raise WorkParallelError(
+            "question_wait assignment is missing; structured question_wait refused before parking")
+
+    has_wait = "waiting_on" in detail and "release_hint" in detail
+    # Validate the receipt body before any board, coordination, or ledger write.
+    _validate_question_detail_before_write(detail)
+    if has_wait:
+        _record_question_wait(board_store, lease, detail)
+    if assignment is not None:
+        cstate = coord.read()
+        _, question_receipt_digest = coord.persist_receipt(
+            lease["id"], "question", detail, expected_version=cstate["version"])
+    else:
+        question_receipt_digest = None
+    try:
+        d, _ = store.report_question(
+            lease["id"], plan_version=lease["plan_version"], evidence=evidence,
+            expected_version=store.read()["version"])
+    except WorkParallelConflict:
+        current = store.read()["leases"].get(lease["id"])
+        if current is None or current["state"] != "running" or not current["slot"]:
+            raise
+        d, _ = store.report_question(
+            lease["id"], plan_version=lease["plan_version"], evidence=evidence,
+            expected_version=store.read()["version"])
+    result = {"lease_id": lease["id"], "version": d["version"], "item_id": lease["item_id"],
+              "state": d["leases"][lease["id"]]["state"], "slot_released": True}
+    if question_receipt_digest:
+        result["receipt_digest"] = question_receipt_digest
+    return result
+
+
 def _worker_event(store, board_store, lease, args):
     event = args.get("event")
     if event == "review" or lease["role"] == "reviewer":
@@ -1287,13 +1442,7 @@ def _worker_event(store, board_store, lease, args):
                           {key: usage[key] for key in ("model", "main_model", "tokens", "seconds")
                            if type(usage.get(key)) in (str, int, float)})
     elif event == "question":
-        if assignment is not None:
-            detail = args.get("detail") if isinstance(args.get("detail"), dict) else {
-                "question": evidence, "blocking_todos": [lease["item_id"]], "decision_needed": evidence}
-            cstate = coord.read()
-            coord.persist_receipt(lease["id"], "question", detail, expected_version=cstate["version"])
-        d, _ = store.report_question(lease["id"], plan_version=lease["plan_version"], evidence=evidence,
-                                     expected_version=store.read()["version"])
+        return _worker_question(store, board_store, lease, coord, assignment, args, evidence)
     else:
         receipt_digest = args.get("detail_digest")
         if assignment is not None:
@@ -1405,6 +1554,35 @@ def parked_wait_projection(store, board_store, scope, released_items, ledger_ver
     return {"ledger_version": ledger_state["version"], "rows": rows}
 
 
+def _adopt_lineage_p0(store, board_store, identity, log=None):
+    """Carry P0 markers to this session from the sessions continuing its board.
+
+    The authenticated host's status read runs this before projecting, so P0
+    survives a native parked continuation instead of reading canonical P1
+    (Celly 2026-11-23). Only a board store that knows its lineage takes part;
+    a failed adoption leaves every store unchanged and is logged.
+    """
+    scopes_of = getattr(board_store, "lineage_scopes", None)
+    if scopes_of is None:
+        return
+    try:
+        scopes = scopes_of()
+        if len(scopes) <= 1:
+            return
+        board = board_store.read()
+        side = p0_state(store)
+        adopted = side.adopt_lineage_markers(identity, scopes, board,
+                                             expected_version=side.read()["version"])
+    except WorkParallelConflict:
+        return  # another writer moved the sidecar; the next status read retries
+    except (WorkParallelError, tree.WorkPlanError, OSError, ValueError) as error:
+        if log is not None:
+            log("WARN", "work_p0_lineage_adopt_failed error=" + type(error).__name__ + ": " + str(error)[:200])
+        return
+    if adopted and log is not None:
+        log("INFO", "work_p0_lineage_adopted roots=" + ",".join(row["root_id"] for row in adopted))
+
+
 def _board_or_none(board_store):
     try:
         return board_store.read()
@@ -1501,7 +1679,8 @@ def _retry_conflict(write, attempts=3):
 
 
 def _release_failed_reservation(store, ident, p0_intent, *,
-                                reason="workspace preparation failed before launch"):
+                                reason="workspace preparation failed before launch",
+                                preserve_on_lease_failure=False):
     """Undo one reservation that never launched: lease, coordination run, P0 intent.
 
     Each half is checked first and skipped when it is already gone (the orphan
@@ -1517,6 +1696,8 @@ def _release_failed_reservation(store, ident, p0_intent, *,
         _retry_conflict(release)
     except Exception:  # noqa: BLE001
         left.append("lease")
+        if preserve_on_lease_failure:
+            return left
     coord = coordination(store)
     try:
         def cancel():
@@ -1547,6 +1728,11 @@ ENDED_LEASE_STATES = ("done", "orphaned", "unreported")
 P0_ENDED_BEFORE_LAUNCH = "P0 ended before launch"
 
 
+def _p0_launch_lock(store):
+    """Serialize spawn authorization and ended-reservation cleanup across hosts."""
+    return exclusive_file_lock(Path(store.path).with_name("work-p0-launch"))
+
+
 def _release_unlaunched_ended_p0(store, identity):
     """Release P0 reservations that never launched and whose root is no longer P0.
 
@@ -1570,8 +1756,15 @@ def _release_unlaunched_ended_p0(store, identity):
             continue
         if side.matching_active_marker(side_doc, identity, row["root_id"], row["root_created_at"]):
             continue
-        left = _release_failed_reservation(store, row["lease_id"], row, reason=P0_ENDED_BEFORE_LAUNCH)
-        released.append((row["lease_id"], left))
+        with _p0_launch_lock(store):
+            current = side.read()
+            if (current["intents"].get(row["intent_id"]) != row
+                    or side.matching_active_marker(current, identity, row["root_id"], row["root_created_at"])):
+                continue
+            left = _release_failed_reservation(store, row["lease_id"], row,
+                                               reason=P0_ENDED_BEFORE_LAUNCH,
+                                               preserve_on_lease_failure=True)
+            released.append((row["lease_id"], left))
     return released
 
 
@@ -3940,6 +4133,8 @@ def run(name, args, board_store, identity, config, save_config, log=None):
                 config=config if isinstance(config, dict) else None,
             ), ensure_ascii=False)
         caller = (args.get("_host") or {}).get("launch_nonce") if host_read else None
+        if host_read:
+            _adopt_lineage_p0(store, board_store, identity, log)
         return json.dumps(project(store, identity, _board_or_none(board_store),
                                   host_view=host_read, caller_nonce=caller,
                                   config=config if isinstance(config, dict) else None), ensure_ascii=False)
@@ -4064,13 +4259,19 @@ def run(name, args, board_store, identity, config, save_config, log=None):
         # and the actual state transition must share the same readiness fence.
         _p0_key_ready(store, "spawn")
         side = p0_state(store)
-        state = side.read()
-        intent = state["intents"].get(args.get("intent_id"))
-        require(intent is not None and intent["lease_id"] == args.get("lease_id")
-                and intent["dispatch_name"] == args.get("dispatch_name"),
-                "P0 launch identity")
-        state, intent = side.transition_intent(
-            intent["intent_id"], "spawning", expected_version=state["version"])
+        with _p0_launch_lock(store):
+            state = side.read()
+            intent = state["intents"].get(args.get("intent_id"))
+            lease_id = args.get("lease_id")
+            lease = store.read()["leases"].get(lease_id)
+            require(intent is not None and lease is not None and intent["lease_id"] == lease_id
+                    and intent["scope"] == lease["scope"] == identity
+                    and intent["item_id"] == lease["item_id"]
+                    and intent["dispatch_name"] == args.get("dispatch_name") == lease.get("dispatch_name")
+                    and lease["state"] == "reserved" and lease["host_id"] is None and lease["slot"],
+                    "P0 launch identity")
+            state, intent = side.transition_intent(
+                intent["intent_id"], "spawning", expected_version=state["version"])
         return json.dumps({"intent_id": intent["intent_id"], "lease_id": intent["lease_id"],
                            "dispatch_name": intent["dispatch_name"], "state": intent["state"]},
                           ensure_ascii=False)

@@ -48,6 +48,55 @@ INTENT_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 P0_DISPATCH_RE = re.compile(r"^work-p0-[0-9a-f]{32}$")
 
 
+# A lease in one of these ledger states never runs or reports again, so its P0
+# intent no longer authorizes anything. An unreported lease is not here: its
+# stranded result can still be reviewed or recovered under P0.
+RETIRED_LEASE_STATES = frozenset(("done", "orphaned"))
+
+
+def evictable_intents(state, lease_states, *, observed_at):
+    """Intents that can no longer authorize a worker, in eviction order.
+
+    Cancelled rows first (they never launched), then rows whose lease is
+    retired in a ledger snapshot read at ``observed_at``: absent from it or in
+    a retired state. Only a row last changed before the snapshot qualifies: a
+    lease is written to the ledger before its intent records it, so a lease
+    absent from an older snapshot may simply not be written yet. A bound
+    intent that parents an open reacquire send is kept for its recovery.
+    ``lease_states`` None (no readable ledger) keeps the old rule: cancelled
+    rows only. Celly 2026-11-23: 256 rows of done/orphaned/gone leases and no
+    cancelled row blocked every new P0 intent.
+    """
+    open_parents = {row["parent_intent_id"] for row in state["sends"].values()
+                    if row["state"] in SEND_OPEN_STATES}
+    rows = []
+    for row in state["intents"].values():
+        if row["state"] == "cancelled":
+            rows.append(row)
+            continue
+        if (lease_states is None or row["lease_id"] is None
+                or row["intent_id"] in open_parents or not row["updated_at"] < observed_at):
+            continue
+        lease_state = lease_states.get(row["lease_id"])
+        if lease_state is None or lease_state in RETIRED_LEASE_STATES:
+            rows.append(row)
+    return sorted(rows, key=lambda row: (row["state"] != "cancelled", row["updated_at"],
+                                         row["intent_id"]))
+
+
+def _ledger_lease_states(ledger_path):
+    """{lease id: state} from the execution ledger, or None when unreadable.
+
+    None keeps eviction to cancelled rows only; it never authorizes anything.
+    """
+    from .work_parallel import WorkParallelStore
+    try:
+        leases = WorkParallelStore(ledger_path).read()["leases"]
+    except (WorkParallelError, OSError, ValueError, KeyError, TypeError):
+        return None
+    return {key: row.get("state") for key, row in leases.items() if isinstance(row, dict)}
+
+
 def _protected_clear_ids(state):
     """Newest clear_id for each active/cleared root marker (required by validate())."""
     active_identities = {
@@ -491,6 +540,81 @@ class WorkParallelP0Store:
             return marker
         return self._change(apply, expected_version)
 
+    @staticmethod
+    def lineage_adoptions(state, scope, lineage, board):
+        """The markers ``adopt_lineage_markers`` would copy to ``scope`` (pure).
+
+        For each unfinished root of ``board`` with no row under ``scope``, the
+        newest decision among the other ``lineage`` identities decides: an
+        active marker (decided at ``set_at``) for the same root generation is
+        adopted; a cleared or ended one (decided at ``ended_at``) is not.
+        """
+        others = set(lineage) - {scope}
+        if not others:
+            return []
+        roots = {row["id"]: row for row in (board or {}).get("nodes", [])
+                 if row.get("parent_id") is None and row.get("status") != "done"
+                 and number(row.get("created_at"), 1e15)}
+        latest = {}
+        for marker in state["roots"].values():
+            root = roots.get(marker["root_id"])
+            if (marker["scope"] not in others or root is None
+                    or marker["root_created_at"] != root["created_at"]):
+                continue
+            decided = marker["set_at"] if marker["state"] == "active" else marker["ended_at"]
+            prior = latest.get(marker["root_id"])
+            if prior is None or (decided, marker["state"] != "active") > prior[0]:
+                latest[marker["root_id"]] = ((decided, marker["state"] != "active"), marker)
+        return [copy.deepcopy(marker) for _, marker in sorted(
+                    latest.values(), key=lambda pair: (pair[1]["set_at"], pair[1]["root_id"]))
+                if marker["state"] == "active"
+                and root_key(scope, marker["root_id"]) not in state["roots"]]
+
+    def adopt_lineage_markers(self, scope, lineage, board, *, expected_version, now=None):
+        """Carry P0 across the sessions of one Work board (Celly 2026-11-23).
+
+        A native parked continuation keeps the board but changes the
+        conversation identity, and markers are keyed by identity, so every
+        restart dropped P0: 39 of 43 Celly markers named roots of the current
+        board under five identities. Each adopted marker keeps its original
+        set time and source and gets a completed operation row, as validate()
+        requires of an active marker. Rows already under ``scope`` always win.
+        Returns the adopted markers ([] when nothing changed; no write then).
+        """
+        require(text(scope, 200), "P0 lineage scope")
+        stamp = time.time() if now is None else now
+        require(number(stamp, 1e15), "P0 lineage clock")
+        if not self.lineage_adoptions(self.read(), scope, lineage, board):
+            return []
+        board_version = (board or {}).get("version", 0)
+        def apply(state):
+            adopted = []
+            for source in self.lineage_adoptions(state, scope, lineage, board):
+                if len(state["roots"]) >= MAX_ROOTS:
+                    break
+                _evict_oldest_done_clear(state, MAX_CLEARS)
+                if len(state["clears"]) >= MAX_CLEARS:
+                    break
+                marker = {"scope": scope, "root_id": source["root_id"],
+                          "root_created_at": source["root_created_at"], "state": "active",
+                          "set_at": source["set_at"], "set_by": source["set_by"],
+                          "ended_at": None, "ended_reason": None}
+                facts = json.dumps(["ciel.p0.lineage-adopt.v1", scope, source["scope"],
+                                    source["root_id"], source["root_created_at"]])
+                digest = hashlib.sha256(facts.encode()).hexdigest()
+                state["roots"][root_key(scope, source["root_id"])] = marker
+                state["clears"][digest[:32]] = {
+                    "clear_id": digest[:32], "scope": scope, "root_id": source["root_id"],
+                    "root_created_at": source["root_created_at"], "target_priority": "P1",
+                    "state": "done",
+                    "board_version_before": board_version if integer(board_version) else 0,
+                    "set_by": source["set_by"], "operation_digest": digest,
+                    "created_at": stamp}
+                adopted.append(copy.deepcopy(marker))
+            return adopted
+        _, adopted = self._change(apply, expected_version)
+        return adopted
+
     def prepare_set(self, scope, root_id, root_created_at, board_version, *, set_by,
                     expected_version, operation_id=None, operation_digest=None, now=None):
         """Marker-first P0 set; the existing operation row durably tracks board P1."""
@@ -662,7 +786,7 @@ class WorkParallelP0Store:
             return (any(row["state"] in OPEN_INTENT_STATES for row in state["intents"].values())
                     or any(row["state"] in SEND_OPEN_STATES for row in state["sends"].values()))
 
-    def _create_intent_mutation(self, facts, *, now=None):
+    def _create_intent_mutation(self, facts, *, now=None, lease_states=None, observed_at=None):
         require(type(facts) is dict and set(facts) == {
             "scope", "root_id", "root_created_at", "item_id", "continuation",
             "predecessor_lease_id"}, "P0 intent facts")
@@ -685,12 +809,16 @@ class WorkParallelP0Store:
                         "open P0 intent facts changed")
                 return prior
             if len(state["intents"]) >= MAX_INTENTS:
-                # A cancelled intent cannot authorize a worker or parent a
-                # reacquire send. Keep bound and terminal approval evidence.
-                oldest = min((r for r in state["intents"].values() if r["state"] == "cancelled"),
-                             key=lambda r: (r["updated_at"], r["intent_id"]), default=None)
-                if oldest is not None:
-                    del state["intents"][oldest["intent_id"]]
+                # Evict the oldest row that can no longer authorize a worker;
+                # bound/terminal evidence of a live lease is kept.
+                victims = evictable_intents(state, lease_states, observed_at=(
+                    stamp if observed_at is None else observed_at))
+                if victims:
+                    victim = victims[0]["intent_id"]
+                    del state["intents"][victim]
+                    for send_id in [key for key, send in state["sends"].items()
+                                    if send["parent_intent_id"] == victim]:
+                        del state["sends"][send_id]
             require(len(state["intents"]) < MAX_INTENTS, "P0 intent bound")
             row = {"intent_id": intent_id, **copy.deepcopy(facts),
                    "dispatch_name": dispatch_name(intent_id), "state": "intent",
@@ -716,8 +844,14 @@ class WorkParallelP0Store:
             p0_reader=P0StoreDependencyReader(self),
             wait_reader=WaitStoreDependencyReader(wait_store),
         )
+        # Lease states for evicting retired intents at the bound, read before
+        # any lock is taken. The clock is read first: only an intent changed
+        # before this snapshot may be judged by it.
+        observed_at = time.time()
+        lease_states = _ledger_lease_states(ledger)
         return coordinator.create_p0_intent(
-            self, facts, expected_version=expected_version, now=now
+            self, facts, expected_version=expected_version, now=now,
+            lease_states=lease_states, observed_at=observed_at,
         )
 
     def prepare_reacquire_send(self, parent_intent_id, lease, *, ledger_before_version,

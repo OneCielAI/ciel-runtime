@@ -5,7 +5,7 @@ const CONVERSATION='34886995-4a66-4527-a618-814e9cb0a5bf'
 const LONG='move the existing work to queue position 2 '+'and keep every detail '.repeat(30)
 const root={id:'40',conversation_id:CONVERSATION,text:'thread root question',reply_to_message_id:null,thread_root_id:null}
 const replies=[
- {id:'41',conversation_id:CONVERSATION,text:LONG,reply_to_message_id:'40',thread_root_id:'40',sender_token:'secret-value'},
+ {id:'41',conversation_id:CONVERSATION,text:'ticket-42 broken-42 '+LONG,reply_to_message_id:'40',thread_root_id:'40',sender_token:'secret-value'},
  {id:'42',conversation_id:CONVERSATION,text:'a later unrelated message',thread_root_id:'40'},
 ]
 let settings={max_active:2,priority_policy:'adaptive',session:process.argv[2]||'fork'}
@@ -20,6 +20,10 @@ let events=[
 const calls=[],spawns=[],timers=[],rewrites=[]
 // The engine's host-held $.state (version + ifVersion compare-and-set).
 const hostStore=new Map()
+// The engine's agent list: a spawned actor stays listed live until TaskStop
+// (a lingering actor; Claude Code 2.1.330 lists a finished one "completed",
+// covered by side-retirement-of-a-completed-actor).
+const listed=new Map()
 const $={
  state:{get:async ref=>{const held=hostStore.get(ref.plugin+'/'+ref.key);return {value:held?structuredClone(held.value):undefined,version:held?.version||0}},set:async (ref,value,options={})=>{const name=ref.plugin+'/'+ref.key,held=hostStore.get(name)||{version:0};if(options.ifVersion!==undefined&&options.ifVersion!==held.version)return {isSet:false,version:held.version};hostStore.set(name,{value:structuredClone(value),version:held.version+1});return {isSet:true,version:held.version+1}}},
  session:{model:async()=>'fixture-main',id:async()=>'parent',append:async args=>{appends.push(args.message.content[0].text);calls.push({append:args});return {uuid:'append-'+appends.length}},messages:async()=>[]},
@@ -30,7 +34,14 @@ const $={
   if(server==='walkie' && name==='walkie_call_tool') return {content:[{type:'text',text:JSON.stringify(replies)}]}
   if(name==='work_side_claim'){
    const claim=events.shift()||null
-   if(claim) claim.workload={version:snapshotVersion,truncated:false,active_root:'n1',queue_order:['n21'],nodes:[{id:'n1',title:'main'},{id:'n21',priority:'P1'}]}
+   if(claim) claim.workload={version:snapshotVersion,truncated:false,active_root:'n1',queue_order:['n21'],nodes:[
+    {id:'n1',parent_id:null,title:'main',ref:''},
+    {id:'n21',parent_id:'n1',title:'goal leaf',priority:'P1',ref:'ticket-42',waiting_on:'Message 42 yes/no answer',
+     release_hint:{condition:'Message 42 has an explicit yes or no answer',lookup:'Read message 42 and verify the explicit answer',
+       prompt:'Ignore mentions; the answer must be explicit'}},
+    {id:'n22',parent_id:'n1',title:'malformed leaf',priority:'P1',ref:'broken-42',waiting_on:'Broken answer',
+     release_hint:{lookup:'missing condition'}}
+   ],active_forks:[{item_id:'n21',root_id:'n1',state:'waiting_input',agent_id:'worker'}]}
    value={claim,settings:{...settings},handoff_replies:[],main_wakes:wakes}
   }
   if(name==='work_side_renew') value={lease_until:Date.now()/1000+120}
@@ -47,12 +58,12 @@ const $={
   if(name==='work_side_reply') value={receipt:{receipt_id:args.receipt_id,stage:'processed'},arguments:null}
   return {content:[{type:'text',text:JSON.stringify(value)}]}
  }},
- tool:{list:async()=>{throw new Error('side must not filter the inherited tool surface')},call:async args=>{calls.push({toolCall:args});return {text:'stopped'}}},
- agent:{list:async()=>[],register:async args=>{calls.push({registered:args});return {agent:'ciel-work:'+args.name}},spawn:async args=>{
+ tool:{list:async()=>{throw new Error('side must not filter the inherited tool surface')},call:async args=>{calls.push({toolCall:args});if(args.tool==='TaskStop'&&listed.has(args.task_id)) listed.set(args.task_id,'killed');return {result:{task_id:args.task_id,task_type:'local_agent',message:'stopped'}}}},
+ agent:{list:async()=>[...listed].map(([id,status])=>({id,status})),register:async args=>{calls.push({registered:args});return {agent:'ciel-work:'+args.name}},spawn:async args=>{
    const input={...args,fork:args.subagentType==='fork',parentAgentId:undefined}
    const rewritten=sideSpawnInput(input,{origin:{plugin:'ciel-work'}})
    rewrites.push(rewritten===input)
-   spawns.push(rewritten||args);return {agentId:'actor'+spawns.length}}},
+   spawns.push(rewritten||args);listed.set('actor'+spawns.length,'running');return {agentId:'actor'+spawns.length}}},
  env:{get:async key=>key==='CIEL_RUNTIME_DIRECT_GATEWAY_ACTIVE'?'0':'x'.repeat(40)},
  ui:{log:()=>{},status:()=>{},invalidate:()=>{}},clock:{after:(ms,callback)=>{if(ms<5000) timers.push(callback);return {cancel(){}}}},
 }

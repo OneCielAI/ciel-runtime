@@ -4,7 +4,8 @@ const PREFIX = 'mcp__ciel-runtime-router__'
 const CLAIM_GENERATION = /^[0-9a-f]{32}$/
 const actors = new Map()
 const ownedSideActors = new Set()
-const retiredSideActors = new Set()
+const retiredSideActors = new Map()
+const SIDE_STOP_MAX_ATTEMPTS = 3
 const pending = new Map()
 const answeredHandoffs = new Set()
 const wokenHandoffs = new Set()
@@ -294,12 +295,35 @@ function walkieEventText(original) {
 // work_status (text) to find an item, work_status root_id=<goal> detail=true for
 // one goal. The host keeps the full projection for validation, wait release and
 // relay.
+function compactReleaseHint(hint) {
+  if (!hint || typeof hint !== 'object' || Array.isArray(hint)) return null
+  const condition = hint.condition
+  const lookup = hint.lookup
+  const prompt = hint.prompt
+  const valid = text => typeof text === 'string' && text.length > 0 && text.trim() === text
+    && text.length === line(text, text.length).length && text === line(text, text.length)
+  if (!valid(condition) || condition.length > 600 || !valid(lookup) || lookup.length > 600
+      || (prompt !== undefined && (!valid(prompt) || prompt.length > 400))) return null
+  if (Object.keys(hint).some(key => !['condition','lookup','prompt'].includes(key))) return null
+  return {condition:line(condition,600), lookup:line(lookup,600),
+    ...(prompt ? {prompt:line(prompt,400)} : {})}
+}
 function compactWorkload(workload,text) {
   const nodes = Array.isArray(workload?.nodes) ? workload.nodes : []
   const byId = new Map(nodes.map(node => [node.id,node]))
-  const brief = node => Object.fromEntries(['id','parent_id','title','status','priority','phase','waiting_on']
-    .filter(key => node[key] !== undefined && node[key] !== null && node[key] !== '')
-    .map(key => [key, typeof node[key] === 'string' ? line(node[key],160) : node[key]]))
+  const brief = node => {
+    const releaseHint = node.release_hint === undefined ? undefined : compactReleaseHint(node.release_hint) || undefined
+    return Object.fromEntries(['id','parent_id','title','status','priority','phase','waiting_on',
+      ...(releaseHint ? ['release_hint'] : [])]
+    .filter(key => {
+      const value = key === 'release_hint' ? releaseHint : node[key]
+      return value !== undefined && value !== null && value !== ''
+    })
+    .map(key => {
+      const value = key === 'release_hint' ? releaseHint : node[key]
+      return [key, typeof value === 'string' ? line(value,160) : value]
+    }))
+  }
   const source = String(text || '')
   const picked = new Map()
   for (const node of nodes) {
@@ -574,7 +598,12 @@ due_at을 추정하지 마십시오. 우선순위가 낮아도 time_limit은 보
 "ask_main": true를 넣으십시오.
 
 기록된 대기: waiting_on이 있는 노드는 거기 적힌 신호(사람의 승인이나 답, 리뷰,
-빌드·CI·배포·git 결과)가 올 때까지 막혀 있습니다. 이 이벤트가 바로 그 신호이면
+빌드·CI·배포·git 결과)가 올 때까지 막혀 있습니다. release_hint가 있으면
+release_hint.lookup을 읽기 전용으로 조회하고 release_hint.condition을 엄격히
+검증하십시오. 의견 변경이나 이후의 더 강한 답변으로 대체하지 말고, 현재 waiting_on에
+대해 명시적으로 제공된 원래 답으로 검증한 경우에 한해 해제합니다. 조회로 답을
+제공하면 원래 포크가 resume됩니다. 승인이 보류 중이면 waiting_on/해제 힌트를
+없애지 말고 그대로 두십시오. 이 이벤트가 바로 그 신호이면
 대기 중인 노드에 action update(kind request)를 쓰고 release_waits: [{"id": 노드 id,
 "waiting_on": 현재 문구 그대로}]를 넣으십시오. 호스트가 즉시 대기를 풀고, 큐가
 그 항목을 자동으로 실행합니다. 누구도 확인할 필요가 없습니다. 이 이벤트가 분명히
@@ -631,14 +660,54 @@ no_reply, complaint, refs(관련 id 전체). 다른 필드는 없습니다.
 예: {"understanding":"...","decision":{"action":"answer","kind":"status","summary":"...","reply":"..."},"expected_version":N}
 예전의 advise는 쓰지 않습니다. 모든 필드는 호스트가 검증하고 기록합니다.`
 
-async function stopRetired($) {
-  for (const id of [...retiredSideActors]) {
-    try { await $.tool.call({tool:'TaskStop',task_id:id}) } catch {}
+// True when the engine's own agent list shows the actor ended (absent, or
+// completed/failed/killed); false while it is listed live; undefined when the
+// list could not be read.
+async function sideActorEnded($, id) {
+  try {
+    const listed = await $.agent.list()
+    if (!Array.isArray(listed) || !listed.every(row => row && typeof row.id === 'string')) return undefined
+    const row = listed.find(entry => entry.id === id)
+    return !row || ['completed','failed','killed'].includes(row.status)
+  } catch { return undefined }
+}
+async function stopRetiredActor($, id, attempt) {
+  if (retiredSideActors.get(id) !== attempt || attempt.running
+      || attempt.count >= SIDE_STOP_MAX_ATTEMPTS) return
+  attempt.running = true
+  attempt.count++
+  let confirmed = false
+  try {
+    // Claude Code 2.1.330 real load (2026-11-23): a side actor whose turn has
+    // ended is already listed "completed", and TaskStop answers it "is not
+    // running" with no task_id. Only a listed live actor is stopped, and the
+    // engine's list after the call decides, whatever TaskStop answered: a
+    // refused or failed stop leaves a live actor tracked for the next attempt.
+    confirmed = await sideActorEnded($, id) === true
+    if (!confirmed) {
+      await $.tool.call({tool:'TaskStop',task_id:id})
+      confirmed = await sideActorEnded($, id) === true
+    }
+  } catch { /* A rejected call is not evidence the actor was stopped. */ }
+  attempt.running = false
+  if (retiredSideActors.get(id) !== attempt) return
+  if (confirmed) {
     retiredSideActors.delete(id); actors.delete(id)
-    // Keep a bounded tombstone until the delayed TaskStop notification arrives,
-    // otherwise it leaks into the main conversation after cleanup.
+    // Keep the ownership tombstone for the delayed TaskStop notification.
     if (ownedSideActors.size > 200) ownedSideActors.delete(ownedSideActors.values().next().value)
+  } else if (attempt.count < SIDE_STOP_MAX_ATTEMPTS) {
+    scheduleSideStop($, id, attempt, 1000 * attempt.count)
+  } else {
+    try { $.ui.log('Ciel side: actor cleanup unconfirmed after ' + attempt.count + ' attempts: ' + id, {to:'debug'}) } catch {}
   }
+}
+function scheduleSideStop($, id, attempt, delay) {
+  try { $.clock.after(delay, () => stopRetiredActor($, id, attempt)) }
+  catch { /* Keep the unconfirmed actor tracked even if the clock is unavailable. */ }
+}
+function trackRetiredSide(id) {
+  if (!retiredSideActors.has(id)) retiredSideActors.set(id, {count:0, running:false})
+  return retiredSideActors.get(id)
 }
 // Side actors are native forks described "Side SSE ...", or (session "fresh")
 // this plugin's registered side type; actors of the retired registered type
@@ -674,8 +743,7 @@ function retire($,actor) {
   // Each side actor serves exactly one event, then is stopped. An in-process
   // teammate otherwise stays idle forever (observed: one per Walkie event).
   actor.current = null; actor.retired = true
-  if (actor.id) retiredSideActors.add(actor.id)
-  $.clock.after(10,async()=>{await stopRetired($)})
+  if (actor.id) scheduleSideStop($, actor.id, trackRetiredSide(actor.id), 10)
 }
 export async function startSide($) {
   lifecycle++; busy = false; pending.clear()
@@ -683,13 +751,13 @@ export async function startSide($) {
   // $.state; /clear and a fresh process do not). Prompts this module itself
   // issued stay marked until their own resolution or idle-window release.
   await sidePromptHydrate($)
-  for (const actor of actors.values()) { actor.current = null; if (actor.id) retiredSideActors.add(actor.id) }
+  for (const actor of actors.values()) { actor.current = null; actor.retired = true; if (actor.id) trackRetiredSide(actor.id) }
   // Side actors never outlive their event; any left from an earlier lifecycle
   // (idle teammates included) are stopped, not reused.
   for (const actor of await $.agent.list()) {
-    if (ownedSide(actor)) { ownedSideActors.add(actor.id); retiredSideActors.add(actor.id) }
+    if (ownedSide(actor)) { ownedSideActors.add(actor.id); trackRetiredSide(actor.id) }
   }
-  await stopRetired($)
+  for (const [id, attempt] of retiredSideActors) void stopRetiredActor($, id, attempt)
   await $.mcp.connect('ciel-runtime-router')
 }
 // Whether main is inside a turn; register.js owns that state (turn.start/complete).
@@ -2061,6 +2129,13 @@ export function sideOwns(agentId) { return actors.get(agentId) }
 // it claims a pending side identity but fails the fork proof; register.js
 // returns the deny before any Work logic so it never reaches next(e).
 export function sideSpawnInput(e,next) {
+  // The host's own correction send resuming the exact owned actor (see
+  // correctionResumes). Nothing else about a resume can change its run.
+  const resumed = typeof e.resume?.agentId === 'string' ? e.resume.agentId : ''
+  if (resumed && correctionResumes.has(resumed) && next?.origin?.plugin === 'ciel-work') {
+    const actor = actors.get(resumed)
+    if (actor && ownedSideActors.has(resumed) && !actor.retired && actor.current) return e
+  }
   const row = [...pending.values()].find(value => value.description === e.description)
     || (typeof e.name === 'string' ? pending.get(e.name) : null)
   if (!row) return null
@@ -2448,9 +2523,18 @@ function correctionText(reason) {
     + 'create, update and prioritize carry refs, every related source id you confirmed. '
     + 'Do not call tools or send anything.'
 }
+// Actor ids whose correction send is in flight. Claude Code 2.1.330 delivers a
+// send to an idle or completed agent by resuming it through agent.spawn with
+// its own "Side SSE ..." description (real load 2026-11-23); register.js
+// refused that as an unauthorized side spawn, so no correction ever reached an
+// actor (Celly: 0 of 15 failed side actors). Only the resume of this exact
+// owned actor, from this plugin, during this host's own send, is authorized.
+const correctionResumes = new Set()
 async function sendCorrection($,actor,reason) {
+  correctionResumes.add(actor.id)
   try { return await $.session.send({to:{agentId:actor.id},text:correctionText(reason)}) }
   catch (error) { return {isDelivered:false,reason:String(error?.message || error)} }
+  finally { correctionResumes.delete(actor.id) }
 }
 async function correctSide($,actor,event,reason) {
   if (actor.corrected || actor.understood || !actor.id || !CORRECTABLE.test(String(reason || ''))) return false

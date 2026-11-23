@@ -25,6 +25,9 @@ class ChannelMcpRuntimeServices:
     load_config: Callable[[], dict[str, Any]] | None = None
     # (config) -> None; persists work_mode_set like the menu's Work mode option.
     save_config: Callable[[dict[str, Any]], None] | None = None
+    # (level, message) -> None; the router log, given to the Work tools so their
+    # diagnostics (e.g. Git's text for a failed fork workspace) are written.
+    log: Callable[[str, str], Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -467,6 +470,7 @@ def _work_tool(request_id: Any, name: str, args: dict[str, Any], services: Chann
         respond=channel_mcp_tool_response,
         metadata=metadata,
         save_config=services.runtime.save_config,
+        log=services.runtime.log,
     )
 
 

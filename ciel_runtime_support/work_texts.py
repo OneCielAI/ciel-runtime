@@ -92,11 +92,23 @@ TEXTS: dict[str, str] = {
     # A launch attempt owned by another live host.
     'mod_owner_live': (
         "Another live Work host owns this launch attempt; waiting for that host."),
-    # Rules every Work fork prompt carries: OKF documents at milestones and at the end.
+    # Rules every Work fork prompt carries: OKF records.
     'mod_fork_rules': (
         "작업 기록 (필수 규칙): 작업 중간의 마일스톤마다, 그리고 마무리할 때 OKF 문서를 갱신하십시오. 작업 공간의 docs 아래 OKF 계층 구조(저널)에 이 아"
         "이템의 문서를 두고, 마일스톤마다 무엇을 했는지, 근거(명령, 출력, 파일), 결과, 남은 일과 다음 단계를 적습니다. 문서를 갱신하지 않은 채 완료를 보고하지 "
         "마십시오. 완료 보고의 증거에 그 문서의 경로를 포함하십시오."),
+    # The complete work_parallel_report event=question contract (question_wait).
+    # Appended to a fork prompt only when the router advertises the
+    # question_wait capability: a router from before it refuses waiting_on and
+    # release_hint in a question's detail (exact field set).
+    'mod_fork_question_wait': (
+        "work_parallel_report event=question contract (필수 규칙): Report only with the exact lease_id and worker_token. "
+        "question_wait detail is exactly: {question, blocking_todos:[<assigned leaf item_id>], decision_needed, waiting_on, release_hint:{condition, lookup, prompt?}}. "
+        "Example: detail={question:'Which option is intended?', blocking_todos:[<assigned leaf item_id>], decision_needed:'Reply yes/no on message 42', waiting_on:'Message 42 yes/no answer', release_hint:{condition:'Message 42 has an explicit yes or no answer', lookup:'Read message 42 and verify the explicit answer', prompt:'Ignore mentions; the answer must be explicit'}}. "
+        "Side validation requires blocking_todos to have exactly one item: the assigned leaf ITEM_ID. waiting_on is the exact external decision state (one normalized line, 1..120 chars); release_hint.lookup is the read-only source/state/evidence the side verifies (condition 1..600, lookup 1..600, optional prompt 1..400). "
+        "Waiting must be recorded inside detail against the assigned leaf ITEM_ID only. Never place waiting_on or release_hint at top level; never pass item_id, answer, approved, or any approval/execution field. waiting_on/release_hint are never an answer, approval, or execution authorization; a main-only question may omit the pair. "
+        "question_wait requires waiting_on and a structured release_hint before parking whenever an external wait is requested. A refusal of a pairless/malformed wait, wrong/extra/duplicate blocking_todos, an existing wait, a non-leaf, missing assignment information, or a board conflict writes no board state, receipt, or lease/state transition, so the same lease remains running/slotted and you must correct/retry it. Only start a wait once per lease. On success the original lease is parked as waiting_input and side/gate checking sees the recorded gate; lookup is read-only. Release is accepted only after the original answer/lookup is verified by side/gate and resume resumes that original lease/fork. "
+        "Detail validation may reject fields (detail needs exactly blocking_todos, decision_needed, question (optional: release_hint, waiting_on)). Parser order is question, blocking_todos, decision_needed, waiting_on, release_hint{condition, lookup, prompt?}. The parser validates required fields before optional fields; write waiting_on and release_hint last in detail."),
     # Main is told at its turn end that fork results await its review.
     'mod_review_reminder': (
         "Ciel Work: 포크 결과 {count}건이 메인의 검수를 기다립니다(아이템 {items}). 검수는 메인의 일입니다. 각 결과의 증거를 직접 열어 보고 {c"

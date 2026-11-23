@@ -1,0 +1,60 @@
+{
+  "kind": "side actor retirement under refused TaskStop, real load",
+  "claude_version": "2.1.330 (Claude Code)",
+  "side_session": "fresh",
+  "mod_sha256": {
+    "register.js": "52bab84e8b7d5f404e01743e5c91cdb85730b5535c10041c1370273dc02053da",
+    "side-intake.js": "1784b626d613686425439848397bf69a88d29dc2d705adc30b72e06cfd3a5d64",
+    "texts.generated.js": "9297e094f6432d5bb156d5e16bd708c2e0ca73ac7550d59cde72bcea8bb7aa9f"
+  },
+  "fault_mod_sha256": "5b6dbb55327d4b0e0e4bc43a2c568df2f3d4c6d3ec935a100ffa6996a9612d16",
+  "source_matches_snapshot": true,
+  "steps": {
+    "mod_load_line": "hooks module ciel-work@inline loaded (worker, environment 1, tier user); events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,sess",
+    "fault_load_line": "hooks module stop-fault@inline loaded (worker, environment 3, tier user); events: tool.call",
+    "session_start_settled_ms": 74.8,
+    "e1_sent_s": 6.5,
+    "first_denial_seen_s": null,
+    "e2_sent_s": 126.7,
+    "e1_stage": "received",
+    "e2_stage": "received",
+    "e2_done_s": 307.2
+  },
+  "root_pid_recorded": true,
+  "kill": "SUCCESS: The process with PID 81944 (child process of PID 55160) has been terminated.",
+  "stop_calls": {
+    "denied": [],
+    "passed": [],
+    "times": []
+  },
+  "side_log": [],
+  "unconfirmed_lines": [],
+  "unloaded_lines": [],
+  "failed_to_load": [],
+  "mcp_calls": [],
+  "model_requests": [],
+  "receipt_refs": {
+    "e1": "65c03380432f",
+    "e2": "abb10247a1c9"
+  },
+  "final_stages": {
+    "e1": "received",
+    "e2": "received"
+  },
+  "checks": {
+    "mod_loaded": true,
+    "fault_mod_loaded": true,
+    "no_failed_to_load": true,
+    "no_unload": true,
+    "event1_processed": false,
+    "event2_processed": false,
+    "actor1_refused_twice": false,
+    "actor1_stop_passed_after_refusals": false,
+    "actor2_stop_passed": false,
+    "no_cleanup_unconfirmed": true,
+    "event2_queued_after_first_refusal": false
+  },
+  "passed": false,
+  "profile_unchanged": false,
+  "scratch_removed": false
+}

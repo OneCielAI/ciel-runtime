@@ -1,6 +1,125 @@
 # Change log
 
+## 2026-11-23
+
+- 10:32:34–10:32:52Z 읽기 전용 틱(직전 10:15Z). 4호스트 수집 성공. 운영 재시작·상태 파일 변경·배포 없음.
+  - Andy: 제출 21→22·실행 2→1(대기 4), 원장 v6167→6169, 보드 v10706→10711, MCP 406ms, findings 1(n1166 유지). auto continue가 Work 상태를 못 읽음 10:20:06Z 1건(원인 미확인). 세션 자체 셸 오류 2(10:22:56Z exit 127, 10:29:34Z 읽기 스크립트 exit 1) — 제품 결함 아님. 라우터: SSE EOF 16, `cielairouter_transient_retry` 9(같은 operation 재시도 포함, 업스트림 일시 오류 재시도 경로).
+  - Celly: 제출 2→3·대기 6→4·실행 2→3, 원장 v7965→7976, 보드 v9697→9703, MCP 250ms. n1381 `P0 intent bound` finding 지속. side 영수증 87(processed 73, quarantined 14) — 격리 증가 없음. P0 intent 256 지속(current scope 0).
+  - KOBE: 변화 없음(원장 v3048, 보드 v672), n102 finding 지속. side 실패 원본 전달 10:25:25Z.
+  - Prody: 변화 없음(제출 6, 원장 v613, 보드 v6801), side 실패 원본 전달 3(10:17:27·10:18:27·10:29:00Z).
+  - 회귀 `sidecorr.095712`(능력 분리 전): Windows·py310·py311 각 811/0 실패/58 skip. 최종 트리 `final.102159` 진행 중. 실CLI 실행 8(최종 코드) 15/15 통과. compileall·ruff 0.15.22(추적 파일)·check:docs 통과.
+
+- 10:15:32–10:15:52Z 읽기 전용 틱(직전 09:59Z). 4호스트 수집 성공. 운영 재시작·상태 파일 변경·배포 없음.
+  - Andy: 실행 3→2(제출 21·대기 4), 원장 v6162→6167, 보드 v10700→10706, MCP 922ms, findings 1(n1166 유지). 새 세션 오류 없음. 라우터 새 창: SSE EOF 16, 채널 투영 지속 3(120/240/360 s), 원인 미확인.
+  - Celly: 대기 5→6(제출 2·실행 2), 원장 v7952→7965, 보드 v9685→9697, MCP 281ms. n1381 `P0 intent bound` finding 지속. 메인이 리뷰어 포크 시작 거부를 받음 10:12:21Z(정상 가드: 메인이 직접 검수). side 영수증 82(processed 67, quarantined 14, processing 1) — 격리 수 증가 없음. P0 intent 256 지속.
+  - KOBE: 보드 v669→672, 원장 v3048, n102 finding 지속. side 실패 원본 전달 10:05:19–20Z.
+  - Prody: 변화 없음(제출 6, 원장 v613, 보드 v6801), side 실패 원본 전달 10:07:45Z·10:15:23Z.
+  - 격리 작업: 배포 순서 호환 결함 입증·수정 — 모드만 설치되고 라우터가 재시작 전이면 옛 라우터가 `waiting_on`/`release_hint`가 든 질문 detail을 정확한 필드 집합 검사로 거부한다. 계약을 `mod_fork_question_wait`로 분리하고, 라우터가 `capabilities:["question_wait"]`를 광고할 때만 포크 프롬프트에 붙인다(실패 테스트 먼저). 실CLI 실행 7 통과(15/15). 실행 8(최종 코드)과 회귀 `sidecorr.095712` 진행 중.
+
+- 09:59:27–09:59:47Z 읽기 전용 틱(직전 09:34Z). 4호스트 수집 성공. 운영 재시작·상태 파일 변경·배포 없음.
+  - Andy: 리스 구성 동일(제출 21·대기 4·실행 3), 원장 v6162, 보드 v10696→10700, MCP 687ms, findings 1(n1166 유지). side 실패 원본 메인 전달 09:55:52Z 1건.
+  - Celly: 대기 7→5·실행 1→2·제출 2, 원장 v7917→7952, 보드 v9670→9685, MCP 1219ms. n1381 `P0 intent bound` finding 지속, newfail `decision_refused_stop 5b7832cd`. `work_parallel_item_review` 시간 초과 09:47:51Z와 이미 다르게 결정됐다는 거부 09:50:14Z. side 영수증 74건(processed 60, quarantined 14). P0 intent 256 지속(current scope 0).
+  - KOBE: SSH 회복. 원장 v3048, 보드 v669(09:08Z의 v663에서 증가), 대기 9·실행 1, n102 미관측 finding 지속.
+  - Prody: 보드 v6796→6801, Work 상태 못 읽음 공지 09:53:18Z, side 실패 원본 전달 09:56:50Z.
+  - 실CLI 실행 6: 교정 수정 후 교정이 첫 시도에 전달되고(`asked the side actor for 331a083ada9d ...`), 교정 답이 `processed`로 커밋됐다. 정지 검사는 드라이버 변수 덮어씀(`others`)으로 잘못 `false`를 냈다 — 통과한 TaskStop은 액터 1건뿐이다. 드라이버를 고쳐 실행 7로 재확인 중이다.
+
+- 09:34:48–09:35:16Z 읽기 전용 틱(직전 09:08Z). 운영 재시작·상태 파일 변경·배포 없음.
+  - Andy: 실행+slot 2→3(제출 21·대기 4), 원장 v6148→6162, 보드 v10691→10696, MCP 1781ms, findings 1(n1166 유지). 포크 API 오류 n2635 `transport_interrupted` 09:13:06Z(재시도 예약, 정상 경로). 세션 자체 도구 오류(ripgrep 시간 초과 2, 경로 없음 1, 사용자 도구 거부 2 09:22:29Z) — 제품 결함 아님.
+  - Celly: 실행 4→1·제출 0→2·대기 7, 원장 v7893→7917, 보드 v9663→9670, MCP 250ms. 신규 finding: n1381 e4fc837a 검수 결정 `stage_failed: P0 intent bound`(newfail `decision_refused_stop` 1) — P0 intent 상한 256 포화(결함 A, 수정 미배포)가 검수 결정까지 막음. 세션: n1140 P1 슬롯 용량 09:13:32Z, 메인이 `work_side_status` 호출 거부 09:21:22Z(호스트 전용 정상 가드), `work_parallel_item_review: review decision` 거부 09:31:08Z. side 실패 원본 전달 09:10:32Z.
+  - KOBE: SSH 실패(`kex_exchange_identification: Connection reset by peer`, 100.64.0.14:1004). 미관측 — 상태 변화로 해석하지 않음.
+  - Prody: 보드 v6794→6796 외 변화 없음, side 실패 원본 전달 09:28:53Z.
+  - 사용자 지시(Celly 보고 Image #24·#25) 조사: Celly side 격리 13건 중 7건 `decision refs required`, 5건 `side answer carries no decision JSON`, 1건 superseded. 실패 액터 15개 대화에 교정 문구 0건 — 교정이 한 번도 전달되지 않음. 원인은 엔진의 resume `agent.spawn`을 register.js가 자체 side 네임스페이스 가드로 거부(격리 실엔진에서 관측). 실패 테스트로 재현 후 수정. 기록 [side-correction-resume](/docs/journal/2026/11/23/fixes/side-correction-resume/record.md). 이번 배포에 포함 예정.
+  - 회귀 `sidestop.085650` Windows·py310·py311 각 793 실행/0 실패/58 skip.
+
+- 09:08:28–09:08:49Z 읽기 전용 틱(직전 09:02Z). 4호스트 수집 성공, 운영 재시작·상태 파일 변경·배포 없음.
+  - Andy: 실행+slot 1→2(제출 21·대기 4 유지), 원장 v6144→6148, 보드 v10688→10691, MCP 453ms, findings 1(n1166 유지). 새 세션 오류 없음. 라우터 새 창(09:02Z~): SSE EOF 7, `channel_turn_projection_persistent` 3(120/240/363 s), 원인 미확인.
+  - Celly: 실행+slot 5→4·대기 4→7, 원장 v7878→7893, 보드 v9652→9663, MCP 250ms, findings 0. side 실패 이벤트 원본 메인 전달 2(09:03:54Z·09:06:53Z). P0 intent 256 지속(current scope 0). 현재 scope 실행 리스 3건 모두 P1 `work-auto-*`(n1350·n1341·n1381). 라우터: keepalive TaskList 합성 18, SSE EOF 7, 클라이언트 단절 다수.
+  - KOBE: 변화 없음(원장 v3048, 보드 v663). n102 04:01Z 이후 native 미관측 지속. keep-alive health 불일치 62(health OK).
+  - Prody: 보드 v6793→6794 외 변화 없음(제출 6, 원장 v613). MCP 2006ms(직전 1572ms).
+  - 격리: 실CLI 실행 5 통과(13/13). 재로드 직후 첫 fresh 액터 생성이 `Agent type 'ciel-work:side-fresh' not found`로 1회 실패하고 5 s 뒤 재시도로 처리됨을 관측(경로 미확인, 미수정, 미결). 영향 회귀 `sidestop.085650` 진행 중.
+
+- 09:02:00–09:02:27Z 읽기 전용 틱(직전 08:12Z). 4호스트 수집 성공, 운영 재시작·상태 파일 변경·배포 없음.
+  - Andy: 제출 22→21·대기 4·실행+slot 1, 원장 v6119→6144, 보드 v10688, findings 1(n1166 유지). 세션 기록: `Work reconciliation: Parallel read failed: Git ownership/branch changed; retained` 08:28:30Z(Andy_Main이 보고한 n2614 리스 b7a5bc3f `workspace_unavailable`과 같은 시간대, 리스 대조 미실시), `Work status unavailable: router connection or snapshot could not be verified [snapshot-paged]` 08:59:56Z 1건(원인 미확인), side 실패 이벤트 원본 메인 전달 08:58:00Z, 세션 자체 셸·파일 오류 3(08:15·08:18·08:33Z, 제품 아님). 라우터 경고 SSE EOF 45·MCP client reset 5·delta timeout 7·연결 거부 10061 4(02:52Z 현지), 원인 미확인.
+  - Celly: 실행+slot 2→5·대기 3→4·제출 1→0, 원장 v7820→7878, 보드 v9652. n1363 검수 행 없음 finding 해소(제출 0). 현재 scope 열린 리스 9건 전부 P1 `work-auto-*`(P0 리스 0), P0 intent 256 지속(current scope 0). 세션 오류: n1343 P1 슬롯 용량 08:17:00Z, `expected_version required` 08:17:06Z, Walkie 403/400 08:15Z, side 실패 원본 전달 08:22:48Z·08:25:04Z, 세션 스크립트 오류 3(제품 아님).
+  - KOBE: 변화 없음(원장 v3048, 보드 v663). n102 04:01Z 이후 native 미관측 지속. 메인 `work_node_update` 완료 거부 08:45:30Z(병렬 검증·검수·정리 대기 안내, 정상 가드).
+  - Prody: 변화 없음(제출 6, 원장 v613, 보드 v6793). side 실패 원본 메인 전달 08:14:15Z·08:36:56Z·08:59:14Z.
+  - 격리 작업: 실제 Claude Code 2.1.330 로드에서 새 결함 2건을 입증하고 수정했다(스킬 이름 `work-mode`와 `/work-mode` 명령 충돌로 session.start 전체 건너뜀, 이미 끝난 side 액터에 TaskStop 3회 재시도 후 unconfirmed). 기록은 [side-fresh-retirement](/docs/journal/2026/11/23/fixes/side-fresh-retirement/record.md). 미배포.
+
+- 08:12:22–08:13:34Z 읽기 전용 틱(직전 07:51Z). 4호스트 수집 성공, 운영 재시작·상태 파일 변경·배포 없음.
+  - Andy: 제출 21→22·실행+slot 2→1·대기 4, 원장 v6117→6119, 보드 v10674→10678, MCP 625ms, findings 1(n1166 유지). 세션 도구 오류 2: `work_side_handoff` 대상 없음 07:55:06Z(ask_main/해제 알림은 확인 불필요 안내), 세션 스크립트 `int()` 파싱 ValueError 08:07:11Z(세션 자체 스크립트, 제품 결함 아님).
+  - Celly: 제출 0→1·실행+slot 2·대기 3, 원장 v7801→7820, 보드 v9610→9625, MCP 1515ms. 신규 finding — n1363 c596c09b P1 제출·완료 영수증 있음·검수 행 없음(native running, 마지막 08:07Z). 거절: n1363 P1 슬롯 용량 07:54:46Z, n1343 P1 슬롯 용량 08:06:16Z, n1350 `not a slot-released wait` 08:07:58Z, 사용자 요청 없는 active goal 변경 거부 08:01:32Z(정상 가드). 포크 오류 기록 5(08:01:50·08:06:47·08:07:16·08:07:26·08:08:30Z, 포크 a78e01bd·a1e395c8×3·a1375195, 원문 미확인). P0 intent 256 지속(terminal 137·bound 106·intent 13, current scope 0) — 결함 A/B 수정 미배포.
+  - KOBE: 변화 없음(원장 v3048, 보드 v652→654, MCP 214ms). n102 1ceb4bd9 04:01Z 이후 native 미관측 지속(종료 증거 아님).
+  - Prody: 변화 없음(제출 6, 원장 v613, 보드 v6791, MCP 1572ms). side 실패 이벤트 원본 메인 전달 공지 07:51:31Z·08:11:58Z(already/appended).
+  - Andy_Main 08:33Z 보고 대조(읽기 전용): side 이벤트 1c420b87a1c6([157732], 08:21:43Z) 결정은 `update n2582` + `release_waits [{n2582, "PR #115 post-a7cfddd1 viewport revision: full-candidate QA evidence plus a NEW Daniel approval"}]`, 보드 v10682, `wait_boost` 생성 1. understanding 자체가 승인 범위를 "QA 전체 통과 시에만 PR 갱신·push CI, 병합·배포·재시작 제외"로 적었는데도 QA 증거와 새 승인 두 조건이 걸린 대기를 해제했다. 사이드 모델 판단 오류로 기록, 호스트가 조건 충족을 판정하는 경로는 없음(제품 결함 여부 미판정). 메인이 대기 복원·n2635 분리(Andy_Main 보고, 원장 재확인은 다음 틱). n2614 리스 b7a5bc3f `workspace_unavailable`(Git 소유권/브랜치 변경 retained)는 보고만 수신, 미대조.
+  - 회귀 상태: 결함 A/B/C·질문 대기 변경 `qwait-p0c.015539` Windows·py310·py311 각각 663 실행/0 실패/54 skip. 실제 `claude.exe` 격리 로드·Side Fresh 실CLI 검증 전이라 베타·설치 보류. 오래된 감시 셸(`terminal-question-*` 대기, win 로그 RAN 행 없음)은 종료.
+
+- 07:51:28–07:51:54Z 읽기 전용 틱(직전 07:06Z). 4호스트 수집 성공, 운영 재시작·상태 파일 변경·배포 없음.
+  - Andy: 리스 구성 동일(제출 21·대기 4·실행 2), 원장 v6100→6117, 보드 v10668→10674, MCP 969ms, findings 1(n1166 유지). 라우터 경고 SSE EOF 40(첫 07:07:33Z)·MCP client reset 5·delta timeout 4, 원인 미확인.
+  - Celly: 실행 3→2·대기 2→3, 원장 v7765→7801, 보드 v9593→9610, MCP 765ms. P0 intent 상한 256 지속(current scope 0건) → 실효 P0 n1361 `active slot capacity reached for P1` 거절 추가 2(07:17:16Z·07:29:29Z). 게이트 `router-error` 3(07:23:55Z·07:25:40Z·07:48:28Z, 같은 시각 라우터 MCP client reset 10054 동반, 인과 미확인). 포크 오류 기록 10(07:25–07:48Z, 원문 미확인).
+  - KOBE: 변화 없음(원장 v3048, n102 native 미관측 04:01Z~ 지속). keep-alive health 불일치 531(health OK).
+  - Prody: 변화 없음(제출 6, 원장 v613). side 실패 이벤트 메인 전달 7(07:16–07:51Z).
+- Andy_Main 요청 n2626·n2633 첫 예약→native 지연(읽기 전용 조사): 첫 예약 331d6d5c(n2626, 05:49:55Z)·1d272611(n2633, 06:52:26Z)은 둘 다 coordination archive `workspace preparation failed before launch`, agent_id 없음. 작업공간 실패 기록: `workspace_prepare_retained` 05:52:53–05:58:08Z 4회, `workspace_prepare_failed` 05:58:07Z 1회, `retained` 06:55:11–06:55:12Z 2회. manifest 3c15f39c(331d6d5c)는 `preparing`인 채 worktree 존재(05:49:59Z 생성), c77c47ba(1d272611)는 `ready`(worktree 06:53:56Z, manifest 06:55:12Z)인데 리스는 해제됨. 이후 새 예약 a6104923(05:58:34Z→native 05:59:15Z)·432aac52(06:55:15Z→native 06:55:23Z)가 각각 시작. 즉 지연은 정원이 아니라 작업공간 준비 실패/보류의 재시도 구간. Git 원문은 router.log에 없음 → 결함 C. G:\ciel-Walkie worktree 1080개(.git/worktrees 260MB), 라우터 밖 `git worktree list` 0.5–0.6s; 이번 실패의 Git 원인은 미확인.
+- 입증된 결함 C — Work 도구에 라우터 로그 미전달: `channel_mcp_tools._work_tool`이 `dispatch_work_tool`에 `log`를 넘기지 않아 `_workspace_failure`의 `work_workspace_failed`(Git 원문)·P0 lineage 로그가 라우터 MCP 경로에서 전부 버려짐(Andy router.log 0건).
+- 수정(격리 워크트리, 미커밋): A) `evictable_intents` — 상한에서 cancelled 다음으로 ledger상 done·orphaned·부재 리스의 intent(스냅샷 이전 변경분, 열린 reacquire send 부모 제외, unreported 보존)를 오래된 순으로 축출. Celly 상태 사본 건식 적용: 구 규칙 `P0 intent bound`, 신 규칙 생성 성공(축출 후보 181). B) `lineage_scopes` + `adopt_lineage_markers` — 같은 보드를 잇는 native parked 세션의 최신 P0 결정을 현재 세션으로 이관(원래 set_at·set_by 보존, 완료 op 행 동반, 세션 자체 행 우선, 완료·다른 세대 루트 제외), 인증 호스트 status 읽기에서 수행. Celly 사본 건식: n1179·n1209 복원 대상. C) `ChannelMcpRuntimeServices.log=router_log` 전달. 실패 우선 테스트 재현 후 수정. 영향 회귀: 격리 Windows·Linux py310·py311 각 663 실행 실패 0(skip 54), `claude plugin test` 94 통과, `claude plugin validate` 통과(skill `ciel-work:work-mode` 인식). 실제 claude.exe 격리 로드는 미수행 → 베타·설치 보류.
+
+- 07:06:42–07:07:02Z 읽기 전용 틱(직전 05:05Z, since=05:05:09Z). 운영 재시작·상태 파일 변경·배포 없음. 4호스트 모두 수집 성공(직전 KOBE·Prody SSH 실패에서 회복).
+  - Andy: 제출 21 유지·입력 대기 6→4·실행+slot 1→2, 원장 v6100, 보드 v10644→10668, MCP 1547ms, findings 1(n1166 검수 행 없음 유지). 라우터 `router_lifetime_restart reason=router_process_exited` 1회(05:06:44Z, 원인 미확인, 이 세션이 한 재시작 아님). 포크 API 오류 재시도 알림: n2613 empty_stream 05:07:37Z, n2614 transport_interrupted 05:59:59Z·06:03:32Z·06:59:10Z, n2633 06:59:10Z. P3 정원 거절 1(n1847 05:27:25Z), 보드 CAS 충돌 3. 라우터 경고: delta 전달 timeout 93·SSE EOF 88·reset 65·10061 거절 52(첫 05:05~05:18Z), 원인 미확인. Andy_Main 보고 n2626·n2633 첫 예약→native 지연은 아직 미조사.
+  - Celly: 세션 c07e198b→4ee83c21(bg job, `parkedJobId` 연결, 06:41:37Z 시작). 실행+slot 3·입력 대기 2, 원장 v7765, 보드 v9526→9593, MCP 250ms, findings 0. 포크 오류 기록 6(06:42–07:05Z, 원문 미확인). 세션 오류: 실효 P0 아이템 n1361의 `active slot capacity reached for P1` 거절 2(06:45:42Z·07:04:32Z), 대기 해제된 parked 리스 2건(e957928541b n1331 P1, cd3b43dcade n1350 실효 P0) `no slot` 06:39:57Z, side 실패 이벤트 메인 전달 5(06:37–06:59Z), n1360 transport_interrupted 06:55:55Z.
+  - KOBE: 실행+slot 1·입력 대기 9, 원장 v3048, 보드 v622→647, findings 1 — n102(1ceb4bd9, P3) 슬롯 점유·04:01Z 이후 native 미관측 3시간 지속(종료 증거 아님). keep-alive health 불일치 1421(health OK).
+  - Prody: 제출 6, 원장 v613, 보드 v6790, findings 0, 포크 오류 기록 2(06:01Z·06:33Z).
+- 입증된 결함 A — Celly P0 레인 정지: `work-parallel-p0.json` intents가 상한 256에 정확히 도달(terminal 137·bound 106·intent 13, cancelled 0). 전부 이전 세션 scope(b86a350f 82·0aefa936 71·9288dece 71·c07e198b 32)이고 현재 scope 4ee83c21은 0. `_create_intent_mutation`(`work_parallel_p0.py:687-694`)은 상한에서 cancelled만 지우므로 새 P0 intent가 항상 `P0 intent bound`로 거부된다. 현재 실효 P0 아이템 n1350·n1360·n1361·n1363의 리스는 P0 intent 없이 일반 `work-auto-*` P1 리스로 배정됐고, 대기 해제 후 재개·배정이 P1 정원에 막힌다. 앞선 틱의 Celly `P0 intent bound`(03:55:52Z) 관측과 일치. 사용자 보고 "P0 병렬 실패, 대기 해제 후 재포크 실패"의 Celly 원인으로 입증.
+- 입증된 결함 B — 재시작 시 P0 실효 소실: 현재 보드 루트와 P0 marker 43개 대조 결과 39개가 같은 루트(id·created_at 동일)인데 scope가 세션 ID 5개에 흩어져 있다. 예: n997은 11-17·11-20·11-21·11-23에 반복 재지정, n1179·n1209는 이전 세션에서 P0였으나 현재 P1. 보드는 native parked lineage로 이어지지만 marker 키는 `scope+root_id`라 이어지지 않는다. 또한 `sweep_roots`·`recover`는 운영 코드에서 호출되지 않아 완료된 루트(n1048·n1032)의 이전 scope marker도 active로 남는다.
+
+- P0 재시작 소실(Celly 보고 확인, 읽기 전용): Celly `work-parallel-p0.json`에 root marker 43개(active 42, `priority_changed` cleared 1)가 삭제되지 않고 남아 있다. marker는 세션 ID 5개(0aefa936·b86a350f·9288dece·c07e198b·4ee83c21)에 나뉘어 있다. marker 키는 `scope(세션 ID)+root_id`(`work_parallel_p0.py:93-95`, `:409-412`)이고, 세션 연속(`work_session_lineage.py:90-127`)은 보드 경로만 잇고 P0 marker는 옮기지 않는다. 따라서 새 세션 ID에서는 옛 marker가 매칭되지 않아 canonical P1로 보인다. 데이터 삭제는 아니지만 응급 우선순위 효과가 재시작을 넘지 못하는 결함이다. P1+사이드카 저장은 2026-11-14 구버전(57dbfb3) 호환 결정(`docs/journal/2026/11/14/features/priority-p0-fork-models/requirement.md:96-99`, 커밋 d69ca83·f045f24)이고, 세션 ID 결합으로 인한 소실은 어떤 요구에도 없다. Celly `work-sessions`는 PermissionError로 보드-marker 대조는 미확인.
+- 포크 질문 대기 계약(격리 워크트리, 미커밋): `work_parallel_report(question)`의 `detail.waiting_on`+`release_hint{condition,lookup,prompt?}`를 보드 leaf에 먼저 기록한 뒤 receipt·리스 park. 짝 없음·형식 오류·잘못된 아이템·기존 대기·비leaf·배정 없음·보드 충돌은 어떤 기록 전에도 거부하고 리스는 running/slot 유지. side workload에 검증된 `release_hint` 전달, 게이트/사이드 지침에 원래 답 검증 후 해제·원래 포크 재개 명시, 번들 스킬 `ciel-work:work-mode` 추가(`claude plugin validate` 통과, skills 인식). 신규 7건 + 관련 10건 통과. 실제 CLI·Linux 회귀·배포는 아직.
+
+- P0 예약 정리 경합: 정리가 `reserved` 스냅샷을 읽은 뒤 시작 승인 CAS가 `spawning`으로 성공하도록 순서를 고정했다. 수정 전 테스트에서 정리가 같은 리스를 삭제했다. 시작 승인과 종료된 P0 예약 정리에 공용 파일 잠금 및 잠금 내부 재검증을 적용했다. 시작이 먼저 승인되면 리스와 coordination 행을 보존한다. 정리가 먼저 리스를 지우고 sidecar 갱신이 실패한 경우에도 다음 시작 승인을 거부한다. 리스 삭제 자체가 실패하면 나머지 예약 정보를 보존해 다음 정리에서 재시도한다. 운영 재현·운영 상태 변경 없음.
+- 검색 접수 도구는 실행을 배정하지 않고 `source`, `scope`, `results`만 받는다. `work_discovery_pickup`에 `role`을 요구하던 레거시 회귀 검사를 현행 계약에 맞췄다. 제품 스키마는 바꾸지 않았다.
+- 격리 검증: Windows `test_work_parallel_p0_events.py` 및 `test_work_parallel_legacy_reviewer.py` 56 통과(하위 검사 25). 기존 Linux py310/py311 각각 56 실행, 1 skip, 실패·오류 0. Linux 로그는 `linux-runner/p0-launch.ONtoq4cv.*.log`. P0는 MCP 경계에서 실행한 테스트 결과이며, 운영 적용 증거는 아니다.
+
+- 04:14–04:15Z 읽기 전용 틱(직전 03:32–03:38Z, UTC): Andy·Celly·KOBE Work MCP 성공 및 보드 버전 일치. Prody 전체 수집 실패; 후속 health만 성공. 운영 재시작·상태 파일 변경·배포 없음.
+  - Andy: 실행 1·입력 대기 6·제출 21 유지, MCP 516→844ms(v10632). n1166 완료 영수증 있으나 검수 행 없음 유지, 마지막 native 관측 01:44Z/01:50Z 이후 미관측(종료 증거 아님). 포크 도구 오류 표본 1(04:14:26Z, 원인 미확인). 라우터 SSE EOF 37(첫 03:32:45Z), 연결 reset 9(첫 03:45:21Z), transcript timeout 10(첫 03:36:46Z), MCP client reset 3(첫 03:35:56Z); 근본 원인 미확인.
+  - Celly: 실행 4→2·입력 대기 3→1·제출 0, MCP 922→281ms(v9490), findings 0. 메인 훅 언로드 03:37:31Z와 교체 경고 4건은 앞선 후속과 중복; 03:51:32Z 모드 시작 및 03:59:52Z 게이트 재점검 기록은 아래 참조. 포크 도구 오류 표본 6(03:39:04–04:04:21Z, 원문 미확인). 메인 `P0 intent bound` 1(03:55:52Z, 발생 경위 미확인), 중복 배정 거부 1(03:56:00Z). 라우터 SSE EOF 16(첫 03:52:13Z)·reset 9(첫 03:55:37Z), transcript timeout 10(첫 03:54:33Z), MCP client reset 3(첫 04:10:08Z), context-usage WinError 5 2(첫 04:01:10Z). 별도 Side API 조회 8초 timeout 1, 현재 큐 미관측; 모드 재언로드나 처리 종료로 판단하지 않음.
+  - KOBE: 실행 1·입력 대기 9·제출 0 유지, MCP 274→170ms(v622). n102(lease 1ceb4bd9) 신규 관측: 슬롯 점유, 04:01Z부터 native 목록 미관측, 종료·원인 미확인. 포크 도구 오류 표본 7(03:41:30–03:59:29Z, 원문 미확인), 메인 gh HTTP 401 1(04:09:53Z, 자격 증명 거부). 라우터 keep-alive 불일치 498(첫 03:32:29Z, health OK), SSE EOF 36(첫 03:32:49Z)·reset 10(첫 03:36:12Z), transcript timeout 7(첫 03:32:46Z).
+  - Prody: 전체 틱 SSH lost connection 1, 재수집 응답 JSON 파싱 실패 1. 별도 health `ok:true`, PID 12320·클라이언트 3828. 현재 Work MCP·포크·검수 미관측; 직전 제출 6·실행 1은 마지막 성공 표본에 한함.
+  - 신규 제품 결함 재현 없음. Celly Side Fresh 정리 변경은 실제 CLI에서 정지 거부 후 정리와 다음 이벤트 처리까지 검증되지 않아 배포 보류 유지.
+
+- Celly Work UI 소실 및 Side Fresh 정리 후속: 03:37:31Z `ciel-work` 언로드 후 `/work-mode`가 03:42:21Z·03:42:35Z 두 차례 `Unknown command`로 기록됐다. 라우터 health와 세션 내 훅 정상 여부는 별개다. 이후 03:51:32Z Work 모드 시작, 03:59:52Z 게이트 재점검 공지 확인; 후속 health는 라우터 PID 17340, 클라이언트 24264. 이번 작업에서 운영 재시작·상태 파일 수정 없음. 역사적 워커 충돌 스택은 확보하지 못했다.
+  - 별개로 입증한 정리 결함: `side-intake.js`가 `TaskStop` 거절·예외에도 종료 추적을 지웠다. 수정 전 회귀는 재시도 없이 실패했고, 중간 수정도 성공 응답 후 idle 액터를 추적에서 지워 추가 검증에 실패했다. 최종 수정은 정확한 대상의 정지 응답과 native 목록의 종료/부재 확인 전까지 추적 유지, 동일 액터 동시 호출 차단, 최대 3회 재시도를 적용한다. 기존 재개 권한과 영수증·답장 정책은 그대로다. 이 수정이 훅 워커 충돌을 해결한다는 증거는 없다.
+  - 검증: Windows 격리 245 통과/34 skip(하위 검사 148 통과), 기존 py310·py311 각각 279건/34 skip/실패·오류 0. 실제 Claude Code 2.1.330 격리 검증에서 모드 로드 및 `/work-mode view` 응답(114.8 ms)과 메인 진행 확인. 단 기존 실제 엔진 프로브의 사이드 액터 게이트 완료·P1 순서 검사는 원본과 수정본 모두 충족하지 못했고, 실제 CLI에서 정지 거부 후 정리 회복까지는 검증하지 못했다. 실행 증거 `D:/Temp/side-retirement-e2e.fXKUJC/` 및 원본 비교 `D:/Temp/side-retirement-base.jgfPYi/evidence/`. 검증 조건 미충족으로 베타 게시·운영 설치 보류.
+
+- 03:32–03:39Z 읽기 전용 틱(이전 03:15–03:16Z, UTC): 네 호스트의 루프백 Work MCP는 각 표본에서 보드 버전과 일치했다. 단 Celly는 표본 뒤 실제 세션의 훅이 중단됐다. 운영 재시작·상태 수정·배포 없음.
+  - **Celly**: 03:32:37Z Work MCP 922 ms(v9478), 실행 슬롯 4·입력 대기 3 유지. 03:37:31Z `ciel-work` 훅 워커 충돌로 언로드 1건, 03:38:11–15Z `ciel-work-gate` 훅 실행 중 워커 교체 및 catch 응답 4건, 03:38:36Z 메인 `work_side_status` 대화 식별자 미확인 거부 1건. 03:39:20Z까지 재로드 증거 없음. 라우터 PID 74704/클라이언트 80708 응답과 세션 연결은 별개. Side API 대기 5·처리 중 0·누적 처리 778, 직전 대기 1·처리 중 1·누적 770. 원인은 미확인, Side Fresh 재개 거부와의 인과 미입증. 포크 오류 표본 4: handoff 증거 길이·workspace 타입·diff_stat 유효성 각 1(03:24:52/25:25/25:58Z), 셸 대기 가드 1(03:31:24Z). 라우터 SSE reset 14(첫 03:17:27Z), EOF 10(첫 03:16:13Z), MCP client reset 5(첫 03:22:24Z), transcript timeout 4(첫 03:23:58Z).
+  - **Andy**: MCP 735→516 ms(v10626), 실행 1·제출 21·입력 대기 6 유지, 포크 오류 표본 0. n1166 완료 영수증/검수 행 없음 지속, 01:50Z 이후 native 미관측은 종료 증거 아님. n2613 transport_interrupted 재시도 예약 1(03:22:34Z), 결과 미확인. SSE reset 14(첫 03:17:11Z), EOF 13(첫 03:15:58Z), transcript timeout 2(첫 03:25:27Z).
+  - **KOBE**: MCP 192→274 ms(v615), 실행 1·입력 대기 9 유지. 포크 오류 표본 3(03:30:08/31:57/32:04Z, 원문 미확인). n102 auto_compact_failed 예약 1(03:34:51Z), 1차 시도 1(03:36:00Z), 성공 미확인. 기존 keep-alive 불일치 265(첫 03:15:59Z), SSE reset 21(첫 03:18:03Z), transcript timeout 14(첫 03:16:34Z), 별도 transcript HTTP 502 1(03:24:28Z).
+  - **Prody**: MCP 1590→2659 ms(v6777), 실행 1·제출 6 유지, 포크 오류 표본 0. n1224 transport_interrupted 재시도 예약 재관측 1(03:18:30Z), 성공 미확인. 새 라우터 오류 표본 0.
+  - Celly 세션 장애를 확인했지만 충돌의 원인·재현 경로는 입증하지 못해 코드를 변경하지 않았다.
+
+- 03:15–03:16Z 읽기 전용 틱(비교 02:52Z, UTC): 네 호스트 모두 Work MCP 조회 성공, 보드 버전과 일치. 포크 오류 수는 부분 표본, 제출은 검수 완료와 별개. 운영 재시작·상태 수정·배포 없음.
+  - **Andy**: 실행 슬롯 1·입력 대기 6·제출 21 유지, MCP 1391→735 ms(v10622), 새 포크 도구 오류 표본 0. `n1166` 완료 영수증 있으나 검수 행 없음 지속(01:50Z 이후 native 미관측, 종료 판단 아님). 라우터 외부 SSE EOF 20건(첫 02:53:18Z)·연결 타임아웃 1건(03:02:19Z), transcript 전달 타임아웃 1건(03:05:28Z); 근본 원인 미확인.
+  - **Celly**: 실행 슬롯 4 유지·입력 대기 2→3·제출 0, MCP 797→266 ms(v9468), 검수 차단 findings 0. 포크 오류 표본 1건(03:09:39Z, 사용자 도구 거부), 메인 중복 배정 가드 1건(03:09:36Z). n1250과 Side Fresh 재개 거부는 아래 별도 조사 참조. Side 후속 조회에서 대기 1·처리 중 1·누적 처리 770(03:14Z 후속 768), 격리 117 유지. 메인 원문 전달 공지 3건(03:09:37Z·03:10:06Z·03:13:03Z). 라우터 외부 SSE EOF 21건(첫 02:52:50Z)·reset 3건(첫 03:00:26Z), transcript 전달 타임아웃 2건(첫 03:01:20Z), MCP client reset 1건(03:09:40Z), 활동 파일 WinError 5 1건(03:11:52Z); 근본 원인 미확인.
+  - **KOBE**: 실행 슬롯 0→1·입력 대기 9 유지·제출 0, MCP 441→192 ms(v611), 포크 오류 표본 0. keep-alive 불일치 235건(첫 02:52:34Z, health OK), 라우터 외부 SSE EOF 14건(첫 02:53:05Z)·reset 4건(첫 02:55:21Z), transcript 전달 타임아웃 7건(첫 02:53:58Z), MCP client reset 3건(첫 03:03:25Z). 메인 Walkie 승인자 멘션 유효성 거부 1건(02:54:01Z, HTTP 400).
+  - **Prody**: 실행 슬롯 1·제출 6 유지, MCP 857→1590 ms(v6777), 포크 오류 표본 0·findings 0. 02:57:51Z 동일 Side 실패 원문 `appended`/`already` 한 쌍(중복 전달 증거 아님); n1224 재시도 성공 여부 미확인. 새 라우터 경고 표본 0.
+  - 새 제품 결함 입증 없음. Celly 재개 실패 뒤 UI/큐 잔류 여부와 Andy n1166 검수 미게시 계속 추적.
+
+- 03:14Z Celly side-fresh/Work 재개 거부 조사(읽기 전용, UTC): 이미지 #21은 `side-fresh` 입력 화면에서 Side SSE 재개 권한 불일치, #22는 별개 Work 포크 `a83c4de983dc81072`의 재개 권한 불일치. 메인 기록상 후자는 n1250/lease `620094c2`이며 03:09:40Z TaskStop 성공, 원장 `waiting_input`, slot=false. 메인 도구 호출은 03:13:10Z에도 관측. Side API 연속 관측에서 누적 처리 766→768, 03:09:37Z 수신 건은 03:12:23Z 처리, 03:13:00Z 수신 건은 03:14:42Z 처리. 라우터 PID 74704/클라이언트 80708 확인. 메인 전체 정지는 관측과 맞지 않지만 종료된 대상의 입력 화면 또는 재개 큐가 남는지는 미검증. 코드상 side actor는 한 이벤트 후 폐기, `stopRetired`가 TaskStop의 결과를 검증하지 않고 추적을 지우는 경로가 있으나 화면과 연결되는 실패 증거는 없음. 운영 변경·재시작 없음.
+
+- 02:52Z 읽기 전용 틱(비교 02:32Z, UTC): 4호스트 Work MCP 성공 및 보드 버전 일치. KOBE·Prody는 직전 틱 SSH 실패로 당시 상태 미관측이며, 이번 조회 성공은 세션 재시작 증거가 아니다. 포크 오류는 부분 표본.
+  - **Andy**: 실행 슬롯 0→1, 제출 21·입력 대기 6 유지, MCP 687→1391 ms(v10619), 포크 오류 0. n1166 완료 영수증/검수 행 없음 그대로, 마지막 native 관측 01:44Z 및 01:50Z부터 미관측. 라우터 transcript timeout 20(첫 02:32:24Z), 연결 거부 WinError 10061 11(첫 02:32:27Z), 외부 SSE EOF 16(첫 02:35:36Z)·reset 5(첫 02:32:40Z), MCP 클라이언트 reset 1(02:47:38Z). 근본 원인 미확인. 보드 CAS 가드 1(02:37:03Z).
+  - **Celly**: 실행 슬롯 4 유지, 입력 대기 1→2, 제출 0·findings 0, MCP 281→797 ms(v9454), health PID 74704/클라이언트 80708. Side 대기 0·처리 중 1, 처리 누계 760·격리 114. 포크 오류 4: evidence 길이 검증 1(02:37:34Z), 셸 대기 가드 1(02:44:48Z), TaskStop 가드 2(02:48:01Z). 메인 중복 배정 거부 1(02:51:34Z). transcript timeout 15(첫 02:32:30Z)·연결 거부 8(첫 02:32:38Z), 외부 SSE EOF 12(첫 02:35:43Z)·reset 6(첫 02:32:52Z), MCP 클라이언트 reset 8(첫 02:42:56Z). Walkie 턴 종료 이벤트 timeout으로 최종 포기 1(02:32:41Z, 앞선 단절 조사와 중복 관측).
+  - **KOBE**: MCP 441 ms(v607), 입력 대기 9·실행/제출 0, findings 0. 포크 오류 표본 3(02:38:08·02:38:27·02:40:24Z, 원문 미확인). keep-alive 불일치 234(첫 02:32:23Z, health OK), transcript timeout 16(첫 02:32:23Z)·연결 거부 8(첫 02:32:41Z), 외부 SSE EOF 14(첫 02:35:42Z)·reset 4(첫 02:32:51Z). 별개 메인 Walkie outbound 네트워크 실패 2(02:42:48·02:50:25Z), 근본 원인 미확인. compaction lock-busy 가드 1(02:35:59Z).
+  - **Prody**: MCP 857 ms(v6774), 제출 6·실행 슬롯 1, findings 0, 포크 오류 표본 0. n1076은 02:13Z 직접 확인에서 이미 슬롯 해제됐으며, 이번 실행 슬롯 수만으로 재점유로 보지 않는다. n1224 transport_interrupted 재시도 예약 공지 1(02:41:46Z), 성공 여부 미확인.
+  - 새 제품 결함 입증 없음. 운영 재시작·상태 파일 수정·배포 없음.
+
+- 02:49Z Walkie 반복 단절 조사(읽기 전용): 02:10–02:40Z 외부 기본 SSE 수신기 `connect` WinError 10054는 Celly 28·Andy 36건, `read` EOF는 11·13건. Andy 설정 및 양쪽 라우터의 실제 원격 TCP 연결에서 Walkie 내부 `100.64.0.9:8787` 경로를 관측. 별개 송신 경로인 Celly `agent.turn_ended` 이벤트도 같은 endpoint로 02:17:40~02:32:20Z timeout 재시도 17건, 02:22:58·02:32:41Z 최종 포기 2건, 02:48:15Z 전달 성공 기록. Walkie 표시의 정확한 판정 조건 및 reset 발생 장비는 미확인. 02:30Z대 내부 HTTP 타임아웃 뒤 02:43Z HTTP 200, Celly 메인의 Walkie 검색·발송 도구는 02:40:20·02:41:01Z 성공. 현재 로컬 라우터 6개는 포트가 다르고 9385/9505 PID 74704/48136을 확인; 포트 충돌 증거 없음. 라우터 부하나 Walkie 서버 재기동을 근본 원인으로 확정하지 않는다. 운영 재시작·상태 수정 없음.
+
 ## 2026-11-22
+
+- 2026-11-23T02:32Z 읽기 전용 틱(2026-11-23 날짜 섹션 없음/날짜 TOC 계속 깨짐): Andy·Celly Work MCP 확인. KOBE·Prody는 Tik 수집과 후속 SSH 4회 재확인에서도 `ssh failed`(대부분 SSH 교환 단계에서 연결 reset)가 계속돼 현재 원장·보드·포크·검수 상태를 판독하지 못했다. 직전 성공 관측만 보존한다. 운영 재시작·상태 수정·배포 없음.
+  - **Andy**: 원장 6045→6046, 실행 슬롯 1→0, 제출 21 유지, 입력대기 4→6. MCP 687 ms. finding 1 유지(`n1166 submitted, native=running, last=01:44, missing=01:50`). 포크 오류 표본 0. 라우터 transcript Timeout 66(첫 02:15:12Z), 연결 거부형 transcript 실패 56(첫 02:18:15Z, WinError 10061), 외부 SSE reset 30(첫 02:14:25Z). Walkie 무응답 1(02:18:28Z), transcript 대상 000 timeout 2(02:30:14Z·02:31:57Z); 직접 내부 중계 기본 HTTP 조회도 timeout 1회, 공용 주소 조회는 URL 오류 1회. Tik transcript 오류는 search timeout 1(01:48:06Z).
+  - **Celly**: 원장 7490→7495, 실행 슬롯 1→4, 입력대기 1 유지, 제출 0, findings 0. MCP 485 ms. 포크 보고 검증 거부 5건: handoff proof 1275>500 1(02:21:06Z), proof 누락 1(02:21:14Z), `structured handoff detail required` 1(02:21:25Z), `handoff done` 필드 검증 2(02:21:59Z·02:23:16Z); 셸 exit 1 2건은 근본 원인 미확인. 외부 사유로 보면 02:15:34Z transcript timeout 21, SSE reset 21(첫 02:15:34Z), SSE EOF 5, MCP 연결 reset 4 첫 02:28:21Z. 02:31:38Z `auto continue could not read the Work status` 1회(추적 중).
+  - **KOBE**: 현재 SSH/Tik 실패. 직전 Tik(02:13Z)은 Keep-alive 불일치·입력대기 8 유지였고 이후 직접 확인은 SSH 교환 실패로 없다. `decision_refused_stop dac6b6ca x1` 카운터가 생긴 경우는 Tik 반송 문제와 별개로 확인되지 않았다.
+  - **Prody**: 현재 SSH/Tik 실패, 이전 `n1076` 슬롯 점유 finding의 현재 상태 미확인. 직전 원장 598, submitted 6 유지. 게시 후 setTimeout 사이드 후광은 Tik에서 보였고, SSH 취득 실패를 Prody 자체 장애로 취급하지 않는다.
 
 - 2026-11-23T02:12Z 읽기 전용 틱(2026-11-23 날짜 섹션이 없어 날짜 TOC 계속 깨짐) 및 배포 완료 후 최종 수치: Windows `948 passed / 361 subtests, 1 failed, 34 skipped` (유일 실패는 기존 `test_work_parallel_legacy_reviewer` 스키마 부분검사; 다른 실행에서 같은 장애로 `-Legacy` 보관), Linux py310·py311 각 `1,026건 · failure 0 · 기존 ERROR 1 · skip 91`. n1166은 완료 영수증을 갖고 있으나 검수 행이 없고 상태는 submitted·slot 해제·native 상태 running이다. 라우터 시작 뒤에도 후속 조치가 아직 공개되지 않았으니, 명백한 게시 경로 추정으로 두지 않는다(게시 원인 미확인).
   - **Andy**: 원장 6031→6045, 실행 슬롯 1 유지, 제출 21·입력대기 4. finding n1166는 그대로 남았고 조사는 운영에 개입하지 않았다.

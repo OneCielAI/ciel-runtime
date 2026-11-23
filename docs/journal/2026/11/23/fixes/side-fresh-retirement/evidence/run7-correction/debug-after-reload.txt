@@ -1,0 +1,564 @@
+2026-11-23T10:02:03.508Z [DEBUG] session.start: raised for ciel-work (loaded later)
+2026-11-23T10:02:03.508Z [DEBUG] hooks module ciel-work@inline reloaded in 76.0ms; events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,session.compact,classic.Stop,session.receive,prompt.submit,command.run,tool.call,session.send,tool.check,session.end,ui.render,ui.message
+2026-11-23T10:02:03.560Z [DEBUG] settings.read: the engine's merge was raised (the loaded plugins changed) in 48.4 ms; 0 keys answered otherwise than the files.
+2026-11-23T10:02:03.561Z [DEBUG] $.command.register (ciel-work): /btw_with_mcp listed
+2026-11-23T10:02:03.585Z [DEBUG] $.command.register (ciel-work): /work-mode listed
+2026-11-23T10:02:03.589Z [DEBUG] anchor (win32): identity bridge serial32 — bun dev=2047103024 ino=26177172834194075; nt serial32=2047103024 serial64=17328167509060505648 index=26177172834194075
+2026-11-23T10:02:03.589Z [DEBUG] anchor (win32): held-handle backend up
+2026-11-23T10:02:03.609Z [DEBUG] hooks module ciel-work@inline session.start settled in 97.8ms (worker hop, next() included)
+2026-11-23T10:02:03.610Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_side_texts (session_id, _host)
+2026-11-23T10:02:03.611Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_side_texts (session_id, _host)
+2026-11-23T10:02:03.612Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.613Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:03.620Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.620Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:03.629Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:03.630Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 0.6ms (native link, next() included)
+2026-11-23T10:02:03.631Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 10.1ms (worker hop, next() included)
+2026-11-23T10:02:03.631Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.632Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_a895ddb769a142beb741f72fa38e2c7c permissionDecisionMs=12
+2026-11-23T10:02:03.633Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_side_texts
+2026-11-23T10:02:03.634Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:03.636Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_status (format, session_id, _host)
+2026-11-23T10:02:03.636Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_status (format, session_id, _host)
+2026-11-23T10:02:03.637Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.638Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:03.639Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_side_texts' completed successfully in 6ms
+2026-11-23T10:02:03.639Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_a895ddb769a142beb741f72fa38e2c7c outcome=ok durationMs=7
+2026-11-23T10:02:03.641Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.641Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:03.642Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 28.6ms (worker hop, next() included)
+2026-11-23T10:02:03.642Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_side_texts answered in 31ms, 96 chars
+2026-11-23T10:02:03.642Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_side_texts answered in 32ms: 1 block(s)
+2026-11-23T10:02:03.647Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:03.648Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 0.9ms (native link, next() included)
+2026-11-23T10:02:03.648Z [DEBUG] Preserving file permissions: 100666
+2026-11-23T10:02:03.648Z [DEBUG] Writing to temp file: <path>
+2026-11-23T10:02:03.648Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 7.0ms (worker hop, next() included)
+2026-11-23T10:02:03.649Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.649Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_e67ec584fcc543d58f82a71a74c481e9 permissionDecisionMs=8
+2026-11-23T10:02:03.651Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_status
+2026-11-23T10:02:03.652Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:03.666Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_status' completed successfully in 15ms
+2026-11-23T10:02:03.667Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_e67ec584fcc543d58f82a71a74c481e9 outcome=ok durationMs=18
+2026-11-23T10:02:03.668Z [DEBUG] Applied original permissions to temp file
+2026-11-23T10:02:03.675Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 37.5ms (worker hop, next() included)
+2026-11-23T10:02:03.676Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_status answered in 40ms, 6831 chars
+2026-11-23T10:02:03.676Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_status answered in 40ms: 1 block(s)
+2026-11-23T10:02:03.677Z [DEBUG] type root of ciel-work at <path> entries claude-code, claude-code-tools, claude-code-mcp; wrote .claude-plugin/types/claude-code-mcp/index.d.ts
+2026-11-23T10:02:03.677Z [DEBUG] [ciel-work] $.ui.log: reloaded (19 hooks: agent.spawn, session.append, session.start, classic.SessionStart, prompt.attachment, turn.start, turn.step, turn.complete, session.compact, classic.Stop, session.receive, prompt.submit, command.run, tool.call, session.send, tool.check, session.end, ui.render, ui.message)
+2026-11-23T10:02:03.679Z [DEBUG] Temp file written successfully, size: 1814 bytes
+2026-11-23T10:02:03.679Z [DEBUG] Renaming <path> to <path>
+2026-11-23T10:02:03.682Z [DEBUG] File <path> written atomically
+2026-11-23T10:02:03.684Z [DEBUG] fullscreen boot canary: healthy
+2026-11-23T10:02:03.684Z [DEBUG] hooks module ciel-work@inline session.append settled in 5.3ms (worker hop, next() included)
+2026-11-23T10:02:03.709Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_status (format, session_id, _host)
+2026-11-23T10:02:03.710Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_status (format, session_id, _host)
+2026-11-23T10:02:03.711Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.712Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:03.713Z [DEBUG] $.tool.call (ciel-work): TaskStop (task_id)
+2026-11-23T10:02:03.714Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.715Z [DEBUG] hooks module ciel-work-gate@inline, stop-fault@inline: tool.call nested in ciel-work
+2026-11-23T10:02:03.717Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.717Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:03.719Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:03.720Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 0.6ms (native link, next() included)
+2026-11-23T10:02:03.720Z [DEBUG] $.mcp.connect (ciel-work): ciel-runtime-router: listed
+2026-11-23T10:02:03.721Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 3.8ms (worker hop, next() included)
+2026-11-23T10:02:03.721Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.722Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_e9ff3aef4b5549188fd27c7635c4beb4 permissionDecisionMs=6
+2026-11-23T10:02:03.723Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_status
+2026-11-23T10:02:03.724Z [DEBUG] stop-fault (user) answered tool.call without next() in 6.1ms; nothing beneath it ran for this dispatch
+2026-11-23T10:02:03.724Z [DEBUG] hooks module ciel-work-gate@inline, stop-fault@inline tool.call settled in 9.0ms (worker hop, next() included)
+2026-11-23T10:02:03.724Z [DEBUG] tool.call TaskStop toolu_plugin_16fbe9ba17974fbfa17c4b48fa4cdd8c: resolved by a hooks module (deny of 29 chars; reason left out because it can quote tool input)
+2026-11-23T10:02:03.724Z [DEBUG] $.tool.call (ciel-work): TaskStop answered in 11ms, 62 chars, denied
+2026-11-23T10:02:03.725Z [DEBUG] [stop-fault] $.ui.log (to debug): stop-fault #1 denied ab8b0cff7133fe4a4 (1/2) listed=running
+2026-11-23T10:02:03.725Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:03.740Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_status' completed successfully in 17ms
+2026-11-23T10:02:03.740Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_e9ff3aef4b5549188fd27c7635c4beb4 outcome=ok durationMs=18
+2026-11-23T10:02:03.743Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.743Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:03.744Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_status (format, session_id, _host)
+2026-11-23T10:02:03.744Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_status (format, session_id, _host)
+2026-11-23T10:02:03.745Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.746Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:03.746Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 34.5ms (worker hop, next() included)
+2026-11-23T10:02:03.746Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_status answered in 36ms, 6831 chars
+2026-11-23T10:02:03.747Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_status answered in 38ms: 1 block(s)
+2026-11-23T10:02:03.747Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 3.6ms (worker hop, next() included)
+2026-11-23T10:02:03.749Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.749Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:03.750Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:03.751Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 0.8ms (native link, next() included)
+2026-11-23T10:02:03.752Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 3.3ms (worker hop, next() included)
+2026-11-23T10:02:03.753Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.754Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_e9a15511aceb4081bba58988acf2584f permissionDecisionMs=5
+2026-11-23T10:02:03.755Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_status
+2026-11-23T10:02:03.757Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_event (event, state, gate_version, probe_ref, session_id, _host)
+2026-11-23T10:02:03.758Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_event (event, state, gate_version, probe_ref, session_id, _host)
+2026-11-23T10:02:03.759Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.759Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:03.760Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_status (format, detail, session_id)
+2026-11-23T10:02:03.761Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_status (format, detail, session_id)
+2026-11-23T10:02:03.761Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.762Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:03.764Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:03.767Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.767Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:03.769Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.769Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:03.769Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:03.770Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 0.7ms (native link, next() included)
+2026-11-23T10:02:03.771Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:03.772Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 0.9ms (native link, next() included)
+2026-11-23T10:02:03.772Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 4.9ms (worker hop, next() included)
+2026-11-23T10:02:03.772Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.773Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_e9590a79cc264d10b1a2aabbbb426021 permissionDecisionMs=7
+2026-11-23T10:02:03.774Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_parallel_event
+2026-11-23T10:02:03.775Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 5.9ms (worker hop, next() included)
+2026-11-23T10:02:03.775Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.776Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_74d6f6291cb9472aa62a640325d515cc permissionDecisionMs=7
+2026-11-23T10:02:03.777Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_status
+2026-11-23T10:02:03.777Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:03.779Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:03.781Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_status' completed successfully in 26ms
+2026-11-23T10:02:03.781Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_e9a15511aceb4081bba58988acf2584f outcome=ok durationMs=27
+2026-11-23T10:02:03.787Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 41.0ms (worker hop, next() included)
+2026-11-23T10:02:03.788Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_status answered in 44ms, 6831 chars
+2026-11-23T10:02:03.788Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_status answered in 44ms: 1 block(s)
+2026-11-23T10:02:03.789Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_parallel_event' completed successfully in 15ms
+2026-11-23T10:02:03.790Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_e9590a79cc264d10b1a2aabbbb426021 outcome=ok durationMs=17
+2026-11-23T10:02:03.792Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 32.2ms (worker hop, next() included)
+2026-11-23T10:02:03.792Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_event answered in 34ms, 185 chars
+2026-11-23T10:02:03.792Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_event answered in 35ms: 1 block(s)
+2026-11-23T10:02:03.801Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_status' completed successfully in 24ms
+2026-11-23T10:02:03.802Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_74d6f6291cb9472aa62a640325d515cc outcome=ok durationMs=26
+2026-11-23T10:02:03.805Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 42.6ms (worker hop, next() included)
+2026-11-23T10:02:03.805Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_status answered in 44ms, 7287 chars
+2026-11-23T10:02:03.805Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_status answered in 45ms: 1 block(s)
+2026-11-23T10:02:03.807Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status (session_id, _host)
+2026-11-23T10:02:03.808Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status (session_id, _host)
+2026-11-23T10:02:03.809Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.810Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:03.813Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.813Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:03.815Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:03.816Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 0.9ms (native link, next() included)
+2026-11-23T10:02:03.816Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status (session_id, _host)
+2026-11-23T10:02:03.817Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status (session_id, _host)
+2026-11-23T10:02:03.818Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.819Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:03.819Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 5.8ms (worker hop, next() included)
+2026-11-23T10:02:03.819Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.820Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_e3a521ed168348f2adcac50bbda1d988 permissionDecisionMs=8
+2026-11-23T10:02:03.821Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_parallel_status
+2026-11-23T10:02:03.823Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.823Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:03.824Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:03.825Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:03.826Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 0.6ms (native link, next() included)
+2026-11-23T10:02:03.830Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 6.6ms (worker hop, next() included)
+2026-11-23T10:02:03.830Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.831Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_16f10c9ca5a84c109f7b7eda7c1410f5 permissionDecisionMs=8
+2026-11-23T10:02:03.832Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_parallel_status
+2026-11-23T10:02:03.836Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:03.854Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_parallel_status' completed successfully in 33ms
+2026-11-23T10:02:03.855Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_e3a521ed168348f2adcac50bbda1d988 outcome=ok durationMs=35
+2026-11-23T10:02:03.858Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_parallel_status' completed successfully in 26ms
+2026-11-23T10:02:03.858Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_16f10c9ca5a84c109f7b7eda7c1410f5 outcome=ok durationMs=27
+2026-11-23T10:02:03.863Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 52.9ms (worker hop, next() included)
+2026-11-23T10:02:03.863Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status answered in 55ms, 5684 chars
+2026-11-23T10:02:03.863Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status answered in 56ms: 1 block(s)
+2026-11-23T10:02:03.864Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 44.8ms (worker hop, next() included)
+2026-11-23T10:02:03.864Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status answered in 47ms, 5684 chars
+2026-11-23T10:02:03.864Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status answered in 48ms: 1 block(s)
+2026-11-23T10:02:03.865Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status (session_id, _host)
+2026-11-23T10:02:03.865Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status (session_id, _host)
+2026-11-23T10:02:03.866Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.867Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:03.870Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.871Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:03.874Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:03.875Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 1.0ms (native link, next() included)
+2026-11-23T10:02:03.877Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 5.9ms (worker hop, next() included)
+2026-11-23T10:02:03.877Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.878Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_5c2fa94433314ba5a5be00ec9b9511c8 permissionDecisionMs=7
+2026-11-23T10:02:03.879Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_parallel_status
+2026-11-23T10:02:03.881Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:03.903Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_parallel_status' completed successfully in 24ms
+2026-11-23T10:02:03.904Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_5c2fa94433314ba5a5be00ec9b9511c8 outcome=ok durationMs=27
+2026-11-23T10:02:03.906Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.907Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:03.908Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 40.2ms (worker hop, next() included)
+2026-11-23T10:02:03.908Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status answered in 43ms, 5684 chars
+2026-11-23T10:02:03.908Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status answered in 43ms: 1 block(s)
+2026-11-23T10:02:03.908Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.6ms (worker hop, next() included)
+2026-11-23T10:02:03.927Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_event (event, rows, complete, expected_evidence_version, session_id, _host)
+2026-11-23T10:02:03.928Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_event (event, rows, complete, expected_evidence_version, session_id, _host)
+2026-11-23T10:02:03.929Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.930Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:03.930Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status (projection, session_id, _host)
+2026-11-23T10:02:03.931Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status (projection, session_id, _host)
+2026-11-23T10:02:03.932Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.932Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:03.934Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.935Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:03.936Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.936Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:03.937Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:03.937Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 0.5ms (native link, next() included)
+2026-11-23T10:02:03.937Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:03.938Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 0.3ms (native link, next() included)
+2026-11-23T10:02:03.938Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 2.8ms (worker hop, next() included)
+2026-11-23T10:02:03.938Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.939Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_f4e3fe748e664bb8acd30001a165cb8e permissionDecisionMs=5
+2026-11-23T10:02:03.940Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_parallel_event
+2026-11-23T10:02:03.941Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 4.9ms (worker hop, next() included)
+2026-11-23T10:02:03.941Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.942Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_caeca8637a9741a895bacb4930d41be2 permissionDecisionMs=7
+2026-11-23T10:02:03.943Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_parallel_status
+2026-11-23T10:02:03.944Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:03.945Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:03.948Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_parallel_status' completed successfully in 5ms
+2026-11-23T10:02:03.949Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_caeca8637a9741a895bacb4930d41be2 outcome=ok durationMs=7
+2026-11-23T10:02:03.951Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 18.9ms (worker hop, next() included)
+2026-11-23T10:02:03.951Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status answered in 20ms, 39 chars
+2026-11-23T10:02:03.951Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status answered in 21ms: 1 block(s)
+2026-11-23T10:02:03.952Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_parallel_event' completed successfully in 12ms
+2026-11-23T10:02:03.953Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_f4e3fe748e664bb8acd30001a165cb8e outcome=ok durationMs=14
+2026-11-23T10:02:03.956Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 26.6ms (worker hop, next() included)
+2026-11-23T10:02:03.957Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_event answered in 29ms, 103 chars
+2026-11-23T10:02:03.957Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_event answered in 30ms: 1 block(s)
+2026-11-23T10:02:03.963Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_event (role, auto, event, expected_version, session_id, _host)
+2026-11-23T10:02:03.963Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_event (role, auto, event, expected_version, session_id, _host)
+2026-11-23T10:02:03.964Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.965Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:03.969Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.970Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:03.971Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:03.972Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 1.2ms (native link, next() included)
+2026-11-23T10:02:03.974Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 4.4ms (worker hop, next() included)
+2026-11-23T10:02:03.975Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.976Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_cdadbcdcd6414990841b89e1f746a3c6 permissionDecisionMs=7
+2026-11-23T10:02:03.978Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_parallel_event
+2026-11-23T10:02:03.981Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_live_settings (session_id, _host)
+2026-11-23T10:02:03.982Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_live_settings (session_id, _host)
+2026-11-23T10:02:03.983Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.983Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:03.984Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:03.987Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.987Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:03.988Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status (session_id, _host)
+2026-11-23T10:02:03.989Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status (session_id, _host)
+2026-11-23T10:02:03.990Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.990Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:03.991Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:03.991Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 0.5ms (native link, next() included)
+2026-11-23T10:02:03.996Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.996Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:03.997Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 9.2ms (worker hop, next() included)
+2026-11-23T10:02:03.997Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:03.997Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_f960c399fc474aae8dee5fe50de86d62 permissionDecisionMs=11
+2026-11-23T10:02:03.998Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_live_settings
+2026-11-23T10:02:04.000Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:04.001Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 1.2ms (native link, next() included)
+2026-11-23T10:02:04.002Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:04.004Z [ERROR] MCP server "ciel-runtime-router" no eligible candidate
+2026-11-23T10:02:04.004Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_parallel_event' failed after 0s: no eligible candidate
+2026-11-23T10:02:04.004Z [WARN] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_cdadbcdcd6414990841b89e1f746a3c6 outcome=error durationMs=28
+2026-11-23T10:02:04.005Z [DEBUG] mcp_tool tool error (28ms): code=tool_mcp_call_error type=McpToolCallError errorChars=21
+2026-11-23T10:02:04.006Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 9.1ms (worker hop, next() included)
+2026-11-23T10:02:04.006Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.006Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_927fa2f56ecb4e39bb197e8aaf858152 permissionDecisionMs=10
+2026-11-23T10:02:04.008Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_parallel_status
+2026-11-23T10:02:04.008Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 43.7ms (worker hop, next() included)
+2026-11-23T10:02:04.009Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_event answered in 46ms, 21 chars, isError
+2026-11-23T10:02:04.009Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_event answered in 47ms: 1 block(s), isError
+2026-11-23T10:02:04.009Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:04.012Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_live_settings' completed successfully in 13ms
+2026-11-23T10:02:04.012Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_f960c399fc474aae8dee5fe50de86d62 outcome=ok durationMs=15
+2026-11-23T10:02:04.015Z [DEBUG] [ciel-work] $.ui.log: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing approved Work. Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode, or the agent (work_mode_set)
+2026-11-23T10:02:04.020Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 36.7ms (worker hop, next() included)
+2026-11-23T10:02:04.021Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_live_settings answered in 39ms, 113 chars
+2026-11-23T10:02:04.023Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_live_settings answered in 40ms: 1 block(s)
+2026-11-23T10:02:04.028Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_host_page (id, part, session_id, _host)
+2026-11-23T10:02:04.029Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_host_page (id, part, session_id, _host)
+2026-11-23T10:02:04.031Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.031Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:04.033Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_parallel_status' completed successfully in 25ms
+2026-11-23T10:02:04.033Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_927fa2f56ecb4e39bb197e8aaf858152 outcome=ok durationMs=27
+2026-11-23T10:02:04.034Z [DEBUG] hooks module ciel-work@inline session.append settled in 18.4ms (worker hop, next() included)
+2026-11-23T10:02:04.036Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.037Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:04.037Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 46.5ms (worker hop, next() included)
+2026-11-23T10:02:04.037Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status answered in 48ms, 5684 chars
+2026-11-23T10:02:04.037Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status answered in 49ms: 1 block(s)
+2026-11-23T10:02:04.050Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:04.051Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 0.7ms (native link, next() included)
+2026-11-23T10:02:04.055Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 18.5ms (worker hop, next() included)
+2026-11-23T10:02:04.056Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.057Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_b1d09da63701494e8eb291ddc0b721e1 permissionDecisionMs=21
+2026-11-23T10:02:04.058Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_host_page
+2026-11-23T10:02:04.059Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:04.062Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_host_page' completed successfully in 4ms
+2026-11-23T10:02:04.063Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_b1d09da63701494e8eb291ddc0b721e1 outcome=ok durationMs=6
+2026-11-23T10:02:04.065Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 33.5ms (worker hop, next() included)
+2026-11-23T10:02:04.066Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_host_page answered in 37ms, 8979 chars
+2026-11-23T10:02:04.066Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_host_page answered in 38ms: 1 block(s)
+2026-11-23T10:02:04.068Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_host_page (id, part, session_id, _host)
+2026-11-23T10:02:04.069Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_host_page (id, part, session_id, _host)
+2026-11-23T10:02:04.070Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.071Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:04.079Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.079Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:04.082Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:04.084Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 1.7ms (native link, next() included)
+2026-11-23T10:02:04.086Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 7.4ms (worker hop, next() included)
+2026-11-23T10:02:04.087Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.087Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_6cdcd64c98184c34a0576db3c911fd71 permissionDecisionMs=9
+2026-11-23T10:02:04.088Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_host_page
+2026-11-23T10:02:04.089Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:04.093Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_host_page' completed successfully in 5ms
+2026-11-23T10:02:04.093Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_6cdcd64c98184c34a0576db3c911fd71 outcome=ok durationMs=6
+2026-11-23T10:02:04.099Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 27.9ms (worker hop, next() included)
+2026-11-23T10:02:04.100Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_host_page answered in 31ms, 8436 chars
+2026-11-23T10:02:04.100Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_host_page answered in 32ms: 1 block(s)
+2026-11-23T10:02:04.103Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_host_page (id, part, session_id, _host)
+2026-11-23T10:02:04.104Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_host_page (id, part, session_id, _host)
+2026-11-23T10:02:04.105Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.105Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:04.107Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.107Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:04.109Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:04.110Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 0.8ms (native link, next() included)
+2026-11-23T10:02:04.111Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 3.4ms (worker hop, next() included)
+2026-11-23T10:02:04.111Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.112Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_b3fc700db67046bdb53cf78a584bd11d permissionDecisionMs=5
+2026-11-23T10:02:04.113Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_host_page
+2026-11-23T10:02:04.114Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:04.116Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_host_page' completed successfully in 3ms
+2026-11-23T10:02:04.117Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_b3fc700db67046bdb53cf78a584bd11d outcome=ok durationMs=5
+2026-11-23T10:02:04.120Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 14.4ms (worker hop, next() included)
+2026-11-23T10:02:04.120Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_host_page answered in 16ms, 8398 chars
+2026-11-23T10:02:04.120Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_host_page answered in 17ms: 1 block(s)
+2026-11-23T10:02:04.123Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_host_page (id, part, session_id, _host)
+2026-11-23T10:02:04.132Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_host_page (id, part, session_id, _host)
+2026-11-23T10:02:04.134Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.135Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:04.137Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.137Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:04.141Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:04.142Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 0.6ms (native link, next() included)
+2026-11-23T10:02:04.143Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 5.2ms (worker hop, next() included)
+2026-11-23T10:02:04.143Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.143Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_f28655c30cfb4407902512976778bb9f permissionDecisionMs=6
+2026-11-23T10:02:04.144Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_host_page
+2026-11-23T10:02:04.145Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:04.147Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_host_page' completed successfully in 3ms
+2026-11-23T10:02:04.148Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_f28655c30cfb4407902512976778bb9f outcome=ok durationMs=5
+2026-11-23T10:02:04.151Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 16.2ms (worker hop, next() included)
+2026-11-23T10:02:04.152Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_host_page answered in 20ms, 1349 chars
+2026-11-23T10:02:04.152Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_host_page answered in 29ms: 1 block(s)
+2026-11-23T10:02:04.162Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_side_status (session_id, _host)
+2026-11-23T10:02:04.163Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_side_status (session_id, _host)
+2026-11-23T10:02:04.164Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.164Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:04.168Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.168Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:04.171Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:04.172Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 1.0ms (native link, next() included)
+2026-11-23T10:02:04.173Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 5.0ms (worker hop, next() included)
+2026-11-23T10:02:04.173Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.174Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_ba98a35a19854bf885eeb7ab0e596298 permissionDecisionMs=7
+2026-11-23T10:02:04.175Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_side_status
+2026-11-23T10:02:04.175Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:04.189Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_side_status' completed successfully in 14ms
+2026-11-23T10:02:04.189Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_ba98a35a19854bf885eeb7ab0e596298 outcome=ok durationMs=15
+2026-11-23T10:02:04.191Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 26.9ms (worker hop, next() included)
+2026-11-23T10:02:04.192Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_side_status answered in 29ms, 1328 chars
+2026-11-23T10:02:04.192Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_side_status answered in 30ms: 1 block(s)
+2026-11-23T10:02:04.532Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_side_claim (owner, session_id, _host)
+2026-11-23T10:02:04.533Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_side_claim (owner, session_id, _host)
+2026-11-23T10:02:04.534Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.535Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:04.542Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.542Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:04.547Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:04.548Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 0.6ms (native link, next() included)
+2026-11-23T10:02:04.552Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 10.2ms (worker hop, next() included)
+2026-11-23T10:02:04.553Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.554Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_227c15992c1a480283ce57b0406d1e86 permissionDecisionMs=12
+2026-11-23T10:02:04.555Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_side_claim
+2026-11-23T10:02:04.556Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:04.614Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_side_claim' completed successfully in 59ms
+2026-11-23T10:02:04.615Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_227c15992c1a480283ce57b0406d1e86 outcome=ok durationMs=61
+2026-11-23T10:02:04.620Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 85.7ms (worker hop, next() included)
+2026-11-23T10:02:04.622Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_side_claim answered in 89ms, 2441 chars
+2026-11-23T10:02:04.622Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_side_claim answered in 90ms: 1 block(s)
+2026-11-23T10:02:04.636Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_side_ack (receipt_id, state, session_id, _host)
+2026-11-23T10:02:04.637Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_side_ack (receipt_id, state, session_id, _host)
+2026-11-23T10:02:04.638Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.639Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:04.644Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.645Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:04.647Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:04.648Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 1.2ms (native link, next() included)
+2026-11-23T10:02:04.650Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 5.2ms (worker hop, next() included)
+2026-11-23T10:02:04.650Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.651Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_ebadc9c9998f4d4bbe42bdc507f9a512 permissionDecisionMs=7
+2026-11-23T10:02:04.652Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_side_ack
+2026-11-23T10:02:04.656Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:04.664Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_side_ack' completed successfully in 12ms
+2026-11-23T10:02:04.664Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_ebadc9c9998f4d4bbe42bdc507f9a512 outcome=ok durationMs=13
+2026-11-23T10:02:04.668Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 28.4ms (worker hop, next() included)
+2026-11-23T10:02:04.669Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_side_ack answered in 32ms, 759 chars
+2026-11-23T10:02:04.669Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_side_ack answered in 33ms: 1 block(s)
+2026-11-23T10:02:04.672Z [DEBUG] $.tool.call (ciel-work): Agent (prompt, description, run_in_background, subagent_type)
+2026-11-23T10:02:04.676Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.677Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:04.683Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.683Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:04.691Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 7.1ms (worker hop, next() included)
+2026-11-23T10:02:04.691Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.692Z [INFO] [Stall] tool_dispatch_start tool=Agent toolUseId=toolu_plugin_1e838d37abd74d7d9cb39916f1255b83 permissionDecisionMs=9
+2026-11-23T10:02:04.692Z [WARN] [Stall] tool_dispatch_end tool=Agent toolUseId=toolu_plugin_1e838d37abd74d7d9cb39916f1255b83 outcome=error durationMs=1
+2026-11-23T10:02:04.693Z [DEBUG] Agent tool error (1ms): code=tool_expected_error type=AgentTypeError errorChars=138
+2026-11-23T10:02:04.695Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 18.0ms (worker hop, next() included)
+2026-11-23T10:02:04.695Z [DEBUG] $.tool.call (ciel-work): Agent answered in 23ms, 138 chars, isError
+2026-11-23T10:02:04.701Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_side_fail (category, model, model_fingerprint, agent_id, reason, session_id, _host)
+2026-11-23T10:02:04.702Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_side_fail (category, model, model_fingerprint, agent_id, reason, session_id, _host)
+2026-11-23T10:02:04.704Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.705Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:04.712Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.713Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:04.721Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:04.722Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 1.2ms (native link, next() included)
+2026-11-23T10:02:04.727Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 13.1ms (worker hop, next() included)
+2026-11-23T10:02:04.727Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.728Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_34ffb7cdd85945188d4258860d885356 permissionDecisionMs=17
+2026-11-23T10:02:04.729Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_side_fail
+2026-11-23T10:02:04.730Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:04.743Z [DEBUG] $.tool.call (ciel-work): TaskStop (task_id)
+2026-11-23T10:02:04.744Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.745Z [DEBUG] hooks module ciel-work-gate@inline, stop-fault@inline: tool.call nested in ciel-work
+2026-11-23T10:02:04.754Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_side_fail' completed successfully in 25ms
+2026-11-23T10:02:04.755Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_34ffb7cdd85945188d4258860d885356 outcome=ok durationMs=27
+2026-11-23T10:02:04.756Z [DEBUG] [stop-fault] $.ui.log (to debug): stop-fault #2 denied ab8b0cff7133fe4a4 (2/2) listed=running
+2026-11-23T10:02:04.756Z [DEBUG] hooks module ciel-work-gate@inline, stop-fault@inline tool.call settled in 11.3ms (worker hop, next() included)
+2026-11-23T10:02:04.756Z [DEBUG] tool.call TaskStop toolu_plugin_7d76dff475cc4001887c9f7d3d00bd9e: resolved by a hooks module (deny of 29 chars; reason left out because it can quote tool input)
+2026-11-23T10:02:04.756Z [DEBUG] $.tool.call (ciel-work): TaskStop answered in 13ms, 62 chars, denied
+2026-11-23T10:02:04.758Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 53.2ms (worker hop, next() included)
+2026-11-23T10:02:04.758Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_side_fail answered in 56ms, 1070 chars
+2026-11-23T10:02:04.759Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_side_fail answered in 58ms: 1 block(s)
+2026-11-23T10:02:04.764Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_side_claim (owner, session_id, _host)
+2026-11-23T10:02:04.765Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_side_claim (owner, session_id, _host)
+2026-11-23T10:02:04.766Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.767Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:04.772Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.772Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:04.776Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:04.777Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 0.8ms (native link, next() included)
+2026-11-23T10:02:04.787Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 14.6ms (worker hop, next() included)
+2026-11-23T10:02:04.787Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.788Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_177e3318634b4e959c04e377d99e72ad permissionDecisionMs=18
+2026-11-23T10:02:04.789Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_side_claim
+2026-11-23T10:02:04.792Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:04.818Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_side_claim' completed successfully in 29ms
+2026-11-23T10:02:04.819Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_177e3318634b4e959c04e377d99e72ad outcome=ok durationMs=31
+2026-11-23T10:02:04.823Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 55.6ms (worker hop, next() included)
+2026-11-23T10:02:04.823Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_side_claim answered in 58ms, 1233 chars
+2026-11-23T10:02:04.823Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_side_claim answered in 59ms: 1 block(s)
+2026-11-23T10:02:04.832Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_side_status (session_id, _host)
+2026-11-23T10:02:04.833Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_side_status (session_id, _host)
+2026-11-23T10:02:04.834Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.835Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:04.844Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.845Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:04.847Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:04.848Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 1.0ms (native link, next() included)
+2026-11-23T10:02:04.850Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 4.9ms (worker hop, next() included)
+2026-11-23T10:02:04.850Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:04.850Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_6cbdb8228151445ca77c42ae613a1674 permissionDecisionMs=8
+2026-11-23T10:02:04.851Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_side_status
+2026-11-23T10:02:04.852Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:04.867Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_side_status' completed successfully in 16ms
+2026-11-23T10:02:04.867Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_6cbdb8228151445ca77c42ae613a1674 outcome=ok durationMs=17
+2026-11-23T10:02:04.872Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 37.4ms (worker hop, next() included)
+2026-11-23T10:02:04.873Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_side_status answered in 40ms, 1863 chars
+2026-11-23T10:02:04.873Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_side_status answered in 41ms: 1 block(s)
+2026-11-23T10:02:05.023Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_status (format, session_id, _host)
+2026-11-23T10:02:05.024Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_status (format, session_id, _host)
+2026-11-23T10:02:05.025Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:05.026Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:05.028Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:05.028Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:05.030Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:05.031Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 0.7ms (native link, next() included)
+2026-11-23T10:02:05.031Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 2.8ms (worker hop, next() included)
+2026-11-23T10:02:05.031Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:05.032Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_1587c06819e143dcabdc13619dfc182b permissionDecisionMs=5
+2026-11-23T10:02:05.033Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_status
+2026-11-23T10:02:05.034Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:05.046Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_status' completed successfully in 13ms
+2026-11-23T10:02:05.047Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_1587c06819e143dcabdc13619dfc182b outcome=ok durationMs=15
+2026-11-23T10:02:05.048Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 22.8ms (worker hop, next() included)
+2026-11-23T10:02:05.049Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_status answered in 25ms, 6987 chars
+2026-11-23T10:02:05.049Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_status answered in 26ms: 1 block(s)
+2026-11-23T10:02:05.059Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status (session_id, _host)
+2026-11-23T10:02:05.060Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status (session_id, _host)
+2026-11-23T10:02:05.061Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:05.061Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:05.065Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:05.065Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:05.066Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:05.067Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 0.8ms (native link, next() included)
+2026-11-23T10:02:05.067Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 2.3ms (worker hop, next() included)
+2026-11-23T10:02:05.067Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:05.068Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_6ef0a3b6d2e4424396809b34285cae46 permissionDecisionMs=4
+2026-11-23T10:02:05.069Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_parallel_status
+2026-11-23T10:02:05.070Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:05.083Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_parallel_status' completed successfully in 14ms
+2026-11-23T10:02:05.084Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_6ef0a3b6d2e4424396809b34285cae46 outcome=ok durationMs=16
+2026-11-23T10:02:05.088Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 27.5ms (worker hop, next() included)
+2026-11-23T10:02:05.089Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status answered in 29ms, 5684 chars
+2026-11-23T10:02:05.089Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status answered in 30ms: 1 block(s)
+2026-11-23T10:02:05.094Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status (session_id, _host)
+2026-11-23T10:02:05.094Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status (session_id, _host)
+2026-11-23T10:02:05.095Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:05.096Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:05.099Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:05.099Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:05.101Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:05.101Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 0.7ms (native link, next() included)
+2026-11-23T10:02:05.102Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 2.5ms (worker hop, next() included)
+2026-11-23T10:02:05.102Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:05.103Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_825235e86ee94c9f91278411e7694b64 permissionDecisionMs=4
+2026-11-23T10:02:05.104Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_parallel_status
+2026-11-23T10:02:05.105Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:05.121Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_parallel_status' completed successfully in 17ms
+2026-11-23T10:02:05.121Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_825235e86ee94c9f91278411e7694b64 outcome=ok durationMs=18
+2026-11-23T10:02:05.124Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 27.9ms (worker hop, next() included)
+2026-11-23T10:02:05.124Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status answered in 30ms, 5684 chars
+2026-11-23T10:02:05.124Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status answered in 31ms: 1 block(s)
+2026-11-23T10:02:05.132Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:05.132Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:05.133Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.3ms (worker hop, next() included)
+2026-11-23T10:02:05.142Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status (projection, session_id, _host)
+2026-11-23T10:02:05.143Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status (projection, session_id, _host)
+2026-11-23T10:02:05.144Z [DEBUG] hooks module ciel-work@inline tool.call skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:05.144Z [DEBUG] hooks module ciel-work-gate@inline: tool.call nested in ciel-work
+2026-11-23T10:02:05.148Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:05.148Z [DEBUG] hooks module ciel-work-gate@inline: tool.check nested in ciel-work
+2026-11-23T10:02:05.150Z [DEBUG] hooks module cc-plugin-privacy@builtin (native): tool.check nested in ciel-work
+2026-11-23T10:02:05.151Z [DEBUG] hooks module cc-plugin-privacy@builtin tool.check settled in 0.8ms (native link, next() included)
+2026-11-23T10:02:05.155Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 6.4ms (worker hop, next() included)
+2026-11-23T10:02:05.155Z [DEBUG] hooks module ciel-work@inline tool.check skipped: re-entry (the plugin's own code raised it; origin ciel-work)
+2026-11-23T10:02:05.156Z [INFO] [Stall] tool_dispatch_start tool=mcp_tool toolUseId=toolu_plugin_c7dd49802d744a528f56dc702a22d58b permissionDecisionMs=9
+2026-11-23T10:02:05.158Z [DEBUG] MCP server "ciel-runtime-router": Calling MCP tool: work_parallel_status
+2026-11-23T10:02:05.160Z [DEBUG] MCP server "ciel-runtime-router": No token data found
+2026-11-23T10:02:05.164Z [DEBUG] MCP server "ciel-runtime-router": Tool 'work_parallel_status' completed successfully in 6ms
+2026-11-23T10:02:05.165Z [INFO] [Stall] tool_dispatch_end tool=mcp_tool toolUseId=toolu_plugin_c7dd49802d744a528f56dc702a22d58b outcome=ok durationMs=9
+2026-11-23T10:02:05.167Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 22.6ms (worker hop, next() included)
+2026-11-23T10:02:05.167Z [DEBUG] $.tool.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status answered in 24ms, 39 chars
+2026-11-23T10:02:05.167Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_status answered in 25ms: 1 block(s)
+2026-11-23T10:02:05.173Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_parallel_event (role, auto, event, expected_version, session_id, _host)

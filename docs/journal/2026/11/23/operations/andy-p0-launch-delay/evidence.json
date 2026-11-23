@@ -1,0 +1,114 @@
+{
+ "source_files": {
+  "coordination_archive": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\work-parallel-coordination.json -> archive[].run.lease_id / summary",
+  "workspace_failures": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\work-parallel-workspace-failures-v1.json -> events[] (id = sha256(scope\u0000code\u0000dedup_key)[:16], dedup_key = \"ws:\"+sha256(code\u0000item_id)[:32])",
+  "ledger": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\work-parallel.json -> leases[]",
+  "p0_sidecar": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\work-parallel-p0.json -> intents[]",
+  "native": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\work-parallel-native.json -> records[]",
+  "workspace_manifests": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\work-parallel-workspaces\\<key>.json"
+ },
+ "extracted_at": "2026-11-23T08:06:32Z",
+ "items": {
+  "n2626": {
+   "first_reservation": {
+    "lease_id": "331d6d5cc0b542b5a65de529182aa8eb",
+    "item_id": "n2626",
+    "state": "terminal",
+    "agent_id": null,
+    "reserved_at": "2026-11-23T05:49:55Z",
+    "bound_at": null,
+    "archive_summary": {
+     "outcome": "workspace preparation failed before launch",
+     "state": "terminal"
+    },
+    "in_ledger_now": false
+   },
+   "workspace_failure_events": [
+    {
+     "id": "d75a3315150f0586",
+     "code": "workspace_prepare_failed",
+     "first_at": "2026-11-23T05:58:07Z",
+     "at": "2026-11-23T05:58:07Z",
+     "count": 1
+    },
+    {
+     "id": "de5c7a6d1f15e69a",
+     "code": "workspace_prepare_retained",
+     "first_at": "2026-11-23T05:52:53Z",
+     "at": "2026-11-23T05:58:08Z",
+     "count": 4
+    }
+   ],
+   "later_lease": {
+    "lease_id": "a61049238abc47959acc7b1bf1086bae",
+    "state": "done",
+    "priority_canonical": "P1",
+    "host_id": "a529dd3e9a051d8df",
+    "dispatch_name": "work-p0-dc0ac784b77248f6acba1f2f89b6a152",
+    "created_at": "2026-11-23T05:49:52Z"
+   },
+   "p0_intent": {
+    "intent_id": "dc0ac784b77248f6acba1f2f89b6a152",
+    "state": "bound",
+    "continuation": "initial",
+    "created_at": "2026-11-23T05:49:55Z",
+    "updated_at": "2026-11-23T05:58:39Z"
+   },
+   "native": {
+    "agent_id": "a529dd3e9a051d8df",
+    "status": "idle",
+    "first_seen_at": "2026-11-23T05:59:15Z",
+    "last_seen_at": "2026-11-23T06:28:57Z",
+    "missing_since": "2026-11-23T06:30:36Z",
+    "terminal_at": null
+   }
+  },
+  "n2633": {
+   "first_reservation": {
+    "lease_id": "1d272611634840dc9f83b6fb60233860",
+    "item_id": "n2633",
+    "state": "terminal",
+    "agent_id": null,
+    "reserved_at": "2026-11-23T06:52:26Z",
+    "bound_at": null,
+    "archive_summary": {
+     "outcome": "workspace preparation failed before launch",
+     "state": "terminal"
+    },
+    "in_ledger_now": false
+   },
+   "workspace_failure_events": [
+    {
+     "id": "dd04602c8e8f2d8b",
+     "code": "workspace_prepare_retained",
+     "first_at": "2026-11-23T06:55:11Z",
+     "at": "2026-11-23T06:55:12Z",
+     "count": 2
+    }
+   ],
+   "later_lease": {
+    "lease_id": "432aac5242a84e81b4b823240c02a667",
+    "state": "done",
+    "priority_canonical": "P1",
+    "host_id": "aa9656811c5275df8",
+    "dispatch_name": "work-p0-12e4f631c3e047fe83e1051689d3f4e8",
+    "created_at": "2026-11-23T06:52:08Z"
+   },
+   "p0_intent": {
+    "intent_id": "12e4f631c3e047fe83e1051689d3f4e8",
+    "state": "bound",
+    "continuation": "initial",
+    "created_at": "2026-11-23T06:52:26Z",
+    "updated_at": "2026-11-23T06:55:23Z"
+   },
+   "native": {
+    "agent_id": "aa9656811c5275df8",
+    "status": "idle",
+    "first_seen_at": "2026-11-23T07:03:49Z",
+    "last_seen_at": "2026-11-23T07:27:16Z",
+    "missing_since": "2026-11-23T07:28:43Z",
+    "terminal_at": null
+   }
+  }
+ }
+}

@@ -115,7 +115,11 @@ class RetiredReviewerSchemaTests(LegacyReviewerFixture):
             with self.subTest(tool=name):
                 props = tool["inputSchema"]["properties"]
                 self.assertNotIn("reviewer_lease_id", props)
-                self.assertEqual(["worker", "resume"], props["role"]["enum"])
+                if name == "work_discovery_pickup":
+                    self.assertNotIn("role", props)
+                    self.assertNotIn("role", props["results"]["items"]["properties"])
+                else:
+                    self.assertEqual(["worker", "resume"], props["role"]["enum"])
         report = tools["work_parallel_report"]["description"]
         self.assertTrue(report.startswith("Worker-only question/completion/handoff report."), report)
         self.assertIn("workers and forks are denied", tools["work_parallel_item_review"]["description"])

@@ -53,6 +53,39 @@ def _canonical(root: Path, identity: str) -> str:
     raise WorkPlanError("Work continuation mapping exceeds the chain limit")
 
 
+def lineage_scopes(root: Path, identity: str) -> frozenset[str]:
+    """Every conversation identity that continues the same Work board as ``identity``.
+
+    The board's canonical identity, ``identity`` itself, and every identity
+    whose authenticated native-parked continuation marker resolves to the same
+    canonical identity. A marker is trusted only in its own session's folder
+    (the digest of its ``session``) with the native-parked authority; anything
+    unreadable or invalid continues no board this one can prove. Read-only.
+    """
+    canonical = _canonical(root, identity)
+    found = {canonical, identity}
+    for marker in (root / "work-sessions").glob("*/work-lineage.json"):
+        try:
+            if marker.is_symlink() or marker.stat().st_size > 4096:
+                continue
+            value = json.loads(marker.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(value, dict) or value.get("authority") != "native-parked-handoff":
+            continue
+        session, target = value.get("session"), value.get("canonical")
+        if (not isinstance(session, str) or not IDENTITY.fullmatch(session)
+                or not isinstance(target, str) or not IDENTITY.fullmatch(target)
+                or marker.parent.name != hashlib.sha256(session.encode()).hexdigest()):
+            continue
+        try:
+            if target == canonical or _canonical(root, target) == canonical:
+                found.add(session)
+        except WorkPlanError:
+            continue
+    return frozenset(found)
+
+
 def _parent(identity: str) -> str | None:
     if not identity.startswith("claude:"):
         return None
@@ -150,6 +183,11 @@ class WorkSessionStore:
     @property
     def path(self) -> Path:
         return self._snapshot_path()
+
+    def lineage_scopes(self) -> frozenset[str]:
+        """Identities continuing this board (P0 markers follow them; lineage_scopes)."""
+        self._snapshot_path()  # commits a first-discovered continuation mapping
+        return lineage_scopes(self.root, self.identity)
 
     def read(self) -> dict[str, Any]:
         return self.store_factory(self._snapshot_path(), log=self.log).read()

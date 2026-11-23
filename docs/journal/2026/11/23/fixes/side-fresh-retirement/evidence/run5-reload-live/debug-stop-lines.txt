@@ -1,0 +1,39 @@
+2026-11-23T09:05:40.172Z [DEBUG] [stop-fault] $.ui.log (to debug): stop-fault #1 denied a694123ee87788894 (1/2) listed=running
+2026-11-23T09:05:41.199Z [DEBUG] [stop-fault] $.ui.log (to debug): stop-fault #2 denied a694123ee87788894 (2/2) listed=running
+2026-11-23T09:05:43.266Z [DEBUG] [stop-fault] $.ui.log (to debug): stop-fault #3 passed a694123ee87788894 before=running after=killed result={"ref":1,"result":{"message":"Successfully stopped task: a694123ee87788894 (Side SSE 65c03380432f)","task_id":"a694123ee87788894","task_type":"local_agent","command":"Side SSE 65c03380432f"},"text":"{\"message\":\"Successfully stopped task: a694123ee87788894 (Side SSE 65c03380432f)\",\"task_id\":\"a
+2026-11-23T09:05:30.998Z [DEBUG] hooks module ciel-work@inline loaded (worker, environment 1, tier user); events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,session.compact,classic.Stop,session.receive,prompt.submit,command.run,tool.call,session.send,tool.check,session.end,ui.render,ui.message
+2026-11-23T09:05:31.056Z [DEBUG] plugin-dir watch: watching ciel-work, ciel-work-gate, stop-fault; folders of plugins none
+2026-11-23T09:05:31.603Z [DEBUG] hooks module ciel-work@inline session.start settled in 258.8ms (worker hop, next() included)
+2026-11-23T09:05:38.779Z [DEBUG] $.agent.register (ciel-work): ciel-work:side-fresh listed
+2026-11-23T09:05:39.202Z [WARN] [claude-code:unrecognized_model] {"model":"fixture-main","query_source":"agent:custom:ciel-work:side-fresh"}
+2026-11-23T09:05:39.235Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-23T09:05:39.932Z [DEBUG] hooks module ciel-work@inline reloaded in 76.8ms; events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,session.compact,classic.Stop,session.receive,prompt.submit,command.run,tool.call,session.send,tool.check,session.end,ui.render,ui.message
+2026-11-23T09:05:40.053Z [DEBUG] hooks module ciel-work@inline session.start settled in 114.1ms (worker hop, next() included)
+2026-11-23T09:05:40.104Z [DEBUG] [ciel-work] $.ui.log: reloaded (19 hooks: agent.spawn, session.append, session.start, classic.SessionStart, prompt.attachment, turn.start, turn.step, turn.complete, session.compact, classic.Stop, session.receive, prompt.submit, command.run, tool.call, session.send, tool.check, session.end, ui.render, ui.message)
+2026-11-23T09:05:40.163Z [DEBUG] $.tool.call (ciel-work): TaskStop (task_id)
+2026-11-23T09:05:40.172Z [DEBUG] tool.call TaskStop toolu_plugin_ca7d59e4cdc54745ba298047910cc275: resolved by a hooks module (deny of 29 chars; reason left out because it can quote tool input)
+2026-11-23T09:05:40.173Z [DEBUG] $.tool.call (ciel-work): TaskStop answered in 10ms, 62 chars, denied
+2026-11-23T09:05:41.189Z [DEBUG] $.tool.call (ciel-work): TaskStop (task_id)
+2026-11-23T09:05:41.199Z [DEBUG] tool.call TaskStop toolu_plugin_a689c9d90d5d40188a11ad19321c10c6: resolved by a hooks module (deny of 29 chars; reason left out because it can quote tool input)
+2026-11-23T09:05:41.199Z [DEBUG] $.tool.call (ciel-work): TaskStop answered in 10ms, 62 chars, denied
+2026-11-23T09:05:43.212Z [DEBUG] $.tool.call (ciel-work): TaskStop (task_id)
+2026-11-23T09:05:43.233Z [INFO] [Stall] tool_dispatch_start tool=TaskStop toolUseId=toolu_plugin_ce0969f343f24b34b2612bfbe79e9ca7 permissionDecisionMs=10
+2026-11-23T09:05:43.239Z [INFO] [Stall] tool_dispatch_end tool=TaskStop toolUseId=toolu_plugin_ce0969f343f24b34b2612bfbe79e9ca7 outcome=ok durationMs=6
+2026-11-23T09:05:43.260Z [INFO] [Stall] agent_completion agentId=a694123ee87788894 agentType=ciel-work:side-fresh exitPath=cancelled durationMs=4428 turns=0 finalStopReason=none lastChunkAgeMs=6 lastToolUseId=none lastToolResultSeen=none
+2026-11-23T09:05:43.264Z [DEBUG] $.tool.call (ciel-work): TaskStop answered in 52ms, 172 chars
+2026-11-23T09:05:46.373Z [DEBUG] $.agent.register (ciel-work): ciel-work:side-fresh listed
+2026-11-23T09:05:46.818Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-23T09:05:46.914Z [INFO] [Stall] agent_completion agentId=aaad149648c36f364 agentType=ciel-work:side-fresh exitPath=completed durationMs=508 turns=1 finalStopReason=end_turn lastChunkAgeMs=8 lastToolUseId=none lastToolResultSeen=none
+2026-11-23T09:06:31.062Z [DEBUG] plugin-dir watch on <path> idle, polling every 30000ms
+2026-11-23T09:06:31.063Z [DEBUG] plugin-dir watch on <path> idle, polling every 30000ms
+2026-11-23T09:06:31.063Z [DEBUG] plugin-dir watch on <path> idle, polling every 30000ms
+2026-11-23T09:06:41.135Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-23T09:06:41.226Z [INFO] [Stall] agent_completion agentId=a0d579376cd093e5f agentType=ciel-work:side-fresh exitPath=completed durationMs=305 turns=1 finalStopReason=end_turn lastChunkAgeMs=5 lastToolUseId=none lastToolResultSeen=none
+2026-11-23T09:06:41.307Z [DEBUG] agent.spawn ciel-work:side-fresh: refused by a hook (Side SSE native fork authorization did not match its pending host record.)
+2026-11-23T09:06:41.330Z [DEBUG] [ciel-work] $.ui.log (to debug): Ciel side: correction for 0bb483e0c415 not delivered at turn end (a plugin declined the resume: Side SSE native fork authorization did not match its pending host record.); retrying after the hook
+2026-11-23T09:06:42.870Z [DEBUG] [ciel-work] $.ui.log (to debug): Ciel side: asked the side actor for 0bb483e0c415 to correct its answer (side answer carries no decision JSON)
+2026-11-23T09:06:42.897Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-23T09:06:42.936Z [INFO] [Stall] agent_completion agentId=a0d579376cd093e5f agentType=ciel-work:side-fresh exitPath=completed durationMs=75 turns=1 finalStopReason=end_turn lastChunkAgeMs=7 lastToolUseId=none lastToolResultSeen=none
+2026-11-23T09:06:43.086Z [DEBUG] [ciel-work] $.ui.log: Ciel side: original of failed event 0bb483e0c415 → main (appended)
+2026-11-23T09:07:39.036Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-23T09:07:39.083Z [INFO] [Stall] agent_completion agentId=ae74b1f3dbae038a6 agentType=ciel-work:side-fresh exitPath=completed durationMs=271 turns=1 finalStopReason=end_turn lastChunkAgeMs=4 lastToolUseId=none lastToolResultSeen=none

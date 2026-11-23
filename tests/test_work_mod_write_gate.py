@@ -858,6 +858,19 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn('Work parallel dispatch denied', observed['nonSide']['deny'])
         self.assertNotIn('Side fork proof', observed['nonSide']['deny'])
 
+    def test_correction_resume_of_the_owned_side_actor_is_delivered(self):
+        # Real Claude Code 2.1.330 (2026-11-23): the correction send resumes the
+        # side actor through agent.spawn with its own "Side SSE" description;
+        # register.js refused it, so no correction ever reached an actor and the
+        # first answer-shape refusal quarantined the event.
+        result = self.run_scenario('side-correction-resume-of-owned-actor')
+        self.assertEqual(1, result['firstSend'], result)
+        self.assertEqual(1, result['sends'], result)
+        self.assertEqual(0, result['failedAfterFirst'], result)
+        self.assertEqual([], result['failed'], result)
+        self.assertFalse([line for line in result['logs'] if 'not delivered' in line], result)
+        self.assertIn('Side SSE native fork authorization', result['foreign']['deny'])
+
     def test_pending_side_spawn_with_failed_fork_proof_is_denied_for_every_parallel_mode(self):
         # sse-review reproduction: with Work parallel disabled a look-alike side
         # spawn reached next() and received an agent id.
@@ -894,6 +907,17 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertNotIn('SECRET-SSE', text)
         self.assertIn('holds no event data',result['block'])
         self.assertNotIn('change ticket CHG-42',result['block'])
+
+    def test_side_retirement_retries_denied_stop(self):
+        result = self.run_scenario('side-retirement-retries-denied-stop')
+        self.assertEqual(['retired', 'retired', 'retired'], result['stops'])
+
+    def test_a_completed_side_actor_is_retired_without_stop_retries(self):
+        result = self.run_scenario('side-retirement-of-a-completed-actor')
+        # The engine already lists it ended: no TaskStop over five timer rounds
+        # (the side poll keeps re-arming its own 2 s timer) and no unconfirmed log.
+        self.assertEqual([], result['stops'])
+        self.assertEqual([], result['unconfirmed'])
 
     def test_owned_side_notification_is_consumed_before_main_queue(self):
         result = self.run_scenario('side-notification-isolation')
@@ -1845,6 +1869,19 @@ class WorkModWriteGateTests(unittest.TestCase):
         result = self.run_scenario("parallel-fill-beyond-twenty")
         self.assertEqual(25, result["spawned"], result)
         self.assertEqual(26, result["reserve"], result)
+
+    def test_question_wait_contract_reaches_a_fork_only_on_a_router_that_accepts_it(self):
+        # An installed mod can run against a router that is not restarted yet;
+        # that router refuses waiting_on/release_hint in a question's detail.
+        old = self.run_scenario("parallel-fork-prompt-question-wait-capability", "old")
+        self.assertEqual(1, old["spawned"], old)
+        self.assertTrue(old["hasOkf"], old)
+        self.assertFalse(old["hasContract"], old)
+        self.assertFalse(old["namesWaitFields"], old)
+        new = self.run_scenario("parallel-fork-prompt-question-wait-capability", "new")
+        self.assertEqual(1, new["spawned"], new)
+        self.assertTrue(new["hasOkf"], new)
+        self.assertTrue(new["hasContract"], new)
 
     def test_successful_worker_report_triggers_refill(self):
         result = self.run_scenario("parallel-report-refills-released-slot")

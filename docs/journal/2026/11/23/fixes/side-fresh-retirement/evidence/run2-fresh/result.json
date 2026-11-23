@@ -1,0 +1,332 @@
+{
+  "kind": "side actor retirement under refused TaskStop, real load",
+  "claude_version": "2.1.330 (Claude Code)",
+  "side_session": "fresh",
+  "mod_sha256": {
+    "register.js": "80856d69d8a3e78bc61b84da42aaf22b1b899395bc6fec28a0d1835736ffedcf",
+    "side-intake.js": "1784b626d613686425439848397bf69a88d29dc2d705adc30b72e06cfd3a5d64",
+    "texts.generated.js": "9297e094f6432d5bb156d5e16bd708c2e0ca73ac7550d59cde72bcea8bb7aa9f"
+  },
+  "fault_mod_sha256": "5b6dbb55327d4b0e0e4bc43a2c568df2f3d4c6d3ec935a100ffa6996a9612d16",
+  "source_matches_snapshot": true,
+  "steps": {
+    "mod_load_line": "hooks module ciel-work@inline loaded (worker, environment 1, tier user); events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,sess",
+    "fault_load_line": "hooks module stop-fault@inline loaded (worker, environment 3, tier user); events: tool.call",
+    "session_start_settled_ms": 53.8,
+    "e1_sent_s": 6.6,
+    "first_denial_seen_s": 8.6,
+    "e2_sent_s": 8.6,
+    "e1_stage": "processed",
+    "e2_stage": "processed",
+    "e2_done_s": 10.6
+  },
+  "root_pid_recorded": true,
+  "kill": "SUCCESS: The process with PID 73456 (child process of PID 73116) has been terminated.",
+  "stop_calls": {
+    "denied": [
+      "acb8addee69a63899",
+      "acb8addee69a63899"
+    ],
+    "passed": [
+      {
+        "id": "a3aed3ac50909571c",
+        "before": "completed",
+        "after": "completed",
+        "result": "{\"ref\":1,\"result\":\"Error: Task a3aed3ac50909571c is not running (status: completed)\",\"text\":\"<tool_use_error>Task a3aed3ac50909571c is not running (status: completed)</tool_use_error>\",\"isError\":true}"
+      },
+      {
+        "id": "a3aed3ac50909571c",
+        "before": "completed",
+        "after": "completed",
+        "result": "{\"ref\":1,\"result\":\"Error: Task a3aed3ac50909571c is not running (status: completed)\",\"text\":\"<tool_use_error>Task a3aed3ac50909571c is not running (status: completed)</tool_use_error>\",\"isError\":true}"
+      },
+      {
+        "id": "acb8addee69a63899",
+        "before": "completed",
+        "after": "completed",
+        "result": "{\"ref\":1,\"result\":\"Error: Task acb8addee69a63899 is not running (status: completed)\",\"text\":\"<tool_use_error>Task acb8addee69a63899 is not running (status: completed)</tool_use_error>\",\"isError\":true}"
+      },
+      {
+        "id": "a3aed3ac50909571c",
+        "before": "completed",
+        "after": "completed",
+        "result": "{\"ref\":1,\"result\":\"Error: Task a3aed3ac50909571c is not running (status: completed)\",\"text\":\"<tool_use_error>Task a3aed3ac50909571c is not running (status: completed)</tool_use_error>\",\"isError\":true}"
+      }
+    ],
+    "times": [
+      "2026-11-23T08:45:44.265Z",
+      "2026-11-23T08:45:45.277Z",
+      "2026-11-23T08:45:46.276Z",
+      "2026-11-23T08:45:47.299Z",
+      "2026-11-23T08:45:47.300Z",
+      "2026-11-23T08:45:49.314Z"
+    ]
+  },
+  "side_log": [
+    "2026-11-23T08:45:43.763Z [DEBUG] $.agent.register (ciel-work): ciel-work:side-fresh listed",
+    "2026-11-23T08:45:43.998Z [WARN] [claude-code:unrecognized_model] {\"model\":\"fixture-main\",\"query_source\":\"agent:custom:ciel-work:side-fresh\"}",
+    "2026-11-23T08:45:44.034Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh",
+    "2026-11-23T08:45:44.083Z [INFO] [Stall] agent_completion agentId=acb8addee69a63899 agentType=ciel-work:side-fresh exitPath=completed durationMs=291 turns=1 finalStopReason=end_turn lastChunkAgeMs=4 lastToolUseId=none lastToolResultSeen=none",
+    "2026-11-23T08:45:46.149Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh",
+    "2026-11-23T08:45:46.190Z [INFO] [Stall] agent_completion agentId=a3aed3ac50909571c agentType=ciel-work:side-fresh exitPath=completed durationMs=215 turns=1 finalStopReason=end_turn lastChunkAgeMs=3 lastToolUseId=none lastToolResultSeen=none",
+    "2026-11-23T08:45:47.300Z [DEBUG] [ciel-work] $.ui.log (to debug): Ciel side: actor cleanup unconfirmed after 3 attempts: acb8addee69a63899",
+    "2026-11-23T08:45:49.314Z [DEBUG] [ciel-work] $.ui.log (to debug): Ciel side: actor cleanup unconfirmed after 3 attempts: a3aed3ac50909571c"
+  ],
+  "unconfirmed_lines": [
+    "2026-11-23T08:45:47.300Z [DEBUG] [ciel-work] $.ui.log (to debug): Ciel side: actor cleanup unconfirmed after 3 attempts: acb8addee69a63899",
+    "2026-11-23T08:45:49.314Z [DEBUG] [ciel-work] $.ui.log (to debug): Ciel side: actor cleanup unconfirmed after 3 attempts: a3aed3ac50909571c"
+  ],
+  "unloaded_lines": [],
+  "failed_to_load": [],
+  "mcp_calls": [
+    {
+      "after_s": 1.5,
+      "name": "work_status"
+    },
+    {
+      "after_s": 1.7,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 2.0,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 3.0,
+      "name": "work_status"
+    },
+    {
+      "after_s": 3.1,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 3.7,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 3.8,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 5.0,
+      "name": "work_status"
+    },
+    {
+      "after_s": 5.8,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 7.8,
+      "name": "work_side_claim",
+      "claim": "65c03380432f",
+      "error": false
+    },
+    {
+      "after_s": 7.9,
+      "name": "work_side_ack"
+    },
+    {
+      "after_s": 8.0,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 8.0,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 8.1,
+      "name": "work_status"
+    },
+    {
+      "after_s": 8.1,
+      "name": "work_status"
+    },
+    {
+      "after_s": 8.2,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 8.3,
+      "name": "work_side_understanding",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 8.3,
+      "name": "work_live_settings"
+    },
+    {
+      "after_s": 8.3,
+      "name": "work_side_resolve",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 8.4,
+      "name": "work_host_page"
+    },
+    {
+      "after_s": 8.4,
+      "name": "work_host_page"
+    },
+    {
+      "after_s": 8.4,
+      "name": "work_side_reply",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 8.4,
+      "name": "work_host_page"
+    },
+    {
+      "after_s": 8.4,
+      "name": "work_host_page"
+    },
+    {
+      "after_s": 8.4,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 8.5,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 8.5,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 8.5,
+      "name": "work_status"
+    },
+    {
+      "after_s": 9.1,
+      "name": "work_status"
+    },
+    {
+      "after_s": 10.0,
+      "name": "work_side_claim",
+      "claim": "abb10247a1c9",
+      "error": false
+    },
+    {
+      "after_s": 10.1,
+      "name": "work_side_ack"
+    },
+    {
+      "after_s": 10.1,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 10.2,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 10.3,
+      "name": "work_side_understanding",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 10.4,
+      "name": "work_side_resolve",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 10.4,
+      "name": "work_side_reply",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 10.4,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 10.5,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 10.5,
+      "name": "work_status"
+    },
+    {
+      "after_s": 12.2,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 12.2,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 14.2,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 16.2,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 17.0,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 17.2,
+      "name": "work_status"
+    }
+  ],
+  "model_requests": [
+    {
+      "after_s": 8.2,
+      "agent": true,
+      "label": "SIDE-EVENT-1"
+    },
+    {
+      "after_s": 10.3,
+      "agent": true,
+      "label": "SIDE-EVENT-2"
+    }
+  ],
+  "receipt_refs": {
+    "e1": "65c03380432f",
+    "e2": "abb10247a1c9"
+  },
+  "final_stages": {
+    "e1": "processed",
+    "e2": "processed"
+  },
+  "checks": {
+    "mod_loaded": true,
+    "fault_mod_loaded": true,
+    "no_failed_to_load": true,
+    "no_unload": true,
+    "event1_processed": true,
+    "event2_processed": true,
+    "actor1_refused_twice": true,
+    "actor1_stop_passed_after_refusals": true,
+    "actor2_stop_passed": true,
+    "no_cleanup_unconfirmed": false,
+    "event2_queued_after_first_refusal": true
+  },
+  "passed": false,
+  "profile_changed": [
+    "~/.claude.json"
+  ],
+  "profile_unchanged": true,
+  "scratch_removed": false
+}

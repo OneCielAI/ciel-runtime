@@ -236,7 +236,8 @@ class AssignmentKeyCoordinator:
             return AssignmentKeyResult("ready", None, key, dependencies)
 
     def create_p0_intent(
-        self, store: Any, facts: Mapping[str, Any], *, expected_version: int, now=None
+        self, store: Any, facts: Mapping[str, Any], *, expected_version: int, now=None,
+        lease_states=None, observed_at=None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Atomically fence key creation and one validated P0 intent CAS."""
         if Path(store.path).resolve() != Path(self.p0_reader.lock_target).resolve():
@@ -256,7 +257,8 @@ class AssignmentKeyCoordinator:
                         "shared assignment key recovery required (" + error.reason + ")"
                     ) from error
                 self.key_store.ensure_before_first_intent_locked()
-            mutation = store._create_intent_mutation(dict(facts), now=now)
+            mutation = store._create_intent_mutation(
+                dict(facts), now=now, lease_states=lease_states, observed_at=observed_at)
             state, row = store._change_locked(mutation, expected_version)
             if not p0_dependencies(state):
                 raise AssignmentKeyCoordinatorError("P0 intent dependency missing after commit")

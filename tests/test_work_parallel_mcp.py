@@ -54,6 +54,24 @@ def _make_env(tmp_path):
         def read(self):
             return board
 
+        def transaction(self, mutate, *, expected_version=None):
+            import copy
+
+            current = copy.deepcopy(board)
+            if expected_version is not None and expected_version != current["version"]:
+                raise Exception(
+                    f"the plan changed (stored version {current['version']}, expected {expected_version}); "
+                    "call work_status and retry"
+                )
+            working = copy.deepcopy(current)
+            result = mutate(working)
+            if working != current:
+                working["version"] = current["version"] + 1
+                board.clear()
+                board.update(working)
+                return board, result
+            return current, result
+
     config = {"work_parallel_host": {"token": SECRET, "capability_ready": True}}
 
     def run(name, host=None, **args):
@@ -189,9 +207,14 @@ def _workspace_host(ident, target):
 
 class WorkParallelMCPTests(unittest.TestCase):
     def test_worker_report_schema_requires_identity_capability_and_event(self):
-        schema = next(row for row in m.schemas() if row["name"] == "work_parallel_report")["inputSchema"]
+        row = next(row for row in m.schemas() if row["name"] == "work_parallel_report")
+        schema = row["inputSchema"]
         self.assertEqual(["lease_id", "worker_token", "event"], schema["required"])
         self.assertIn("detail", schema["properties"])
+        for phrase in ("detail.waiting_on", "detail.release_hint", "condition", "lookup",
+                       "Pairless or malformed", "never pass item_id, answer, approval",
+                       "plain question may omit"):
+            self.assertIn(phrase, row["description"])
 
     def test_event_schema_exposes_bounded_fork_attribution_names(self):
         schema = next(row for row in m.schemas() if row["name"] == "work_parallel_event")["inputSchema"]

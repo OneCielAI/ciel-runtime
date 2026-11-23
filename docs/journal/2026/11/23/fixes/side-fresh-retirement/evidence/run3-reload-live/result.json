@@ -1,0 +1,1092 @@
+{
+  "kind": "side actor retirement under refused TaskStop, real load",
+  "claude_version": "2.1.330 (Claude Code)",
+  "side_session": "fresh",
+  "mod_sha256": {
+    "register.js": "80856d69d8a3e78bc61b84da42aaf22b1b899395bc6fec28a0d1835736ffedcf",
+    "side-intake.js": "20f0d7811f7dc87dd16b5922cfe9ab8fdd5e191c6128c9db4d292f1bcb910085",
+    "texts.generated.js": "9297e094f6432d5bb156d5e16bd708c2e0ca73ac7550d59cde72bcea8bb7aa9f"
+  },
+  "fault_mod_sha256": "5b6dbb55327d4b0e0e4bc43a2c568df2f3d4c6d3ec935a100ffa6996a9612d16",
+  "source_matches_snapshot": true,
+  "steps": {
+    "mod_load_line": "hooks module ciel-work@inline loaded (worker, environment 1, tier user); events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,sess",
+    "fault_load_line": "hooks module stop-fault@inline loaded (worker, environment 3, tier user); events: tool.call",
+    "session_start_settled_ms": 99.9,
+    "e1_sent_s": 7.0,
+    "actor1_held": true,
+    "actor1_held_s": 9.2,
+    "first_denial_seen_s": 129.9,
+    "e2_sent_s": 129.9,
+    "e2_stage": "processed",
+    "e2_done_s": 132.5,
+    "e1_stage": "processed",
+    "e1_done_s": 132.5
+  },
+  "root_pid_recorded": true,
+  "reload": {
+    "register_sha256_before": "80856d69d8a3e78bc61b84da42aaf22b1b899395bc6fec28a0d1835736ffedcf",
+    "register_sha256_after": "87ce844da8316e0aea5d2f5e1267973e52e6b78f34972eea978e85e69c641a86",
+    "edited_s": 9.3,
+    "load_lines": 1,
+    "reloaded_s": 129.9
+  },
+  "kill": "SUCCESS: The process with PID 32916 (child process of PID 84204) has been terminated.",
+  "stop_calls": {
+    "denied": [
+      "a8591fe306cddd8fa",
+      "a8591fe306cddd8fa"
+    ],
+    "denied_listed": [
+      "running",
+      "running"
+    ],
+    "passed": [
+      {
+        "id": "a8591fe306cddd8fa",
+        "before": "running",
+        "after": "killed",
+        "result": "{\"ref\":1,\"result\":{\"message\":\"Successfully stopped task: a8591fe306cddd8fa (Side SSE 65c03380432f)\",\"task_id\":\"a8591fe306cddd8fa\",\"task_type\":\"local_agent\",\"command\":\"Side SSE 65c03380432f\"},\"text\":\"{\\\"message\\\":\\\"Successfully stopped task: a8591fe306cddd8fa (Side SSE 65c03380432f)\\\",\\\"task_id\\\":\\\"a"
+      }
+    ],
+    "times": [
+      "2026-11-23T08:56:06.096Z",
+      "2026-11-23T08:56:07.108Z",
+      "2026-11-23T08:56:09.139Z"
+    ]
+  },
+  "agent_completions": [
+    "2026-11-23T08:56:09.175Z [INFO] [Stall] agent_completion agentId=a8591fe306cddd8fa agentType=ciel-work:side-fresh exitPath=cancelled durationMs=4417 turns=0 finalStopReason=none lastChunkAgeMs=8 lastToolUseId=none lastToolResultSeen=none",
+    "2026-11-23T08:57:07.566Z [INFO] [Stall] agent_completion agentId=a701299499662d151 agentType=ciel-work:side-fresh exitPath=completed durationMs=435 turns=1 finalStopReason=end_turn lastChunkAgeMs=7 lastToolUseId=none lastToolResultSeen=none",
+    "2026-11-23T08:57:09.363Z [INFO] [Stall] agent_completion agentId=a701299499662d151 agentType=ciel-work:side-fresh exitPath=completed durationMs=123 turns=1 finalStopReason=end_turn lastChunkAgeMs=11 lastToolUseId=none lastToolResultSeen=none",
+    "2026-11-23T08:58:05.601Z [INFO] [Stall] agent_completion agentId=aad7517f7cbc5c448 agentType=ciel-work:side-fresh exitPath=completed durationMs=380 turns=1 finalStopReason=end_turn lastChunkAgeMs=6 lastToolUseId=none lastToolResultSeen=none",
+    "2026-11-23T08:58:08.023Z [INFO] [Stall] agent_completion agentId=a6d29cbb8dd901d72 agentType=ciel-work:side-fresh exitPath=completed durationMs=483 turns=1 finalStopReason=end_turn lastChunkAgeMs=7 lastToolUseId=none lastToolResultSeen=none"
+  ],
+  "side_log": [
+    "2026-11-23T08:56:04.710Z [DEBUG] $.agent.register (ciel-work): ciel-work:side-fresh listed",
+    "2026-11-23T08:56:05.143Z [WARN] [claude-code:unrecognized_model] {\"model\":\"fixture-main\",\"query_source\":\"agent:custom:ciel-work:side-fresh\"}",
+    "2026-11-23T08:56:05.179Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh",
+    "2026-11-23T08:56:09.175Z [INFO] [Stall] agent_completion agentId=a8591fe306cddd8fa agentType=ciel-work:side-fresh exitPath=cancelled durationMs=4417 turns=0 finalStopReason=none lastChunkAgeMs=8 lastToolUseId=none lastToolResultSeen=none",
+    "2026-11-23T08:57:07.083Z [DEBUG] $.agent.register (ciel-work): ciel-work:side-fresh listed",
+    "2026-11-23T08:57:07.504Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh",
+    "2026-11-23T08:57:07.566Z [INFO] [Stall] agent_completion agentId=a701299499662d151 agentType=ciel-work:side-fresh exitPath=completed durationMs=435 turns=1 finalStopReason=end_turn lastChunkAgeMs=7 lastToolUseId=none lastToolResultSeen=none",
+    "2026-11-23T08:57:07.682Z [DEBUG] agent.spawn ciel-work:side-fresh: refused by a hook (Side SSE native fork authorization did not match its pending host record.)",
+    "2026-11-23T08:57:07.695Z [DEBUG] [ciel-work] $.ui.log (to debug): Ciel side: correction for b19336003859 not delivered at turn end (a plugin declined the resume: Side SSE native fork authorization did not match its pending host record.); retrying after the hook",
+    "2026-11-23T08:57:09.252Z [DEBUG] [ciel-work] $.ui.log (to debug): Ciel side: asked the side actor for b19336003859 to correct its answer (side answer carries no decision JSON)",
+    "2026-11-23T08:57:09.293Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh",
+    "2026-11-23T08:57:09.363Z [INFO] [Stall] agent_completion agentId=a701299499662d151 agentType=ciel-work:side-fresh exitPath=completed durationMs=123 turns=1 finalStopReason=end_turn lastChunkAgeMs=11 lastToolUseId=none lastToolResultSeen=none",
+    "2026-11-23T08:57:09.629Z [DEBUG] [ciel-work] $.ui.log: Ciel side: original of failed event b19336003859 → main (appended)",
+    "2026-11-23T08:58:05.544Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh",
+    "2026-11-23T08:58:05.601Z [INFO] [Stall] agent_completion agentId=aad7517f7cbc5c448 agentType=ciel-work:side-fresh exitPath=completed durationMs=380 turns=1 finalStopReason=end_turn lastChunkAgeMs=6 lastToolUseId=none lastToolResultSeen=none",
+    "2026-11-23T08:58:07.941Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh",
+    "2026-11-23T08:58:08.023Z [INFO] [Stall] agent_completion agentId=a6d29cbb8dd901d72 agentType=ciel-work:side-fresh exitPath=completed durationMs=483 turns=1 finalStopReason=end_turn lastChunkAgeMs=7 lastToolUseId=none lastToolResultSeen=none"
+  ],
+  "unconfirmed_lines": [],
+  "unloaded_lines": [],
+  "failed_to_load": [],
+  "mcp_calls": [
+    {
+      "after_s": 2.0,
+      "name": "work_status"
+    },
+    {
+      "after_s": 2.5,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 2.9,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 4.0,
+      "name": "work_status"
+    },
+    {
+      "after_s": 4.2,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 4.5,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 4.6,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 6.1,
+      "name": "work_status"
+    },
+    {
+      "after_s": 6.6,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 8.6,
+      "name": "work_side_claim",
+      "claim": "65c03380432f",
+      "error": false
+    },
+    {
+      "after_s": 8.7,
+      "name": "work_side_ack"
+    },
+    {
+      "after_s": 8.9,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 9.0,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 9.0,
+      "name": "work_status"
+    },
+    {
+      "after_s": 9.0,
+      "name": "work_status"
+    },
+    {
+      "after_s": 9.2,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 9.3,
+      "name": "work_live_settings"
+    },
+    {
+      "after_s": 9.4,
+      "name": "work_host_page"
+    },
+    {
+      "after_s": 9.4,
+      "name": "work_host_page"
+    },
+    {
+      "after_s": 9.4,
+      "name": "work_host_page"
+    },
+    {
+      "after_s": 9.5,
+      "name": "work_host_page"
+    },
+    {
+      "after_s": 9.5,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 10.0,
+      "name": "work_side_texts"
+    },
+    {
+      "after_s": 10.0,
+      "name": "work_status"
+    },
+    {
+      "after_s": 10.1,
+      "name": "work_status"
+    },
+    {
+      "after_s": 10.2,
+      "name": "work_status"
+    },
+    {
+      "after_s": 10.2,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 10.2,
+      "name": "work_status"
+    },
+    {
+      "after_s": 10.3,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 10.4,
+      "name": "work_live_settings"
+    },
+    {
+      "after_s": 10.4,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 10.4,
+      "name": "work_host_page"
+    },
+    {
+      "after_s": 10.4,
+      "name": "work_host_page"
+    },
+    {
+      "after_s": 10.5,
+      "name": "work_host_page"
+    },
+    {
+      "after_s": 10.5,
+      "name": "work_host_page"
+    },
+    {
+      "after_s": 10.5,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 11.0,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 11.4,
+      "name": "work_status"
+    },
+    {
+      "after_s": 11.6,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 12.2,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 12.2,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 13.0,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 13.3,
+      "name": "work_status"
+    },
+    {
+      "after_s": 13.4,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 13.5,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 13.5,
+      "name": "work_status"
+    },
+    {
+      "after_s": 14.2,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 16.2,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 17.6,
+      "name": "work_status"
+    },
+    {
+      "after_s": 18.3,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 20.3,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 22.4,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 24.4,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 25.5,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 25.7,
+      "name": "work_status"
+    },
+    {
+      "after_s": 26.5,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 28.5,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 28.5,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 30.6,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 32.6,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 34.6,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 36.7,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 38.7,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 40.8,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 41.7,
+      "name": "work_status"
+    },
+    {
+      "after_s": 42.8,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 44.9,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 44.9,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 46.9,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 48.9,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 51.0,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 53.0,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 55.0,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 57.1,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 59.1,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 61.2,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 61.2,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 63.2,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 65.2,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 67.3,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 69.3,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 70.0,
+      "name": "work_side_texts"
+    },
+    {
+      "after_s": 70.0,
+      "name": "work_side_gate_check"
+    },
+    {
+      "after_s": 70.1,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 70.2,
+      "name": "work_side_gate_check"
+    },
+    {
+      "after_s": 70.2,
+      "name": "work_status"
+    },
+    {
+      "after_s": 70.2,
+      "name": "work_side_gate_check"
+    },
+    {
+      "after_s": 70.3,
+      "name": "work_side_gate_check"
+    },
+    {
+      "after_s": 70.4,
+      "name": "work_proposal_status"
+    },
+    {
+      "after_s": 70.7,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 70.7,
+      "name": "work_status"
+    },
+    {
+      "after_s": 70.8,
+      "name": "work_side_texts"
+    },
+    {
+      "after_s": 70.9,
+      "name": "work_status"
+    },
+    {
+      "after_s": 70.9,
+      "name": "work_status"
+    },
+    {
+      "after_s": 70.9,
+      "name": "work_proposal_status"
+    },
+    {
+      "after_s": 70.9,
+      "name": "work_side_gate_check"
+    },
+    {
+      "after_s": 71.0,
+      "name": "work_status"
+    },
+    {
+      "after_s": 71.0,
+      "name": "work_proposal_status"
+    },
+    {
+      "after_s": 71.0,
+      "name": "work_side_claim",
+      "claim": "b19336003859",
+      "error": false
+    },
+    {
+      "after_s": 71.1,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 71.1,
+      "name": "work_side_ack"
+    },
+    {
+      "after_s": 71.3,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 71.4,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 71.4,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 71.4,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 71.8,
+      "name": "work_status"
+    },
+    {
+      "after_s": 71.8,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 71.9,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 72.0,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 72.0,
+      "name": "work_status"
+    },
+    {
+      "after_s": 73.4,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 73.4,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 73.4,
+      "name": "work_side_fail"
+    },
+    {
+      "after_s": 73.6,
+      "name": "work_side_wake"
+    },
+    {
+      "after_s": 73.6,
+      "name": "work_side_wake"
+    },
+    {
+      "after_s": 73.9,
+      "name": "work_status"
+    },
+    {
+      "after_s": 73.9,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 73.9,
+      "name": "work_status"
+    },
+    {
+      "after_s": 74.2,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 74.3,
+      "name": "work_status"
+    },
+    {
+      "after_s": 74.3,
+      "name": "work_status"
+    },
+    {
+      "after_s": 74.4,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 74.5,
+      "name": "work_side_texts"
+    },
+    {
+      "after_s": 74.5,
+      "name": "work_status"
+    },
+    {
+      "after_s": 74.5,
+      "name": "work_status"
+    },
+    {
+      "after_s": 74.6,
+      "name": "work_side_gate_check"
+    },
+    {
+      "after_s": 74.6,
+      "name": "work_proposal_status"
+    },
+    {
+      "after_s": 74.6,
+      "name": "work_proposal_status"
+    },
+    {
+      "after_s": 74.6,
+      "name": "work_status"
+    },
+    {
+      "after_s": 75.4,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 75.5,
+      "name": "work_status"
+    },
+    {
+      "after_s": 75.5,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 75.9,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 77.5,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 77.7,
+      "name": "work_status"
+    },
+    {
+      "after_s": 79.6,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 81.7,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 81.9,
+      "name": "work_status"
+    },
+    {
+      "after_s": 83.7,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 85.8,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 87.9,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 90.0,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 90.0,
+      "name": "work_status"
+    },
+    {
+      "after_s": 92.0,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 92.1,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 94.1,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 96.1,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 98.2,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 100.3,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 102.3,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 104.4,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 106.1,
+      "name": "work_status"
+    },
+    {
+      "after_s": 106.4,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 108.5,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 108.6,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 110.5,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 112.6,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 114.6,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 116.7,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 118.8,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 120.9,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 123.0,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 125.0,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 125.1,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 127.1,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 129.2,
+      "name": "work_side_claim",
+      "claim": "65c03380432f",
+      "error": false
+    },
+    {
+      "after_s": 129.2,
+      "name": "work_side_ack"
+    },
+    {
+      "after_s": 129.3,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 129.4,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 129.7,
+      "name": "work_side_understanding",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 129.8,
+      "name": "work_side_resolve",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 129.8,
+      "name": "work_side_reply",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 129.9,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 130.0,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 130.0,
+      "name": "work_status"
+    },
+    {
+      "after_s": 130.5,
+      "name": "work_side_texts"
+    },
+    {
+      "after_s": 130.5,
+      "name": "work_side_gate_check"
+    },
+    {
+      "after_s": 130.5,
+      "name": "work_proposal_status"
+    },
+    {
+      "after_s": 131.4,
+      "name": "work_side_claim",
+      "claim": "abb10247a1c9",
+      "error": false
+    },
+    {
+      "after_s": 131.5,
+      "name": "work_side_ack"
+    },
+    {
+      "after_s": 131.6,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 131.7,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 131.8,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 132.1,
+      "name": "work_side_understanding",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 132.2,
+      "name": "work_side_resolve",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 132.2,
+      "name": "work_side_reply",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 132.3,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 132.5,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 132.5,
+      "name": "work_status"
+    },
+    {
+      "after_s": 133.7,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 133.7,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 135.8,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 136.2,
+      "name": "work_status"
+    },
+    {
+      "after_s": 137.8,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    }
+  ],
+  "model_requests": [
+    {
+      "after_s": 9.2,
+      "agent": true,
+      "label": "SIDE-EVENT-1"
+    },
+    {
+      "after_s": 13.2,
+      "agent": true,
+      "label": "held-stream-dropped"
+    },
+    {
+      "after_s": 70.6,
+      "agent": false,
+      "label": null
+    },
+    {
+      "after_s": 71.5,
+      "agent": true,
+      "label": null
+    },
+    {
+      "after_s": 73.3,
+      "agent": true,
+      "label": null
+    },
+    {
+      "after_s": 74.1,
+      "agent": false,
+      "label": null
+    },
+    {
+      "after_s": 129.6,
+      "agent": true,
+      "label": "SIDE-EVENT-1"
+    },
+    {
+      "after_s": 132.0,
+      "agent": true,
+      "label": "SIDE-EVENT-2"
+    }
+  ],
+  "receipt_refs": {
+    "e1": "65c03380432f",
+    "e2": "abb10247a1c9"
+  },
+  "final_stages": {
+    "e1": "processed",
+    "e2": "processed"
+  },
+  "checks": {
+    "mod_loaded": true,
+    "fault_mod_loaded": true,
+    "no_failed_to_load": true,
+    "no_unload": true,
+    "actor1_held_live": true,
+    "hot_reloaded": false,
+    "event1_processed": true,
+    "event2_processed": true,
+    "actor1_refused_twice_while_running": true,
+    "actor1_stop_passed_and_ended": true,
+    "no_stop_for_actors_that_ended_themselves": true,
+    "no_cleanup_unconfirmed": true,
+    "event2_queued_after_first_refusal": true
+  },
+  "passed": false,
+  "profile_changed": [
+    "~/.claude.json"
+  ],
+  "profile_unchanged": true,
+  "scratch_removed": false
+}

@@ -1,0 +1,145 @@
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 54877)
+Traceback (most recent call last):
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 691, in process_request_thread
+    self.finish_request(request, client_address)
+----------------------------------------
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 361, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+Exception occurred during processing of request from ('127.0.0.1', 55021)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 755, in __init__
+    self.handle()
+----------------------------------------
+----------------------------------------
+Traceback (most recent call last):
+  File "C:\Program Files\Python311\Lib\http\server.py", line 438, in handle
+    self.handle_one_request()
+Exception occurred during processing of request from ('127.0.0.1', 61145)
+Exception occurred during processing of request from ('127.0.0.1', 61163)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 691, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Program Files\Python311\Lib\http\server.py", line 404, in handle_one_request
+    self.raw_requestline = self.rfile.readline(65537)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\socket.py", line 706, in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 361, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 755, in __init__
+    self.handle()
+  File "C:\Program Files\Python311\Lib\http\server.py", line 438, in handle
+    self.handle_one_request()
+ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "C:\Program Files\Python311\Lib\http\server.py", line 404, in handle_one_request
+    self.raw_requestline = self.rfile.readline(65537)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------------------
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 691, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 691, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 361, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 361, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 755, in __init__
+    self.handle()
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 755, in __init__
+    self.handle()
+  File "C:\Program Files\Python311\Lib\http\server.py", line 438, in handle
+    self.handle_one_request()
+  File "C:\Program Files\Python311\Lib\socket.py", line 706, in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\http\server.py", line 404, in handle_one_request
+    self.raw_requestline = self.rfile.readline(65537)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+  File "C:\Program Files\Python311\Lib\socket.py", line 706, in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------------------
+ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+  File "C:\Program Files\Python311\Lib\http\server.py", line 438, in handle
+    self.handle_one_request()
+----------------------------------------
+  File "C:\Program Files\Python311\Lib\http\server.py", line 404, in handle_one_request
+    self.raw_requestline = self.rfile.readline(65537)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python311\Lib\socket.py", line 706, in readinto
+    return self._sock.recv_into(b)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+----------------------------------------
+{
+ "passed": true,
+ "checks": {
+  "mod_loaded": true,
+  "fault_mod_loaded": true,
+  "no_failed_to_load": true,
+  "no_unload": true,
+  "actor1_held_live": true,
+  "hot_reloaded": true,
+  "event1_processed": true,
+  "event2_processed": true,
+  "actor1_refused_twice_while_running": true,
+  "actor1_stop_passed_and_ended": true,
+  "no_stop_for_actors_that_ended_themselves": true,
+  "no_cleanup_unconfirmed": true,
+  "event2_queued_after_first_refusal": true,
+  "correction_delivered_first_attempt": true,
+  "corrected_answer_committed": true
+ },
+ "steps": {
+  "mod_load_line": "hooks module ciel-work@inline loaded (worker, environment 1, tier user); events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,sess",
+  "fault_load_line": "hooks module stop-fault@inline loaded (worker, environment 3, tier user); events: tool.call",
+  "session_start_settled_ms": 238.3,
+  "e1_sent_s": 8.1,
+  "actor1_held": true,
+  "actor1_held_s": 10.4,
+  "first_denial_seen_s": 11.5,
+  "e2_sent_s": 11.5,
+  "e2_stage": "processed",
+  "e2_done_s": 18.5,
+  "e1_stage": "processed",
+  "e1_done_s": 130.9
+ },
+ "stop_calls": {
+  "denied": [
+   "ab8b0cff7133fe4a4",
+   "ab8b0cff7133fe4a4"
+  ],
+  "denied_listed": [
+   "running",
+   "running"
+  ],
+  "passed": [
+   {
+    "id": "ab8b0cff7133fe4a4",
+    "before": "running",
+    "after": "killed",
+    "result": "{\"ref\":1,\"result\":{\"message\":\"Successfully stopped task: ab8b0cff7133fe4a4 (Side SSE 65c03380432f)\",\"task_id\":\"ab8b0cff7133fe4a4\",\"task_type\":\"local_agent\",\"command\":\"Side SSE 65c03380432f\"},\"text\":\"{\\\"message\\\":\\\"Successfully stopped task: ab8b0cff7133fe4a4 (Side SSE 65c03380432f)\\\",\\\"task_id\\\":\\\"a"
+   }
+  ],
+  "times": [
+   "2026-11-23T10:02:03.725Z",
+   "2026-11-23T10:02:04.756Z",
+   "2026-11-23T10:02:06.798Z"
+  ]
+ },
+ "final_stages": {
+  "e1": "processed",
+  "e2": "processed"
+ },
+ "unconfirmed": [],
+ "failure": null,
+ "scratch_removed": false,
+ "profile_unchanged": true,
+ "profile_changed": [
+  "~/.claude.json"
+ ]
+}
+exit 0

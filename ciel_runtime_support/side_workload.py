@@ -84,7 +84,7 @@ def project(document, *, active_forks: list[dict[str, Any]] | None = None):
     nodes = document['nodes']
     roots = [node for node in nodes if node.get('parent_id') is None]
     active = document.get('active_root')
-    fields = ('id', 'parent_id', 'title', 'status', 'priority', 'phase', 'waiting_on', 'urgent', 'ref', 'refs', 'note', 'evidence')
+    fields = ('id', 'parent_id', 'title', 'status', 'priority', 'phase', 'waiting_on', 'release_hint', 'urgent', 'ref', 'refs', 'note', 'evidence')
     forks = list(active_forks or [])
     fork_by_node: dict[str, dict[str, Any]] = {}
     for row in forks:

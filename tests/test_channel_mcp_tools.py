@@ -256,6 +256,26 @@ class ChannelMcpToolsTests(unittest.TestCase):
         self.assertIn("already delivered", duplicate["result"]["content"][0]["text"])
         self.assertEqual(2, len(self.messages))
 
+    def test_work_tools_receive_the_router_log(self):
+        # Andy 2026-11-23: two P0 launches failed workspace preparation and the
+        # Git text promised "in the router log" (_workspace_failure) was never
+        # written: the router never handed its log to the Work tools.
+        from unittest.mock import patch
+        lines = []
+        services = replace(self.services, runtime=ChannelMcpRuntimeServices(
+            load_config=lambda: {}, log=lambda level, message: lines.append((level, message))))
+        captured = {}
+
+        def dispatch(request_id, name, args, **kwargs):
+            captured.update(kwargs)
+            kwargs["log"]("WARN", "work_workspace_failed code=workspace_prepare_failed")
+            return {"jsonrpc": "2.0", "id": request_id, "result": {"content": []}}
+
+        with patch("ciel_runtime_support.work_mcp_tools.dispatch_work_tool", dispatch):
+            dispatch_channel_mcp_tool(9, {"name": "work_status", "arguments": {}}, services)
+        self.assertIn("log", captured)
+        self.assertEqual([("WARN", "work_workspace_failed code=workspace_prepare_failed")], lines)
+
     def test_send_file_converts_expected_storage_errors_to_tool_error(self):
         services = replace(
             self.services,

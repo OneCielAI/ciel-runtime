@@ -1,0 +1,14 @@
+2026-11-23T08:45:44.265Z [DEBUG] [stop-fault] $.ui.log (to debug): stop-fault #1 denied acb8addee69a63899 (1/2) listed=completed
+2026-11-23T08:45:45.277Z [DEBUG] [stop-fault] $.ui.log (to debug): stop-fault #2 denied acb8addee69a63899 (2/2) listed=completed
+2026-11-23T08:45:46.276Z [DEBUG] [stop-fault] $.ui.log (to debug): stop-fault #3 passed a3aed3ac50909571c before=completed after=completed result={"ref":1,"result":"Error: Task a3aed3ac50909571c is not running (status: completed)","text":"<tool_use_error>Task a3aed3ac50909571c is not running (status: completed)</tool_use_error>","isError":true}
+2026-11-23T08:45:47.299Z [DEBUG] [stop-fault] $.ui.log (to debug): stop-fault #4 passed a3aed3ac50909571c before=completed after=completed result={"ref":1,"result":"Error: Task a3aed3ac50909571c is not running (status: completed)","text":"<tool_use_error>Task a3aed3ac50909571c is not running (status: completed)</tool_use_error>","isError":true}
+2026-11-23T08:45:47.300Z [DEBUG] [stop-fault] $.ui.log (to debug): stop-fault #5 passed acb8addee69a63899 before=completed after=completed result={"ref":1,"result":"Error: Task acb8addee69a63899 is not running (status: completed)","text":"<tool_use_error>Task acb8addee69a63899 is not running (status: completed)</tool_use_error>","isError":true}
+2026-11-23T08:45:49.314Z [DEBUG] [stop-fault] $.ui.log (to debug): stop-fault #6 passed a3aed3ac50909571c before=completed after=completed result={"ref":1,"result":"Error: Task a3aed3ac50909571c is not running (status: completed)","text":"<tool_use_error>Task a3aed3ac50909571c is not running (status: completed)</tool_use_error>","isError":true}
+2026-11-23T08:45:43.763Z [DEBUG] $.agent.register (ciel-work): ciel-work:side-fresh listed
+2026-11-23T08:45:43.998Z [WARN] [claude-code:unrecognized_model] {"model":"fixture-main","query_source":"agent:custom:ciel-work:side-fresh"}
+2026-11-23T08:45:44.034Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-23T08:45:44.083Z [INFO] [Stall] agent_completion agentId=acb8addee69a63899 agentType=ciel-work:side-fresh exitPath=completed durationMs=291 turns=1 finalStopReason=end_turn lastChunkAgeMs=4 lastToolUseId=none lastToolResultSeen=none
+2026-11-23T08:45:46.149Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-23T08:45:46.190Z [INFO] [Stall] agent_completion agentId=a3aed3ac50909571c agentType=ciel-work:side-fresh exitPath=completed durationMs=215 turns=1 finalStopReason=end_turn lastChunkAgeMs=3 lastToolUseId=none lastToolResultSeen=none
+2026-11-23T08:45:47.300Z [DEBUG] [ciel-work] $.ui.log (to debug): Ciel side: actor cleanup unconfirmed after 3 attempts: acb8addee69a63899
+2026-11-23T08:45:49.314Z [DEBUG] [ciel-work] $.ui.log (to debug): Ciel side: actor cleanup unconfirmed after 3 attempts: a3aed3ac50909571c

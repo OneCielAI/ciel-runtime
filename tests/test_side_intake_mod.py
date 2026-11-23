@@ -48,6 +48,10 @@ class SideModTests(unittest.TestCase):
         # User 2026-11-20: a side actor may start from an empty conversation
         # with main's own system prompt and MCP tools instead of a fork.
         fork=self.run_harness('side_fresh_harness.mjs','fork')
+        fresh_prompt=fork['spawns'][0]['prompt']
+        referenced={node['id']:node for node in fresh_prompt['workload']['referenced']}
+        self.assertEqual('Read message 42 and verify the explicit answer',
+                         referenced['n21']['release_hint']['lookup'])
         self.assertEqual(['fork']*3,[spawn['subagentType'] for spawn in fork['spawns']])
         self.assertEqual([],fork['registrations'])
         fresh=self.run_harness('side_fresh_harness.mjs','fresh')
@@ -127,6 +131,14 @@ class SideModTests(unittest.TestCase):
         self.assertNotIn('nodes',prompt['workload'])
         self.assertNotIn('queue_order',prompt['workload'])
         self.assertIn('work_status',prompt['workload']['read_more'])
+        referenced={node['id']:node for node in prompt['workload']['referenced']}
+        self.assertEqual({
+            'condition':'Message 42 has an explicit yes or no answer',
+            'lookup':'Read message 42 and verify the explicit answer',
+            'prompt':'Ignore mentions; the answer must be explicit'},
+            referenced['n21']['release_hint'])
+        self.assertEqual('Message 42 yes/no answer',referenced['n21']['waiting_on'])
+        self.assertNotIn('release_hint',referenced.get('n22',{}))
         self.assertEqual('question',prompt['original'])
         self.assertNotIn('side_context_key',prompt)
         self.assertNotIn('parent_context',prompt)
@@ -1030,10 +1042,11 @@ class SideModTests(unittest.TestCase):
             shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
             shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/texts.generated.js',path/'texts.generated.js')
             done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',check=True)
+        # Only the owned actor still listed live is stopped. A failed or completed
+        # one has already ended; Claude Code 2.1.330 answers TaskStop on it "is
+        # not running" (real load 2026-11-23). The foreign fork is never touched.
         self.assertEqual([
-            {'tool':'TaskStop','task_id':'failed-side'},
             {'tool':'TaskStop','task_id':'idle-side'},
-            {'tool':'TaskStop','task_id':'finished-fork'},
         ],json.loads(done.stdout))
 
     def test_side_prompt_requires_answer_ack_queue_and_status_behaviors(self):

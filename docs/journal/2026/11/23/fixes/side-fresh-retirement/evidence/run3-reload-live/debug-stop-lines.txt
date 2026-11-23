@@ -1,0 +1,20 @@
+2026-11-23T08:56:06.096Z [DEBUG] [stop-fault] $.ui.log (to debug): stop-fault #1 denied a8591fe306cddd8fa (1/2) listed=running
+2026-11-23T08:56:07.108Z [DEBUG] [stop-fault] $.ui.log (to debug): stop-fault #2 denied a8591fe306cddd8fa (2/2) listed=running
+2026-11-23T08:56:09.139Z [DEBUG] [stop-fault] $.ui.log (to debug): stop-fault #3 passed a8591fe306cddd8fa before=running after=killed result={"ref":1,"result":{"message":"Successfully stopped task: a8591fe306cddd8fa (Side SSE 65c03380432f)","task_id":"a8591fe306cddd8fa","task_type":"local_agent","command":"Side SSE 65c03380432f"},"text":"{\"message\":\"Successfully stopped task: a8591fe306cddd8fa (Side SSE 65c03380432f)\",\"task_id\":\"a
+2026-11-23T08:56:04.710Z [DEBUG] $.agent.register (ciel-work): ciel-work:side-fresh listed
+2026-11-23T08:56:05.143Z [WARN] [claude-code:unrecognized_model] {"model":"fixture-main","query_source":"agent:custom:ciel-work:side-fresh"}
+2026-11-23T08:56:05.179Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-23T08:56:09.175Z [INFO] [Stall] agent_completion agentId=a8591fe306cddd8fa agentType=ciel-work:side-fresh exitPath=cancelled durationMs=4417 turns=0 finalStopReason=none lastChunkAgeMs=8 lastToolUseId=none lastToolResultSeen=none
+2026-11-23T08:57:07.083Z [DEBUG] $.agent.register (ciel-work): ciel-work:side-fresh listed
+2026-11-23T08:57:07.504Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-23T08:57:07.566Z [INFO] [Stall] agent_completion agentId=a701299499662d151 agentType=ciel-work:side-fresh exitPath=completed durationMs=435 turns=1 finalStopReason=end_turn lastChunkAgeMs=7 lastToolUseId=none lastToolResultSeen=none
+2026-11-23T08:57:07.682Z [DEBUG] agent.spawn ciel-work:side-fresh: refused by a hook (Side SSE native fork authorization did not match its pending host record.)
+2026-11-23T08:57:07.695Z [DEBUG] [ciel-work] $.ui.log (to debug): Ciel side: correction for b19336003859 not delivered at turn end (a plugin declined the resume: Side SSE native fork authorization did not match its pending host record.); retrying after the hook
+2026-11-23T08:57:09.252Z [DEBUG] [ciel-work] $.ui.log (to debug): Ciel side: asked the side actor for b19336003859 to correct its answer (side answer carries no decision JSON)
+2026-11-23T08:57:09.293Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-23T08:57:09.363Z [INFO] [Stall] agent_completion agentId=a701299499662d151 agentType=ciel-work:side-fresh exitPath=completed durationMs=123 turns=1 finalStopReason=end_turn lastChunkAgeMs=11 lastToolUseId=none lastToolResultSeen=none
+2026-11-23T08:57:09.629Z [DEBUG] [ciel-work] $.ui.log: Ciel side: original of failed event b19336003859 → main (appended)
+2026-11-23T08:58:05.544Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-23T08:58:05.601Z [INFO] [Stall] agent_completion agentId=aad7517f7cbc5c448 agentType=ciel-work:side-fresh exitPath=completed durationMs=380 turns=1 finalStopReason=end_turn lastChunkAgeMs=6 lastToolUseId=none lastToolResultSeen=none
+2026-11-23T08:58:07.941Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-23T08:58:08.023Z [INFO] [Stall] agent_completion agentId=a6d29cbb8dd901d72 agentType=ciel-work:side-fresh exitPath=completed durationMs=483 turns=1 finalStopReason=end_turn lastChunkAgeMs=7 lastToolUseId=none lastToolResultSeen=none
