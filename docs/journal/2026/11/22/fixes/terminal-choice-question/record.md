@@ -35,7 +35,11 @@ timestamp: 2026-11-23T01:14:00Z
 
 ## 커밋·배포
 
-- 최종 다섯 호스트 운영 반영(베타/배포 및 SessionMod real-load 게이트)은 다른 문서의 배포 기록을 따른다. 아래에 배포 메커니즘에 대한 증거를 남긴다.
+- 커밋 `432c8a8` -> `feature/priority-models`·`beta` push. Publish run `45095141396` **success**, npm `@beta` = **`0.2.51-beta.20261123-013244.432c8a8`**.
+- npm tarball 다운로드 후 네 파일 SHA-256 prefix를 재검증했고 설치본과 일치한다: `work_parallel_mcp.py` `809cdeb57909`, `work_texts.py` `12616f23337c`, `register.js` `c9f55df3340c`, `texts.generated.js` `5ea0f6d00f9b`.
+- 파일 설치(해시 검증 overlay, 백업 태그 `overlay-432c8a8`): 로컬 3경로·Celly(G:)·KOBE·Prody 모두 이전 해시 확인 후 교체·재검증 완료.
+- 라이브 반영: 사용자 지시에 따라 라우터만 정확히 정지해 Keep-alive가 재기동하게 했다. Celly 61892, Andy 48136, KOBE 15480, Prody 12320.
+- 배포 후 짧은 확인: post-deploy sample에서도 Andy·Celly MCP가 정상 응답하고, Celly에는 새 findings가 없다.
 
 ## 남은 항목
 
