@@ -2,6 +2,27 @@
 
 ## 2026-11-23
 
+- 20:12:19–20:13:05Z 틱(직전 19:52Z) + 네트워크 확인 20:18Z. 운영 세션·라우터 재시작과 상태 파일 변경 없음.
+  - **이 PC에서 100.64.0.x 대역 전체에 닿지 않는다(네트워크 사건, 제품 결함 아님)**
+    - KOBE(100.64.0.14)·Prody(100.64.0.12) ssh: `ssh failed`.
+    - Walkie(100.64.0.9) ping 100% 손실.
+    - 경로는 `Ciel Bridge`(Ciel Tunnel) 어댑터인데, 어댑터는 Up이다.
+    - 같은 시각 이 PC의 유선 Ethernet 3개가 Disconnected이고 Wi-Fi만 Up이다. tailscale netcheck가 `gateway and self IP changed: self=10.0.0.146`을 기록했다(14:18 로컬).
+    - 어댑터 전환과 터널 단절의 인과는 미확인이다.
+    - Andy·Celly 라우터(같은 PC)의 Walkie 쪽 실패는 로컬 13:53–13:54(=19:53–19:54Z)부터 시작된다.
+      - `transcript_delta_delivery_failed`: Andy timeout 66·거부 64, Celly 56·55.
+      - 외부 SSE connect timeout: Andy 22, Celly 24.
+      - Celly `agent_runtime_event_retry`(100.64.0.9:8787).
+    - 두 메인 대화에도 `MCP server "walkie" is not connected`(Andy 19:58:34Z~, Celly 20:06:44Z~)가 있다.
+    - 이 상태에서 KOBE·Prody 관측, Walkie 메시지 송수신, 외부 이벤트 수신이 멈춘다.
+  - **Andy**: 원장 v6359→6374, submitted 22→23, running+slot 2→3. MCP 610ms.
+    - 새 finding `n2652 10970391 P1`: 완료 영수증은 있고 검수 행이 없다(20:09Z 제출, 방금이라 지연일 수 있음).
+    - 19:54:15Z 승인 필요 가드 재발.
+  - **Celly**: waiting_input 11→12, running+slot 2→1. MCP 250ms.
+    - 메인이 host 전용 `work_side_status`를 불러 거부됐다(가드).
+    - n1394 포크가 "Daniel의 권한 변경 대기"로 다시 대기에 들어갔다(업무 선결 조건).
+  - **KOBE·Prody**: 관측 불가. ciel-work 모드가 내려간 KOBE 상태(19:07:56Z~)는 마지막 확인 19:53:20Z 기준이다.
+
 - 19:52:19–19:53:07Z 틱(직전 19:32Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
   - **KOBE**: ciel-work는 여전히 내려간 상태다. 19:53:20Z 확인했고 재로드 줄이 없다. 대화 기록은 19:52:55Z까지 갱신 중이다. 원장 v3091·보드 v725는 46분째 그대로이고 waiting_input 2다. 모드가 없어 Work 펌프·게이트가 돌지 않는 상태가 이어진다.
   - **Andy**: 원장 v6337→6359. submitted 21→22, waiting_input 2→1, running+slot 3→2, reserved+slot 1.
