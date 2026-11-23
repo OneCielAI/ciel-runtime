@@ -2,6 +2,37 @@
 
 ## 2026-11-23
 
+- 22:11–22:19Z **사용자 지시로 Celly·Prody 라우터만 재시작했다**("ceely 와 prody 라우터 재시작시켜줘"). 운영 세션(claude.exe)과 런처는 재시작하지 않았다.
+  - 방법(`router_swap.py`)
+    - `/health`의 pid가 예상 라우터 pid와 같을 때만 그 프로세스 하나를 `taskkill /F`했다.
+    - 런처(RouterClientSupervisor)가 라우터를 다시 띄우는지 `/health`로 확인했다.
+  - Prody(포트 9592)
+    - 라우터 13160(시작 11-23 03:25:21 로컬)을 22:11:38Z에 종료했다.
+    - 새 라우터 12500이 22:11:52Z에 시작했다(`router-fault.log`의 `started=2026-11-23T14:11:52`). 부모는 런처 7628이다.
+    - 런처 7628은 살아 있고, claude pid(11412, 3636)도 그대로다.
+    - 로그 수준이 ERROR라 router.log 끝 줄은 `ciel-runtime router starting on 127.0.0.1:9592`이다. 그 뒤 ERROR나 Traceback은 0이다(22:18Z 확인).
+    - 그 앞에 있던 Traceback은 이전 라우터 때 것이다. `/health` 응답 중 클라이언트가 끊긴 `ConnectionAbortedError 10053`이고, 재시작과는 무관하다.
+  - Celly(포트 9385)
+    - 라우터 58480을 22:12:23Z에 종료했다.
+    - 새 라우터 91384가 22:12:32Z에 시작했고 22:12:35Z에 `/health`가 응답했다. 부모는 런처 28096이다.
+    - 런처는 살아 있고, claude pid(32712, 39264, 83796)도 그대로다.
+    - 재시작 직후(16:12:41 로컬)부터 다음 호출이 새 라우터에서 응답했다: `work_status`, `work_side_claim`, `work_host_page`, `work_parallel_status`.
+    - 16:12:30–16:15:51 로컬 2,362줄 중 ERROR와 Traceback은 0이다. WARN 내역:
+      - `router_lifetime_keep_alive reason=reachable_health_mismatch_active_client` 38건(16:1x 구간 전체 44건)
+      - `auto-synthesized TaskList` 3건
+      - `external_event_sse_disconnected` EOF 3건
+      - `anthropic_sse_client_disconnected` 1건
+    - keep_alive 경고가 재시작 전에도 같은 빈도였는지는 비교하지 않았다(미확인).
+  - 실행 코드
+    - 두 라우터 모두 3d475f9 오버레이 설치(Celly 19:10:07Z, Prody 19:12:07Z까지) 뒤에 새로 뜬 프로세스다. 설치 파일 22개는 3d475f9와 해시가 같다(아래 배포 상태 점검 항목).
+    - 따라서 9677d0f·3d475f9의 라우터 Python 변경이 이 두 호스트에서 지금 라이브다.
+    - `/health`의 version 문자열(Celly `…013244.432c8a8`, Prody `…105743.fcce6d7`)은 패키지 VERSION 라벨이다. 오버레이로는 바뀌지 않는다.
+    - 3d475f9의 Claude 실행 경로(위험 삭제 면제)는 Claude 실행 시점에 정해진다. 라우터 재시작만으로는 효과가 없다.
+  - 재시작 뒤 모니터 프로브(22:16–22:18Z)
+    - MCP는 4호스트 모두 `probe_succeeded`다(Celly v10060 235 ms, Prody v6923 941 ms).
+    - 리스: Celly running+slot 6·waiting_input 7, Prody submitted 7, new_failures 0이다.
+    - KOBE 포크 전사에 오류 기록 5건이 있다(21:58:31Z af62f22e, 22:10:16Z ab83cca9 3건, 22:13:24Z a40762da). 재시작 대상이 아니다. 내용은 아직 분류하지 않았다.
+
 - 21:52:22–21:52:47Z 틱(직전 21:32Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
   - **Andy: 예약 슬롯 미바인딩의 직접 원인을 관측했다(정정)**
     - 로그(로컬 15:38:39–40 = 21:38:39Z)에 다음 두 줄이 있다.
