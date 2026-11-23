@@ -2,6 +2,33 @@
 
 ## 2026-11-23
 
+- 22:18:18–22:18:42Z 틱(직전 22:16Z 재시작 확인 프로브). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
+  - MCP는 4호스트 모두 `probe_succeeded`다(Andy v10938 1063 ms, Celly v10061 687 ms, KOBE v734 335 ms, Prody v6924 1278 ms). new_failures는 4호스트 모두 0이다.
+  - Andy
+    - running+slot이 1에서 2로 늘었다. submitted 21, 원장 6599→6602다.
+    - n1166 "completion receipt, no review row"는 그대로다(반복, 미결).
+  - Celly
+    - 리스는 그대로다(running+slot 6, waiting_input 7). 원장 8359도 같다.
+    - `router_lifetime_keep_alive reason=reachable_health_mismatch_active_client` WARN을 분류했다. **라우터만 재시작한 데 따른 예상 경고이고, 제품 결함이 아니다.**
+      - 재시작 전 라우터 로그(`router.log.1`, 69 MB)에는 0건이다. 새 로그(16:12:32 로컬부터)에는 16:21까지 99건이 있다. 약 5초에 1건으로, 감시 주기와 맞다.
+      - 소스(`router_client_lifecycle.py:235–253`)를 확인했다. 런처는 자기가 로드한 패키지 지문과 health를 비교한다. 지문이 다른 라우터라도 config가 같고 응답하면 교체하지 않고 유지하며 이 WARN을 남긴다. 진행 중인 스트림을 끊지 않으려는 설계다.
+      - 런처 28096은 05:41 로컬에 이전 파일로 떴다. 새 라우터 91384는 3d475f9 오버레이 파일을 로드했다. 이 경고는 런처가 다시 실행될 때까지 계속된다.
+      - Prody도 같은 상황일 것으로 보이나, 로그 수준이 ERROR라 기록되지 않는다(미관측).
+  - KOBE: 직전 프로브의 포크 오류 기록 5건을 내용으로 분류했다. 창 안에서 하나 더 나와 6건이다. 모두 제품 결함 근거는 아니다.
+
+    | 시각(Z) | 포크 | 호출 | 결과 | 분류 |
+    |---|---|---|---|---|
+    | 21:58:31 | af62f22e | `work_parallel_status` | `conversation identity is unavailable; no shared Work fallback is allowed` | 라우터 신원 가드가 거부(정상 가드) |
+    | 22:12:15 | a40762da | `work_parallel_status` | 위와 같음 | 정상 가드 |
+    | 22:10:16 ×3 | ab83cca9 | walkie `approvals.waiting_on_me`, `messages.context` ×2 | `The user doesn't want to proceed…` | 22:10:17Z `[Request interrupted by user for tool use]`로 진행 중 호출 3개가 취소됨 |
+    | 22:13:24 | a40762da | walkie `tasks.list` `{message_id}` | Walkie API 400 `Invalid operation arguments` | 인자 오류. 21:41–21:47Z Andy·Celly·Prody와 같은 종류 |
+
+    - ab83cca9를 누가 중단했는지(사람, 정지 요청)는 미확인이다. KOBE 메인 전사의 22:09:50–22:10:40 구간에는 22:10:24Z `Gate re-check queued for 10 blocked/waiting item(s)`만 있다.
+    - 포크의 `work_parallel_status` 신원 거부는 이번이 처음 관측된 것인지 다른 호스트에도 있는지 아직 대조하지 않았다. 추적 항목으로 둔다.
+  - Prody
+    - 리스(submitted 7)와 원장 680은 그대로다.
+    - 메인 전사의 22:17:38Z `Exit code 2`는 세션 자체 WMS 점검 스크립트의 종료 코드다. 출력 끝에 `UNANSWERED WMS War Room 1584`가 있다. Ciel 경로가 아니다.
+
 - 22:11–22:19Z **사용자 지시로 Celly·Prody 라우터만 재시작했다**("ceely 와 prody 라우터 재시작시켜줘"). 운영 세션(claude.exe)과 런처는 재시작하지 않았다.
   - 방법(`router_swap.py`)
     - `/health`의 pid가 예상 라우터 pid와 같을 때만 그 프로세스 하나를 `taskkill /F`했다.
