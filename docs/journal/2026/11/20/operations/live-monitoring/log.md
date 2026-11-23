@@ -2,6 +2,20 @@
 
 ## 2026-11-23
 
+- 19:52:19–19:53:07Z 틱(직전 19:32Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
+  - **KOBE**: ciel-work는 여전히 내려간 상태다. 19:53:20Z 확인했고 재로드 줄이 없다. 대화 기록은 19:52:55Z까지 갱신 중이다. 원장 v3091·보드 v725는 46분째 그대로이고 waiting_input 2다. 모드가 없어 Work 펌프·게이트가 돌지 않는 상태가 이어진다.
+  - **Andy**: 원장 v6337→6359. submitted 21→22, waiting_input 2→1, running+slot 3→2, reserved+slot 1.
+    - 19:35:11Z 사용자가 메인의 도구 호출 3건을 거부했다(사람의 결정).
+    - 19:40:07Z 대기 중이던 포크 348c823f 재개를 Claude Code가 거부했다("the session was stopped and nobody has sent input since").
+    - 19:41:16Z 호스트가 그 대기를 비웠다(`outcome=a resume was refused within the last 5 minutes`).
+    - 19:42:16Z `Work approval must be restored before resuming workers`. 목표가 planning 단계라 걸린 가드다.
+    - 셋 다 가드·엔진 거부로 분류한다. 재개가 막힌 이 포크의 아이템이 다시 디스패치되는지는 다음 틱에 본다.
+  - **Celly**: n1374 부재 finding이 사라졌다(19:18Z 이후 다시 관측됨, 종료 아님). waiting_input 10→11, running+slot 3→2.
+    - auto continue 상태 읽기 실패 공지 1(19:35:09Z).
+    - 포크 오류 8건은 모두 에이전트 측이다: question evidence 2112자 초과, TaskStop 가드, ripgrep timeout, 경로 없음, 스크립트 오류.
+    - 19:29–19:31Z 같은 무기록 구간은 이번 창에서 다시 측정하지 않았다.
+  - **Prody**: 보드 v6894→6898만 바뀌었다.
+
 - 19:32:20–19:32:40Z 틱(직전 19:18Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
   - **Celly 라우터 무기록 구간 재발(반복 이상, 11-22에 기록한 패턴)**
     - 로컬 13:29:26–13:31:30, 124초 동안 router.log에 한 줄도 없다.
