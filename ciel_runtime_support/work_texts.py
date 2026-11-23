@@ -83,6 +83,9 @@ TEXTS: dict[str, str] = {
     # Parallel execution is disabled because the fork gate mod is not loaded.
     'mod_fork_gate_missing': (
         "Work fork gate not loaded: parallel execution disabled"),
+    # The model tried to open a terminal choice question while side intake is live.
+    'mod_terminal_question_refused': (
+        "사이드 무인 모드가 켜져 있어 터미널 선택 질문을 열지 않습니다. CLI 화면에서 묻지 말고, 필요한 사용자 결정은 외부 채널(Work pane, Work web UI 또는 Walkie)의 기존 선택 절차로 보내십시오. 결정 대기 중 멈춰야 하면 대상 아이템에 waiting_on과 release_hint를 기록하고, 다른 독립 작업을 계속하십시오."),
     # A launch attempt whose owner is unknown.
     'mod_owner_unknown': (
         "Owner of this launch attempt is unknown; resolve it from the Work pane."),

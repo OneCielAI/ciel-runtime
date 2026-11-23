@@ -143,6 +143,13 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual('claude:S1', result['sent']['session_id'])
         self.assertEqual(1685, result['sent']['expected_version'])
 
+    def test_side_mode_refuses_terminal_choice_questions(self):
+        result = self.run_scenario('side-refuses-native-terminal-question')
+        self.assertIn('deny', result['result'])
+        self.assertIn('외부 채널', result['result']['deny'])
+        self.assertIn('기존 선택 절차', result['result']['deny'])
+        self.assertIn('waiting_on', result['result']['deny'])
+
     def test_queued_side_wake_is_not_blocked_again_at_stop(self):
         # The queued wake prompt delivers it next; blocking here duplicated it.
         self.assertNotIn('block', self.run_scenario('side-advice-stop-queued-wake'))

@@ -48,7 +48,20 @@ class Env:
         r = self.run("event", {"fork": True}, scope=scope, event="reserve", item_id=item, priority="P2")
         self.run("event", {"host_id": host_id, "agent_name": "work-" + item}, scope=scope,
                  event="bind", lease_id=r["lease_id"])
+        self.tokens = getattr(self, "tokens", {})
+        self.tokens[r["lease_id"]] = r["worker_token"]
         return r["lease_id"]
+
+    def report(self, lease_id, **args):
+        holder = self
+
+        class Board:
+            def read(self):
+                return holder.board
+
+        with patch.object(m, "ledger", return_value=self.store):
+            return json.loads(m.report({"lease_id": lease_id, "worker_token": self.tokens[lease_id], **args},
+                                       Board(), self.config))
 
     def observe(self, rows, scope=SCOPE, complete=True):
         return self.run("event", {}, scope=scope, event="native_observation", rows=rows, complete=complete,
@@ -207,6 +220,83 @@ class NativeEvidenceTests(unittest.TestCase):
             self.env.run("event", {"agent_id": "agent-a"}, event="native_observation",
                          rows=[{"lease_id": a, "agent_id": "agent-a", "status": "running"}], complete=True,
                          expected_evidence_version=0)
+
+
+HANDOFF = {"done": ["parser"], "remaining": ["E2E"], "blockers": [],
+           "workspace": {"path": "C:/repo", "branch": "work/l1", "head": "abc", "dirty": False,
+                         "changed_files": [], "diff_stat": "none"},
+           "next_step": "run E2E"}
+
+
+class SplitReportTests(unittest.TestCase):
+    """Prody 2026-11-22 n1076: a handoff without `evidence` stored its coordination receipt,
+    then the ledger refused "handoff proof required". The run read handed_off, the lease
+    stayed running with its slot, and the host treated the receipt as the exit and only
+    stopped the fork, so the P4 slot stayed held with no fork."""
+
+    def setUp(self):
+        self.tmp = TemporaryDirectory()
+        self.env = Env(Path(self.tmp.name))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def coordination(self):
+        return m.coordination(self.env.store).read()
+
+    def test_a_report_missing_its_evidence_writes_no_receipt(self):
+        a = self.env.launch("n1", "agent-a")
+        completion = {"summary": "s", "coverage": [{"item_id": "n1", "verified": True}], "verification": "v"}
+        question = {"question": "which?", "blocking_todos": ["n1"], "decision_needed": "pick"}
+        for event, extra, message in (("handoff", {"detail": HANDOFF}, "handoff proof required"),
+                                      ("question", {"detail": question}, "question evidence required"),
+                                      ("completion", {"detail": completion, "artifact": "a" * 64},
+                                       "completion evidence required")):
+            with self.subTest(event):
+                with self.assertRaisesRegex(WorkParallelError, message):
+                    self.env.report(a, event=event, **extra)
+                coord = self.coordination()
+                self.assertIsNone(coord["runs"][a]["exit"])
+                self.assertEqual([], [r for r in coord["receipts"].values() if r["lease_id"] == a])
+        lease = self.env.store.read()["leases"][a]
+        self.assertEqual(("running", True), (lease["state"], lease["slot"]))
+        self.env.report(a, event="handoff", detail=HANDOFF, evidence="handed off: E2E remains")
+        lease = self.env.store.read()["leases"][a]
+        self.assertEqual(("unreported", False), (lease["state"], lease["slot"]))
+
+    def split_handoff(self, lease_id):
+        """The state an older build left: the receipt landed, the ledger half did not."""
+        coord = m.coordination(self.env.store)
+        _, digest = coord.persist_receipt(lease_id, "handoff", HANDOFF, expected_version=coord.read()["version"])
+        return digest
+
+    def test_a_split_handoff_is_settled_once_the_fork_turn_ended_after_it(self):
+        a = self.env.launch("n1", "agent-a")
+        self.env.observe([{"lease_id": a, "agent_id": "agent-a", "status": "running"}])
+        digest = self.split_handoff(a)
+        self.env.observe([{"lease_id": a, "agent_id": "agent-a", "status": "running"}])
+        lease = self.env.store.read()["leases"][a]
+        self.assertEqual(("running", True), (lease["state"], lease["slot"]))
+        self.env.observe([{"lease_id": a, "agent_id": "agent-a", "status": "idle"}])
+        # The fork is then gone from the list; the settled lease stays settled.
+        self.env.observe([])
+        lease = self.env.store.read()["leases"][a]
+        self.assertEqual(("unreported", False), (lease["state"], lease["slot"]))
+        self.assertEqual("handoff", lease["terminal"]["reason"])
+        self.assertIn(digest, lease["evidence"])
+
+    def test_an_idle_seen_before_the_receipt_does_not_settle_it(self):
+        a = self.env.launch("n1", "agent-a")
+        self.env.observe([{"lease_id": a, "agent_id": "agent-a", "status": "idle"}])
+        evidence = m.native_evidence(self.env.store)
+        record = evidence.read()["records"][a]
+        self.split_handoff(a)
+        coord = m.coordination(self.env.store)
+        receipt = next(r for r in coord.read()["receipts"].values() if r["lease_id"] == a)
+        self.assertLess(record["status_changed_at"], receipt["created_at"])
+        self.env.observe([])
+        lease = self.env.store.read()["leases"][a]
+        self.assertEqual(("running", True), (lease["state"], lease["slot"]))
 
 
 if __name__ == "__main__":

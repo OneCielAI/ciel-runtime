@@ -354,6 +354,61 @@ class P0EventTests(unittest.TestCase):
         self.assertEqual(lease["id"], replay["lease_id"])
         self.assertEqual(1, len(self.store.read()["leases"]))
 
+    def test_unlaunched_p0_reservation_is_released_once_its_root_is_no_longer_p0(self):
+        # Celly 2026-11-22 n1326: a P0 reservation kept for replay (its
+        # coordination workspace attach failed) lost its P0 marker four minutes
+        # later. The P0 pump no longer saw the item, the ordinary lane saw it
+        # fenced by that lease, and the P1 slot stayed reserved with no fork.
+        repo = self.tmp / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "-C", str(repo), "init"], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(repo), "config", "user.name", "fixture"], check=True)
+        subprocess.run(["git", "-C", str(repo), "config", "user.email", "fixture@example.invalid"], check=True)
+        (repo / "base.txt").write_text("base", encoding="utf-8")
+        subprocess.run(["git", "-C", str(repo), "add", "base.txt"], check=True)
+        subprocess.run(["git", "-C", str(repo), "commit", "-m", "base"], check=True, capture_output=True)
+        original_coordination = m.coordination
+
+        class CoordinationProxy:
+            def __init__(self, actual):
+                self.actual = actual
+
+            def __getattr__(self, name):
+                return getattr(self.actual, name)
+
+            def attach_workspace(self, *_args, **_kwargs):
+                raise OSError("coordination workspace unavailable")
+
+        with patch.object(m, "coordination",
+                          side_effect=lambda store=None: CoordinationProxy(original_coordination(store))):
+            with self.assertRaisesRegex(WorkParallelError, "P0 workspace.*unknown; recovery required"):
+                self.call("p0_reserve_next", {"fork": True, "workspace_repo": str(repo)}, role="worker")
+        lease = next(iter(self.store.read()["leases"].values()))
+        intent = next(iter(p0_store(self.store).read()["intents"].values()))
+        self.assertEqual(("reserved", "reserved"), (lease["state"], intent["state"]))
+        side = p0_store(self.store)
+        side.prepare_clear(SCOPE, "root", 1.0, "P1", self.board.doc["version"], set_by="user",
+                           expected_version=side.read()["version"])
+        with self.assertRaisesRegex(WorkParallelError, "no eligible candidate"):
+            self.reserve()
+        self.assertNotIn(lease["id"], self.store.read()["leases"])
+        self.assertNotIn(lease["id"], receipts.coordination_store(self.store).read()["runs"])
+        intent = p0_store(self.store).read()["intents"][intent["intent_id"]]
+        self.assertEqual(("intent", None), (intent["state"], intent["lease_id"]))
+
+    def test_a_spawning_p0_launch_is_not_released_when_its_root_is_cleared(self):
+        reserved = self.reserve()
+        args = {key: reserved[key] for key in ("intent_id", "lease_id", "dispatch_name")}
+        self.call("p0_launch_assignment", {"internal": True}, **args)
+        self.call("p0_launch_spawning", {"internal": True}, **args)
+        side = p0_store(self.store)
+        side.prepare_clear(SCOPE, "root", 1.0, "P1", self.board.doc["version"], set_by="user",
+                           expected_version=side.read()["version"])
+        with self.assertRaisesRegex(WorkParallelError, "no eligible candidate"):
+            self.reserve()
+        self.assertEqual("reserved", self.store.read()["leases"][reserved["lease_id"]]["state"])
+        self.assertEqual("spawning", side.read()["intents"][reserved["intent_id"]]["state"])
+
     def test_p0_reacquire_accepts_a_bound_rework_fork_name(self):
         # Andy 2026-11-21 (n2453/n2042): the P0 intent authorized a rework
         # replacement that native bound as work-rework-<lease>-a1. Reacquire

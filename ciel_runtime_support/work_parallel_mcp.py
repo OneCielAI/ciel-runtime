@@ -1240,6 +1240,15 @@ def _worker_event(store, board_store, lease, args):
     # reviews the result, which shows approval_changed.
     evidence = args.get("evidence")
     artifact = args.get("artifact")
+    # The ledger half of every report requires this text. Check it before the
+    # coordination receipt is written: Prody 2026-11-22 n1076 stored a handoff
+    # receipt, then the ledger refused "handoff proof required", leaving the
+    # lease running with its slot while the run read handed_off.
+    from .work_parallel_receipts import _require_text
+    kind, field, limit = (("handoff", "proof", 500) if event == "handoff" else
+                          ("question" if event == "question" else "completion", "evidence", 2000))
+    require(isinstance(evidence, str) and evidence != "", kind + " " + field + " required")
+    _require_text(evidence, kind, field, limit)
     coord = coordination(store)
     # The authenticated capability proves the ledger binding. Complete a
     # coordination bind lost between the two stores before any receipt below
@@ -1491,7 +1500,8 @@ def _retry_conflict(write, attempts=3):
                 raise
 
 
-def _release_failed_reservation(store, ident, p0_intent):
+def _release_failed_reservation(store, ident, p0_intent, *,
+                                reason="workspace preparation failed before launch"):
     """Undo one reservation that never launched: lease, coordination run, P0 intent.
 
     Each half is checked first and skipped when it is already gone (the orphan
@@ -1503,8 +1513,7 @@ def _release_failed_reservation(store, ident, p0_intent):
             current = store.read()
             lease = current["leases"].get(ident)
             if lease is not None and lease["state"] == "reserved" and lease["host_id"] is None:
-                store.release_unbound(ident, proof="workspace preparation failed before launch",
-                                      expected_version=current["version"])
+                store.release_unbound(ident, proof=reason, expected_version=current["version"])
         _retry_conflict(release)
     except Exception:  # noqa: BLE001
         left.append("lease")
@@ -1514,8 +1523,7 @@ def _release_failed_reservation(store, ident, p0_intent):
             current = coord.read()
             run_row = current["runs"].get(ident)
             if run_row is not None and run_row["state"] == "reserved" and run_row["agent_id"] is None:
-                coord.cancel_reserved(ident, outcome="workspace preparation failed before launch",
-                                      expected_version=current["version"])
+                coord.cancel_reserved(ident, outcome=reason, expected_version=current["version"])
         _retry_conflict(cancel)
     except Exception:  # noqa: BLE001
         left.append("coordination")
@@ -1534,6 +1542,37 @@ def _release_failed_reservation(store, ident, p0_intent):
 
 
 ENDED_LEASE_STATES = ("done", "orphaned", "unreported")
+
+
+P0_ENDED_BEFORE_LAUNCH = "P0 ended before launch"
+
+
+def _release_unlaunched_ended_p0(store, identity):
+    """Release P0 reservations that never launched and whose root is no longer P0.
+
+    Only the P0 lane replays a reserved P0 intent, and it reads only active P0
+    roots; the ordinary lane sees the item fenced by that lease. A marker
+    cleared before the launch therefore left the slot reserved with no fork
+    (Celly 2026-11-22 n1326). A ``reserved`` intent has started no fork (the
+    ``spawning`` transition precedes every native spawn), so its lease,
+    coordination run and reservation are undone; the item stays queued.
+    """
+    side = p0_state(store)
+    side_doc = side.read()
+    leases = store.read()["leases"]
+    released = []
+    for row in list(side_doc["intents"].values()):
+        if row["scope"] != identity or row["state"] != "reserved" or row["lease_id"] is None:
+            continue
+        lease = leases.get(row["lease_id"])
+        if (lease is None or lease["state"] != "reserved" or lease["host_id"] is not None
+                or lease.get("dispatch_name") != row["dispatch_name"]):
+            continue
+        if side.matching_active_marker(side_doc, identity, row["root_id"], row["root_created_at"]):
+            continue
+        left = _release_failed_reservation(store, row["lease_id"], row, reason=P0_ENDED_BEFORE_LAUNCH)
+        released.append((row["lease_id"], left))
+    return released
 
 
 def _close_ended_p0_intents(store, p0, identity, item_id):
@@ -1557,6 +1596,7 @@ def _close_ended_p0_intents(store, p0, identity, item_id):
 def _reserve_assignment(store, board_store, identity, host, version, *, item_id=None,
                         role="worker", p0_only=False, log=None):
     _repair_no_report_rows(store, identity)
+    _release_unlaunched_ended_p0(store, identity)
     board = board_store.read()
     p0 = p0_state(store)
     p0_intent = None
@@ -3292,6 +3332,52 @@ def _observe_coordination_row(store, identity, lease, row):
 NATIVE_IDLE_STATUSES = frozenset(("idle", "completed", "failed", "killed"))
 
 
+def _settle_split_handoffs(store, identity):
+    """Finish handoffs whose receipt landed but whose ledger half did not.
+
+    An older build wrote the coordination receipt before the ledger checked the
+    proof, so a refused handoff left the run handed_off and the lease running
+    with its slot (Prody 2026-11-22 n1076). The host counts the receipt as the
+    exit and stops the fork, so nothing else releases the slot. The durable
+    receipt is the fork's own structured handoff; it is committed once the
+    fork's native turn is observed ended (an idle-class status that changed
+    after the receipt was stored), so the fork's own report call has returned.
+    """
+    coord = coordination(store)
+    cstate = coord.read()
+    records = native_evidence(store).read().get("records", {})
+    settled = []
+    for lease_id, lease in store.read()["leases"].items():
+        if lease["scope"] != identity or lease["state"] != "running" or not lease["slot"] or not lease["host_id"]:
+            continue
+        run = cstate["runs"].get(lease_id) or {}
+        exit_row = run.get("exit") or {}
+        receipt = cstate["receipts"].get(exit_row.get("digest") or "")
+        record = records.get(lease_id) or {}
+        if (exit_row.get("kind") != "handoff" or receipt is None or receipt["lease_id"] != lease_id
+                or receipt["kind"] != "handoff" or record.get("agent_id") != lease["host_id"]
+                or record.get("status") not in NATIVE_IDLE_STATUSES
+                or not record.get("status_changed_at", 0) >= receipt["created_at"]):
+            continue
+        try:
+            def settle(lease_id=lease_id, digest_value=receipt["digest"], status=record["status"]):
+                current = store.read()
+                row = current["leases"].get(lease_id)
+                if row is None or row["state"] != "running" or not row["slot"]:
+                    return
+                store.report_handoff(lease_id, plan_version=row["plan_version"], receipt_digest=digest_value,
+                                     proof="host: fork's durable handoff receipt; native " + status
+                                           + " after it; ledger half was refused before this fix",
+                                     expected_version=current["version"])
+            _retry_conflict(settle)
+            side = p0_state(store)
+            side.close_lease_intents(lease_id, expected_version=side.read()["version"])
+            settled.append(lease_id)
+        except WorkParallelError:
+            continue
+    return settled
+
+
 def _publish_native_idle_review(store, identity, row):
     """Publish a submitted result's review from a listed idle fork row.
 
@@ -4385,6 +4471,7 @@ def run(name, args, board_store, identity, config, save_config, log=None):
                 published.append(row["lease_id"])
             elif outcome:
                 skipped.append({"lease_id": row["lease_id"], "reason": outcome})
+        _settle_split_handoffs(store, identity)
         return json.dumps({"evidence_version": state["version"], "changed": changed,
                            "skipped": skipped[:MAX_NATIVE_SKIPPED],
                            "observed_terminal": observed_terminal[:MAX_NATIVE_SKIPPED],

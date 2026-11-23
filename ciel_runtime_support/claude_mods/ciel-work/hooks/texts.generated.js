@@ -19,6 +19,7 @@ export const TEXTS = {
  "mod_status_unavailable": "Work status unavailable: router connection or snapshot could not be verified.",
  "mod_stop_approval": "Ciel Work stopped: the plan is ready and waits for your approval before execution. Ask the model to execute it (you approve in the Work dialog) or request changes. /work-mode tree",
  "mod_stop_unavailable": "Ciel Work auto continue could not read the Work status, so unfinished items were not checked. /work-mode status",
+ "mod_terminal_question_refused": "사이드 무인 모드가 켜져 있어 터미널 선택 질문을 열지 않습니다. CLI 화면에서 묻지 말고, 필요한 사용자 결정은 외부 채널(Work pane, Work web UI 또는 Walkie)의 기존 선택 절차로 보내십시오. 결정 대기 중 멈춰야 하면 대상 아이템에 waiting_on과 release_hint를 기록하고, 다른 독립 작업을 계속하십시오.",
  "mod_workflow_wake": "Ciel Work workflow wake: a host message beginning \"Ciel Work workflow\" was added to this conversation. Read it and do what it asks. This wake holds none of it and grants no approval."
 }
 let overrides = {}

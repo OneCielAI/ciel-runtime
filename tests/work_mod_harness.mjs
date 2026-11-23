@@ -274,6 +274,15 @@ const scenarios = {
       tool_use_id: 't1', event_id: 'e1', expected_version: 1685, answer: 'stale' }, next({ ran: true }))
     return { result, sent: state.handoff }
   },
+  async 'side-refuses-native-terminal-question'() {
+    const { $ } = host(async tool => tool === 'work_side_settings'
+      ? text({ settings: { enabled: true } }) : text(snapshot()))
+    const result = await handlers['tool.call']($, {
+      tool: 'AskUserQuestion',
+      questions: [{ question: 'Which item takes the slot?', options: [{ label: 'inherit' }, { label: 'expand' }, { label: 'wait' }] }]
+    }, next({ ran: true }))
+    return { result }
+  },
   async 'side-review-stop-once'() {
     const reviews = [{ receipt_id: 'r'.repeat(64), source: 'message:c:119649', kind: 'status', summary: 'queue listed', reply: 'queue text' }]
     const sent = []

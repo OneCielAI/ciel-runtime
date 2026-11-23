@@ -2926,6 +2926,15 @@ async function recoverSubmittedReview($, leaseId) {
 }
 
 async function parallelToolCall($, e, next) {
+  // Side-intake sessions process outside events without a console answer. A
+  // native question asks nobody and can hold this turn for hours (Celly
+  // 2026-11-22 22:50Z); fan-out agents get the same outcome.
+  if (e.tool === 'AskUserQuestion' && next.origin?.plugin === 'engine') {
+    if (e.agentId !== undefined) return { deny: T('mod_terminal_question_refused') }
+    let sideSettings
+    try { sideSettings = await parallelCall($, 'work_side_settings', {}) } catch {}
+    if (sideSettings?.settings?.enabled === true) return { deny: T('mod_terminal_question_refused') }
+  }
   if (next.origin?.plugin === 'ciel-work' && (e.tool === PREFIX+'send_message' || e.tool.startsWith(PREFIX+'work_side_'))) return next(e)
   if (HOST_ONLY_SIDE_TOOLS.has(e.tool))
     return {deny:e.tool.slice(PREFIX.length)+' is called only by the Ciel Work host itself. A person retries an uncertain delivery from the Side pane or the Work web UI; acknowledge side events with work_side_handoff.'}
