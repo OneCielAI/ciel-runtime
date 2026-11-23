@@ -2,6 +2,31 @@
 
 ## 2026-11-23
 
+- 23:54:44–23:56Z 틱(직전 23:34Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
+  - **Celly: 이번 틱에는 응답했다.** 이것만으로 프리즈가 끝났다고 판단하지 않는다.
+    - MCP 프로브 성공(266 ms, v10091). `/health` 3회 0.01–0.03초.
+    - 리스: running+slot 4→3, waiting_input 8, submitted 0→1, 원장 8392→8394.
+    - 라우터 로그 `router_post_client_disconnected` 17건(17:34 로컬 이후)이 계속 나온다.
+    - 포크 a1f53ab6 오류 3건
+      - 23:47Z `walkie-install/mcp-stdio.py upload_local` Traceback
+      - 23:48–23:49Z `work_parallel_report`가 `worker may only report question, completion or handoff`, `completion artifact SHA256 required` 2건. 보고 형식 가드다.
+  - Andy
+    - running+slot 5→3, submitted 23→22, 원장 6693→6704. MCP 1,187 ms.
+    - 새 실패 `decision_refused_stop 2b22056c x1`(23:42:51Z): 메인의 `work_parallel_item_review`가 `The operation timed out`으로 실패해, mod가 Stop 경계를 기록했다(`register.js:2997–3006`).
+      - 해당 리스(n2671 P1)는 지금 done이다. evidence에 "Main direct verification 2026-11-23T23:35Z"가 있다. 재시도로 마무리된 것으로 본다(재시도 시각은 미확인).
+    - 검수 행 누락: n1166에 n2678 23b54592 P1이 추가됐다(native=running last=23:49). 제출 직후라 집계 지연일 수 있어 다음 틱에 재확인한다.
+  - KOBE: running+slot 3→4, 원장 3118→3132. MCP 1,025 ms. 포크 오류 5건
+    - 23:21Z NAS 복사 확인 중 `/tmp` pyc 삭제 Permission denied
+    - 23:37Z 해시 검증 Exit 1
+    - 23:37Z 보고 형식 가드
+    - 23:46Z 포크 `work_parallel_status` 신원 가드(반복 관측)
+    - 23:53Z 포크 자체 bash 인용 오류
+  - Prody: waiting_input 0→2, submitted 7, 원장 704→714. MCP 2,555 ms.
+    - 새 실패 `revival_refused`(23:37:28Z): 메인이 side 액터 a00d0811에 메시지를 보내려다 거부됐다(`Work message … refused: it is a side request`). 포크 부활을 막는 정상 가드다.
+    - 포크 a0616246: `clear_wait=true conflicts with non-empty waiting_on` 2건(23:39–23:40Z). 입력 검증 가드다.
+    - a00d0811 Exit 2는 세션 WMS 점검 스크립트다.
+  - 새로 입증된 제품 결함은 없다. side-fresh 중복 실행은 미착수 그대로다.
+
 - 23:34:24–23:37Z 틱(직전 23:20Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
   - **Celly: 라우터가 프리즈 상태다(사용자 정의: 20초 무응답 = 동작 안 함)**
     - 23:36–23:37Z `/health` 3회가 모두 20초 시간 초과였다. 23:20Z 틱에 이어 이번 틱도 MCP 프로브가 `probe_failed TimeoutError`(4,031 ms)다.
