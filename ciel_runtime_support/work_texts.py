@@ -61,6 +61,19 @@ TEXTS: dict[str, str] = {
         "work_execute root_id: 이 세션의 라우터는 아직 줄을 선 목표의 승인을 지원하지 않습니다. 이 라우터는 root_id를 무시하고 활성 목표를"
         " 승인하므로 호출을 보내지 않았습니다. 라우터가 다시 시작된 뒤에 승인할 수 있습니다. 지금 work_execute로 승인할 수 있는 것은 활성 목"
         "표뿐입니다."),
+    # The side's answer to a fork parked on a question (fork_answers), sent by
+    # the Work host when it resumes that fork on its own lease (user 2026-11-23).
+    'mod_parked_answer': (
+        "Ciel Work: an answer to your question on Work item {item} (side check {event}; source: {source}):\n"
+        "{answer}\n"
+        "Continue the approved assignment under lease {lease} in the same workspace, then report through "
+        "work_parallel_report with the worker_token from your original assignment. This is not new execution approval."),
+    # Main's notice for side answers the host could not deliver; {lines} lists each fork.
+    'mod_parked_answer_undelivered': (
+        "Ciel side answered parked Work forks, but the host did not deliver these answers (event {event}):\n"
+        "{lines}\n"
+        "Resume a worker with SendMessage only if its work is still wanted; the answer and its source are quoted. "
+        "This grants no approval."),
     # Refusal of main's direct code edit while it delegates execution to forks.
     'mod_main_delegates': (
         "Work 실행 단계에서 메인은 코드를 직접 수정하지 않습니다. 실행은 Work 포크의 일입니다. 이 아이템의 leaf note에 관련 코드, 기술 스펙, 분석, "

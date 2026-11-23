@@ -4543,9 +4543,13 @@ const PARKED_RESUME_RETRY_MS = 300000
 // report_question / report_completion), so without this a resumed worker
 // could never report again. The coordinator "resume" event is the existing
 // waiting_input -> running edge, which requires the slot reacquire gave back.
-async function parallelResumeTransition($, lease) {
+// Why the host is resuming a parked worker, when it is not a cleared wait (a
+// side answer to its question): read by whichever path records the resume,
+// this send's agent.spawn hook or the host right after the send.
+const parkedResumeReason = new Map()
+async function parallelResumeTransition($, lease, evidence = null) {
   return parallelEvent($, { event:'resume', lease_id:lease.id, plan_version:lease.plan_version,
-    evidence:'Work host resumed the parked worker after its wait was cleared' })
+    evidence:evidence || parkedResumeReason.get(lease.id) || 'Work host resumed the parked worker after its wait was cleared' })
 }
 // P0 reacquire is a durable child of the original launch intent. A child that
 // did not acquire the slot in this call is an earlier send whose delivery the
@@ -4579,7 +4583,7 @@ async function completeP0Reacquire($, lease, child, sent) {
 // it to named leases (a released wait, side-intake.js) and skips the retry
 // throttle; the pump passes none and resumes every cleared parked worker.
 const parkedResumeInFlight = new Set()
-async function parallelResumeParked($, state, listed, only = null) {
+async function parallelResumeParked($, state, listed, only = null, texts = null) {
   const outcomes = new Map()
   // The pump takes only leases whose recorded wait was cleared; a released
   // wait (`only`) is checked below for the board alone.
@@ -4591,7 +4595,12 @@ async function parallelResumeParked($, state, listed, only = null) {
   let rows = []
   try { rows = (await listed.fresh()) || [] } catch { rows = [] }
   for (const lease of parked) {
-    if (lease.wait_clear_now !== true) { outcomes.set(lease.id, 'its wait is still recorded on the board'); continue }
+    // wait_clear_now (router parked_wait_cleared) is false while the item or an
+    // ancestor has a recorded wait or block, or its goal is not executing.
+    if (lease.wait_clear_now !== true) {
+      outcomes.set(lease.id, 'the board still holds its item (a recorded wait or block, or a goal that is not executing)')
+      continue
+    }
     if (!only && lease.wait_cleared !== true) {
       outcomes.set(lease.id, 'no recorded wait was cleared; it waits for main\'s answer'); continue
     }
@@ -4626,10 +4635,14 @@ async function parallelResumeParked($, state, listed, only = null) {
         outcomes.set(lease.id, detail); continue
       }
       authorizeResume(lease.id, lease.agent_name)
+      const answer = texts?.get(lease.id)
+      if (typeof answer === 'string' && answer)
+        parkedResumeReason.set(lease.id, 'Work host resumed the parked worker with the side answer to its question')
       let sent = null
       try {
         sent = await $.session.send({ to:{ agentId:lease.host_id },
-          text:'Ciel Work: the wait on your Work item ' + lease.item_id + ' is cleared on the board. Continue the approved '
+          text:typeof answer === 'string' && answer ? answer
+            : 'Ciel Work: the wait on your Work item ' + lease.item_id + ' is cleared on the board. Continue the approved '
             + 'assignment under lease ' + lease.id + ' in the same workspace, then report through work_parallel_report with '
             + 'the worker_token from your original assignment. This is not new execution approval.' })
       } catch (error) { sent = { isDelivered:false, reason:String(error?.message || error) } }
@@ -4663,7 +4676,7 @@ async function parallelResumeParked($, state, listed, only = null) {
           catch (error) { rememberParallelFailure('parked-resume', 'lease ' + clipped(lease.id, 40) + ' kept its slot: ' + String(error?.message || error)) }
         }
       }
-    } finally { parkedResumeInFlight.delete(lease.id) }
+    } finally { parkedResumeInFlight.delete(lease.id); parkedResumeReason.delete(lease.id) }
   }
   return outcomes
 }
@@ -4710,7 +4723,9 @@ async function parallelParkedNotices($, state, outcomes) {
 // side-intake.js calls this right after a released wait is committed, so the
 // worker waiting on it resumes at once; main is told only about the ones that
 // did not resume, with the reason (user requirement 2026-11-17).
-async function parallelResumeReleased($, leaseIds) {
+// `texts` (a side answer to a worker parked on a question, user 2026-11-23)
+// maps a lease id to the message that resumes it instead of the cleared-wait one.
+async function parallelResumeReleased($, leaseIds, texts = null) {
   const ids = new Set((leaseIds || []).filter(Boolean))
   if (!ids.size) return new Map()
   let state
@@ -4718,7 +4733,7 @@ async function parallelResumeReleased($, leaseIds) {
   catch (error) { return new Map([...ids].map(id => [id, 'the Work host status is unreadable'])) }
   if (!state.policy.enabled || state.policy.paused)
     return new Map([...ids].map(id => [id, 'Work parallel is off or paused']))
-  return parallelResumeParked($, state, pumpAgentList($), ids)
+  return parallelResumeParked($, state, pumpAgentList($), ids, texts)
 }
 // One tracked fork at a turn end: park it, ask for its missing exit receipt, or
 // reconcile its native status. Throws what the backend refuses.
@@ -5214,7 +5229,7 @@ export function register(on) {
     const ticket = ++starts
     // A released wait resumes its parked worker from the host first (Stage 3);
     // side-intake.js calls this closure, bound to this session, with no $.
-    sideParkedResume(ids => parallelResumeReleased($, ids))
+    sideParkedResume((ids, texts) => parallelResumeReleased($, ids, texts))
     // A host-verified approval (spec 4.4) wakes the fork pump at once.
     sideWorkflowApproved(() => { void parallelPump($, 'workflow-approved').catch(() => {}) })
     resetParallelHostState()

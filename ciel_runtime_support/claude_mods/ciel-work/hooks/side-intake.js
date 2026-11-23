@@ -764,7 +764,9 @@ export async function startSide($) {
 let mainBusy = () => false
 export function sideMainBusy(fn) { mainBusy = fn }
 // register.js resumes a parked worker on its own lease when its wait is cleared
-// (Stage 3, 2026-11-17): (leaseIds) -> Map(lease id -> true | reason). It hands
+// (Stage 3, 2026-11-17): (leaseIds, texts?) -> Map(lease id -> true | reason);
+// texts maps a lease id to the message that resumes it (a side answer to its
+// question, 2026-11-23). It hands
 // over a closure bound to its session at session.start; the Claude Code mod
 // loader refuses $ passed to a function held in a variable, so none is passed.
 let parkedResume = null
@@ -2274,7 +2276,7 @@ async function shareWithMain($,event,result) {
 //    Main is told to resume through SendMessage only for a parked worker that
 //    did not resume, with the reason (Stage 3, 2026-11-17).
 // Nothing here grants execution approval or needs an acknowledgment.
-async function notifyReleased($,identity,event,result) {
+async function notifyReleased($,identity,event,result,withFork = text => text,alone = '') {
   let leases = {}
   try { leases = (await callRouter($,'work_parallel_status',{},{},identity)).leases || {} } catch {}
   const nodes = new Map((event.workload?.nodes || []).map(node => [node.id,node]))
@@ -2303,7 +2305,10 @@ async function notifyReleased($,identity,event,result) {
     if (sent?.isDelivered) $.ui.log('Side released '+rows.map(({wait}) => wait.id).join(', ')+' → worker '+agentId.slice(0,12))
     else toMain.push(...rows)
   }
-  if (!toMain.length) return
+  if (!toMain.length) {
+    if (alone) await noticeToMain($,identity,event.receipt_id,alone)
+    return
+  }
   const parked = [...new Map(toMain.filter(({lease}) => lease?.state === 'waiting_input')
     .map(({lease}) => [lease.id,lease])).values()]
   const outcomes = await resumeParked(parked)
@@ -2314,7 +2319,7 @@ async function notifyReleased($,identity,event,result) {
   // no review, acknowledgment or action is asked of it.
   const text = 'Ciel side: released '+toMain.map(({wait}) => wait.id).join(', ')
     +' ('+source+'). The queue runs '+(toMain.length > 1 ? 'them' : 'it')+' automatically; nothing to do.'
-  const state = await noticeToMain($,identity,event.receipt_id,text)
+  const state = await noticeToMain($,identity,event.receipt_id,withFork(text))
   $.ui.log('Side released '+toMain.map(({wait}) => wait.id).join(', ')+' → main ('+state+')')
 }
 // Live item relay (user requirement 2026-11-15): a follow-up about an item in
@@ -2322,7 +2327,9 @@ async function notifyReleased($,identity,event,result) {
 // decides whether it is needed. The fork gets it in its inbox (session.send,
 // read at its next request); main gets one at-most-once host notice. Neither
 // needs to acknowledge, and nothing here approves execution.
-async function relayToItem($,identity,event,result) {
+// withFork adds this receipt's undelivered fork answers to the notice; alone is
+// that text by itself, sent when this relay tells main nothing (commitProposal).
+async function relayToItem($,identity,event,result,withFork = text => text,alone = '') {
   let leases = {}
   try { leases = (await callRouter($,'work_parallel_status',{},{},identity)).leases || {} } catch {}
   const nodes = new Map((event.workload?.nodes || []).map(node => [node.id,node]))
@@ -2357,13 +2364,14 @@ async function relayToItem($,identity,event,result) {
           +'\nSource: '+JSON.stringify(source)+'\nMessage: '+eventView(event.text)})
         if (sent?.isDelivered === true) {
           $.ui.log('Side direct-relay '+item+' → '+target+' (queued)')
+          if (alone) await noticeToMain($,identity,event.receipt_id,alone)
           return
         }
         outcome = sent?.isDelivered === false ? 'delivery refused' : 'delivery uncertain'
       } catch { outcome = 'delivery uncertain' }
     }
-    await noticeToMain($,identity,event.receipt_id,header+'\nOriginal message:\n'+message
-      +'\nDirect handoff: '+outcome+'; side skipped outbound reply. Check delivery before responding.')
+    await noticeToMain($,identity,event.receipt_id,withFork(header+'\nOriginal message:\n'+message
+      +'\nDirect handoff: '+outcome+'; side skipped outbound reply. Check delivery before responding.'))
     return
   }
   const delivered = []
@@ -2388,10 +2396,39 @@ async function relayToItem($,identity,event,result) {
     +(stuck.length ? ' Parked worker'+(stuck.length > 1 ? 's' : '')+' on it: '
       +stuck.map(row => parkedNote(row,outcomes)).join(', ')
       +'; resume with SendMessage to that worker only if this matters to it.' : '')
-  const state = await noticeToMain($,identity,event.receipt_id,header+'\nOriginal message:\n'+message+'\n'+forkNote+ask)
+  const state = await noticeToMain($,identity,event.receipt_id,withFork(header+'\nOriginal message:\n'+message+'\n'+forkNote+ask))
   $.ui.log('Side relay '+item+' → main ('+state+')'+(delivered.length ? ' + '+delivered.length+' fork(s)' : ''))
 }
-const DECISION_FIELDS = new Set(['action','kind','item_id','summary','reply','note','title','priority','queue_position','release_waits','time_limit','relay','ask_main','no_reply','complaint','refs'])
+// Answers to forks parked on a question (fork_answers, user 2026-11-23). The
+// router answered only parked workers of this conversation; the Work host
+// (register.js) resumes each one on its own lease with its answer. Returns the
+// lines main must read: answers the host did not deliver, and the ones the
+// router refused. Every delivered answer is only logged.
+export async function answerParkedForks($,identity,event,result) {
+  const answers = Array.isArray(result?.fork_answers) ? result.fork_answers : []
+  const refused = Array.isArray(result?.unanswered_forks) ? result.unanswered_forks : []
+  const ref = String(event.receipt_id).slice(0,12)
+  const texts = new Map(answers.map(row => [row.lease_id, T('mod_parked_answer',{item:row.item_id,lease:row.lease_id,
+    event:ref,source:line(row.source,300),answer:String(row.answer).slice(0,4000)})]))
+  let outcomes = new Map()
+  if (answers.length) {
+    if (!parkedResume) outcomes = new Map(answers.map(row => [row.lease_id,'the Work host cannot resume workers here']))
+    else {
+      try { outcomes = await parkedResume(answers.map(row => row.lease_id),texts) || new Map() }
+      catch (error) { outcomes = new Map(answers.map(row => [row.lease_id,'the automatic resume failed: '+line(String(error?.message || error),120)])) }
+    }
+  }
+  const delivered = answers.filter(row => outcomes.get(row.lease_id) === true)
+  if (delivered.length) $.ui.log('Side answered parked fork'+(delivered.length > 1 ? 's' : '')+' '
+    +delivered.map(row => line(row.lease_id,12)+' ('+row.item_id+')').join(', ')+' (event '+ref+')')
+  const lines = [
+    ...answers.filter(row => outcomes.get(row.lease_id) !== true).map(row => '- lease '+row.lease_id+' (item '+row.item_id+'): '
+      +line(String(outcomes.get(row.lease_id) || 'not resumed'),200)+'. Answer ('+line(row.source,160)+'): '+line(row.answer,600)),
+    ...refused.map(row => '- lease '+line(row.lease_id,200)+': '+line(row.reason,200))]
+  return {delivered:delivered.map(row => row.lease_id),
+    text:lines.length ? T('mod_parked_answer_undelivered',{event:ref,lines:lines.join('\n')}) : ''}
+}
+const DECISION_FIELDS = new Set(['action','kind','item_id','summary','reply','note','title','priority','queue_position','release_waits','time_limit','relay','ask_main','no_reply','complaint','refs','fork_answers'])
 // The side turn ends with its decision, but models often wrap it in prose or a
 // ```json fence. Take the last parseable object that carries `decision`.
 export function decisionOf(answer) {
@@ -2467,27 +2504,39 @@ async function commitProposal($,actor,event,proposal,sentVia,usage) {
     // without waiting for another claim/poll or for a side slot to free.
     if (value.result?.main_handoff?.kind === 'time_limit' && !value.result.duplicate)
       await scheduleMainWake($,actor.identity,{event_id:event.receipt_id,...value.result.main_handoff})
+    // Answers to parked forks: the host resumes them now. What it could not
+    // deliver rides on this receipt's one notice to main (side_notice claims a
+    // receipt once), or goes alone when this decision tells main nothing else.
+    let forkText = ''
+    if (!value.result?.duplicate && (value.result?.fork_answers?.length || value.result?.unanswered_forks?.length)) {
+      try { forkText = (await answerParkedForks($,actor.identity,event,value.result)).text } catch {}
+    }
+    const asks = value.result?.ask_main === true && !value.result.duplicate
+    const withFork = text => forkText ? text+'\n'+forkText : text
+    const alone = asks ? '' : forkText
     if (value.result?.relay?.item_id && !value.result.duplicate)
       // One host notice per receipt: a relay also names any wait it released.
-      void relayToItem($,actor.identity,event,value.result).catch(() => {})
+      void relayToItem($,actor.identity,event,value.result,withFork,alone).catch(() => {})
     else if (value.result?.released_waits?.length && !value.result.duplicate)
-      void notifyReleased($,actor.identity,event,value.result).catch(() => {})
+      void notifyReleased($,actor.identity,event,value.result,withFork,alone).catch(() => {})
     // Main's turn-end check (user 2026-11-18): the side delivers its result to
     // main. A release already told main through notifyReleased.
     else if (event.route?.turn_end === true && value.result && !value.result.duplicate) {
       const said = line(value.result.reply || value.result.summary,600)
       if (said && !/^["']?(nothing to do|할\s*일\s*없음)["']?\.?$/i.test(said))
-        void noticeToMain($,actor.identity,event.receipt_id,'Ciel side (after your turn): '+said).catch(() => {})
+        void noticeToMain($,actor.identity,event.receipt_id,withFork('Ciel side (after your turn): '+said)).catch(() => {})
+      else if (alone) void noticeToMain($,actor.identity,event.receipt_id,alone).catch(() => {})
     }
+    else if (alone) void noticeToMain($,actor.identity,event.receipt_id,alone).catch(() => {})
     // The side's own escalation (ask_main): one notice to main, nothing to
     // acknowledge. A workflow handoff already carries it when one was made.
     // A complaint carries the router's durable notice text, so a claim after a
     // lost result offers the same notice instead of a second wording.
-    if (value.result?.ask_main === true && !value.result.duplicate)
-      void noticeToMain($,actor.identity,event.receipt_id,typeof value.main_notice === 'string' && value.main_notice
+    if (asks)
+      void noticeToMain($,actor.identity,event.receipt_id,withFork(typeof value.main_notice === 'string' && value.main_notice
         ? value.main_notice
         : 'Ciel side asks main ('+(value.result.item_id ? value.result.item_id+', ' : '')+'event '
-          +event.receipt_id.slice(0,12)+'): '+line(value.result.summary,300)+' — '+line(value.result.reply,600)).catch(() => {})
+          +event.receipt_id.slice(0,12)+'): '+line(value.result.summary,300)+' — '+line(value.result.reply,600))).catch(() => {})
     $.clock.after(10, async () => { await recoverReply($,actor.identity,event) })
   }
 }

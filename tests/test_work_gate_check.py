@@ -213,6 +213,18 @@ class GateCheckMcpTests(unittest.TestCase):
         self.assertFalse(result['error'], result)
         return json.loads(result['text'])
 
+    def claim(self, owner):
+        """One side claim, reassembled when the router paged it (host_result_pages)."""
+        def value(name, args):
+            result = self.invoke(name, args)
+            self.assertFalse(result['error'], result)
+            body = json.loads(result['text'])
+            if isinstance(body, dict) and 'paged' in body:
+                body = json.loads(''.join(value('work_host_page', {'id': body['paged']['id'], 'part': part})['text']
+                                          for part in range(body['paged']['parts'])))
+            return body
+        return value('work_side_claim', {'owner': owner})['claim']
+
     def notice(self, receipt_id):
         result = self.invoke('work_side_wake', {'event_id': receipt_id, 'state': 'notice_prepare',
                                                 'owner_nonce': 'host-1', 'text': 'notice'})
@@ -353,7 +365,7 @@ class GateCheckMcpTests(unittest.TestCase):
         self.assertEqual('previous_round_pending', self.check()['reason'])
         self.assertEqual(1, len(inbox.pending()))
 
-        claimed = json.loads(self.invoke('work_side_claim', {'owner': 'actor'})['text'])['claim']
+        claimed = self.claim('actor')
         self.assertEqual(queued['receipt_id'], claimed['receipt_id'])
         self.assertIn('대기 조건: CI run 42 green', claimed['text'])
         host = {**HOST, 'receipt_id': claimed['receipt_id'], 'generation': claimed['generation'],
@@ -386,7 +398,7 @@ class GateCheckMcpTests(unittest.TestCase):
         first = self.check()
         self.assertTrue(first['queued'])
         self.assertEqual('previous_round_pending', self.check()['reason'])
-        claimed = json.loads(self.invoke('work_side_claim', {'owner': 'actor'})['text'])['claim']
+        claimed = self.claim('actor')
         host = {**HOST, 'receipt_id': claimed['receipt_id'], 'generation': claimed['generation'],
                 'work_digest': claimed['work_digest']}
         self.invoke('work_side_resolve', {'decision': {'action': 'answer', 'kind': 'status', 'summary': 'no change',
@@ -402,7 +414,7 @@ class GateCheckMcpTests(unittest.TestCase):
         import time as clock
         self._waiting()
         first = self.check()
-        claimed = json.loads(self.invoke('work_side_claim', {'owner': 'actor'})['text'])['claim']
+        claimed = self.claim('actor')
         host = {**HOST, 'receipt_id': claimed['receipt_id'], 'generation': claimed['generation']}
         # A retryable failure keeps the round open (the side retries it).
         retry = json.loads(self.invoke('work_side_fail', {'category': 'turn_error', 'model': 'valid'}, host)['text'])
@@ -414,7 +426,7 @@ class GateCheckMcpTests(unittest.TestCase):
         stored = inbox._load(first['receipt_id'])
         stored['side_failure']['retry_not_before'] = 0
         inbox._save_file(inbox._event_path('pending', first['receipt_id']), stored)
-        again = json.loads(self.invoke('work_side_claim', {'owner': 'actor2'})['text'])['claim']
+        again = self.claim('actor2')
         self.assertEqual(first['receipt_id'], again['receipt_id'])
         host = {**HOST, 'receipt_id': again['receipt_id'], 'generation': again['generation']}
         failed = json.loads(self.invoke('work_side_fail', {'category': 'invalid_answer', 'model': 'main'}, host)['text'])
@@ -428,7 +440,7 @@ class GateCheckMcpTests(unittest.TestCase):
     def test_no_change_answer_wakes_nobody(self):
         self._waiting()
         queued = self.check()
-        claimed = json.loads(self.invoke('work_side_claim', {'owner': 'actor'})['text'])['claim']
+        claimed = self.claim('actor')
         host = {**HOST, 'receipt_id': claimed['receipt_id'], 'generation': claimed['generation'],
                 'work_digest': claimed['work_digest']}
         resolved = self.invoke('work_side_resolve', {'decision': {
@@ -470,7 +482,7 @@ class GateCheckMcpTests(unittest.TestCase):
         doc, step = self.store.transaction(lambda d: tree.add_node(d, goal, 'write csv writer'))
         inbox = SideIntakeInbox(self.root, self.identity)
         receipt = inbox.receive('the csv delimiter must be a semicolon', 'walkie:relay')['receipt_id']
-        claimed = json.loads(self.invoke('work_side_claim', {'owner': 'actor'})['text'])['claim']
+        claimed = self.claim('actor')
         self.assertEqual(receipt, claimed['receipt_id'])
         host = {**HOST, 'receipt_id': receipt, 'generation': claimed['generation'],
                 'work_digest': claimed['work_digest']}

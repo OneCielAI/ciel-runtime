@@ -14,9 +14,15 @@ from . import work_plan_tree as tree
 ACTIONS = ('answer', 'clarify', 'update', 'create', 'prioritize', 'advise')
 KINDS = ('status', 'info', 'request', 'clarify')
 FIELDS = {'action', 'kind', 'item_id', 'summary', 'reply', 'note', 'title', 'priority', 'queue_position', 'release_waits', 'time_limit',
-          'relay', 'ask_main', 'no_reply', 'complaint', 'refs'}
+          'relay', 'ask_main', 'no_reply', 'complaint', 'refs', 'fork_answers'}
 NO_QUEUE = '큐에 등록하지 않았습니다.'
 MAX_RELEASES = 100
+# Answers to forks parked on a question (user 2026-11-23): the side quotes a
+# decision already recorded (board progress, approval, thread reply) and the
+# host resumes that exact fork with it. Each answer names its source.
+MAX_FORK_ANSWERS = 8
+MAX_FORK_ANSWER_CHARS = 4000
+MAX_FORK_ANSWER_SOURCE_CHARS = 300
 MAX_TIME_LIMIT_TEXT = 1000
 MAX_TIME_LIMIT_EVIDENCE = 2000
 MAX_TIME_LIMIT_DUE_AT = 100
@@ -200,6 +206,20 @@ def validate(decision, *, source_has_ids=False):
         if not isinstance(refs, list) or not all(isinstance(row, str) for row in refs):
             raise tree.WorkPlanError('invalid side decision refs')
         decision['refs'] = tree._refs(refs, strict=False)
+    answers = decision.get('fork_answers')
+    if answers is not None:
+        if (not isinstance(answers, list) or len(answers) > MAX_FORK_ANSWERS
+                or any(not isinstance(row, dict) or set(row) != {'lease_id', 'answer', 'source'}
+                       or not isinstance(row['lease_id'], str) or not 0 < len(row['lease_id']) <= 200
+                       or not isinstance(row['answer'], str) or not 0 < len(row['answer'].strip())
+                       or len(row['answer']) > MAX_FORK_ANSWER_CHARS
+                       or not isinstance(row['source'], str) or not 0 < len(row['source'].strip())
+                       or len(row['source']) > MAX_FORK_ANSWER_SOURCE_CHARS
+                       for row in answers)
+                or len({row['lease_id'] for row in answers}) != len(answers)):
+            raise tree.WorkPlanError('invalid side decision fork_answers')
+        if not answers:
+            decision.pop('fork_answers', None)
     if 'relay' in decision and type(decision['relay']) is not bool:
         raise tree.WorkPlanError('invalid side decision relay')
     for flag in ('ask_main', 'complaint'):
@@ -229,9 +249,10 @@ def validate(decision, *, source_has_ids=False):
     # queue item or posting a duplicate side reply.
     direct_fork_handoff = (decision.get('action') == 'update' and decision.get('relay') is True
                            and decision.get('ask_main') is not True and not decision.get('release_waits')
-                           and decision.get('time_limit') is None)
+                           and decision.get('time_limit') is None and not decision.get('fork_answers'))
     forward_only = (decision.get('ask_main') is not True and not decision.get('release_waits')
-                    and decision.get('relay') is not True and decision.get('time_limit') is None)
+                    and decision.get('relay') is not True and decision.get('time_limit') is None
+                    and not decision.get('fork_answers'))
     if decision.get('no_reply') is not True or not (forward_only or direct_fork_handoff):
         decision.pop('no_reply', None)
     time_limit = decision.get('time_limit')
@@ -625,6 +646,25 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             result['unblocked_waits'] = unblocked
         if unreleased:
             result['unreleased_waits'] = unreleased
+        if decision.get('fork_answers'):
+            # Only a parked worker of this conversation (the host's ledger
+            # pre-read) is answered; the host then resumes that exact fork.
+            parked_rows = ({row['lease_id']: row for row in parked_projection['rows']
+                            if type(row) is dict and row.get('state') == 'waiting_input' and row.get('slot') is False}
+                           if type(parked_projection) is dict and type(parked_projection.get('rows')) is list else None)
+            answered, unanswered = [], []
+            for row in decision['fork_answers']:
+                parked_row = None if parked_rows is None else parked_rows.get(row['lease_id'])
+                if parked_row is None:
+                    unanswered.append({'lease_id': row['lease_id'], 'reason': 'the Work ledger was unreadable'
+                                       if parked_rows is None else 'not a parked worker of this conversation'})
+                else:
+                    answered.append({'lease_id': row['lease_id'], 'item_id': parked_row['item_id'],
+                                     'answer': row['answer'], 'source': row['source']})
+            if answered:
+                result['fork_answers'] = answered
+            if unanswered:
+                result['unanswered_forks'] = unanswered
         if needs_handoff:
             handoff = handoffs[receipt_id]
             result['main_handoff'] = ({'kind': kind, 'item_id': handoff['item_id'],

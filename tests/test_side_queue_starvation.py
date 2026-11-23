@@ -166,7 +166,10 @@ class BlockerCheckActorTests(unittest.TestCase):
         from ciel_runtime_support import work_workflow_prompts as prompts
         with tempfile.TemporaryDirectory() as raw:
             text = prompts.effective(Path(raw), 'gate_actor')
-        for phrase in ('블로커 확인 사이드 액터', '현재 상태를 직접', 'ask_main은 메인 검수 대기를 알릴 때만 씁니다', 'release_waits'):
+        # ask_main stays limited: main's pending reviews and, since 2026-11-23,
+        # a parked fork's question whose answer is recorded nowhere.
+        for phrase in ('블로커 확인 사이드 액터', '현재 상태를 직접',
+                       'ask_main은 메인 검수 대기와, 답이 기록되지 않은 포크 질문을 알릴 때만 씁니다', 'release_waits'):
             self.assertIn(phrase, text)
         # Default instructions are workspace-neutral: no agent or person names.
         for name in ('Daniel', 'Andy', 'Celly', 'Bob', 'KOBE', 'Sarah', 'Eric', 'Grant', 'JUNNY', 'Prody'):

@@ -172,8 +172,13 @@ def _sync_handoff_receipt(inbox, event_id, handoff):
 
 
 def _parked_projection(store, identity, decision):
-    """Ledger pre-read for a release decision; unreadable means no parked preference."""
-    if not (isinstance(decision, dict) and decision.get('action') == 'update' and decision.get('release_waits')):
+    """Ledger pre-read for a release or a fork answer; unreadable means no parked preference.
+
+    A fork answer (``fork_answers``) is checked against it: only a parked
+    worker of this conversation is answered.
+    """
+    if not (isinstance(decision, dict) and (decision.get('fork_answers') or (
+            decision.get('action') == 'update' and decision.get('release_waits')))):
         return None, None
     try:
         from .work_parallel_mcp import ledger

@@ -148,6 +148,18 @@ def tool_response(request_id, params):
     if name in ("work_side_claim", "work_side_resolve", "work_side_reply", "work_side_understanding"):
         try:
             payload = json.loads(response["result"]["content"][0]["text"])
+            if isinstance(payload, dict) and isinstance(payload.get("paged"), dict):
+                # A large host result comes as digest-addressed pages kept for an
+                # hour (host_result_pages); reading them consumes nothing, so the
+                # driver reassembles the same pages the mod reads to record the claim.
+                paged = payload["paged"]
+                parts = [json.loads(dispatch_work_tool(request_id, "work_host_page",
+                                                       {**args, "id": paged["id"], "part": part},
+                                                       load_config=snapshot_config, save_config=save_config,
+                                                       state_dir=CIEL_CFG, respond=channel_mcp_tool_response
+                                                       )["result"]["content"][0]["text"])["text"]
+                         for part in range(paged["parts"])]
+                payload = json.loads("".join(parts))
             claim = payload.get("claim") if isinstance(payload, dict) else None
             entry["claim"] = (claim or {}).get("receipt_id", "")[:12] if isinstance(claim, dict) else None
             entry["error"] = bool(response["result"].get("isError"))

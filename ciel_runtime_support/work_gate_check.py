@@ -171,27 +171,106 @@ def gates(doc: Mapping[str, Any], priority: Callable[[Mapping[str, Any]], str] |
     return rows[:BATCH_GATES * MAX_BATCHES]
 
 
-def digest(rows: list[dict[str, Any]]) -> str:
+PARKED_QUESTION_CHARS = 800
+PARKED_NOTE_CHARS = 600
+# Parked forks one round carries, beside the round's gates (each row is up to
+# about 2,200 characters of the 30,000-character event).
+PARKED_PER_ROUND = 6
+
+
+def parked_forks(leases: Mapping[str, Any], scope: str, doc: Mapping[str, Any],
+                 priority: Callable[[Mapping[str, Any]], str] | None = None) -> list[dict[str, Any]]:
+    """Forks of this conversation parked on a question that nothing records on the board.
+
+    Celly 2026-11-23: five forks waited for main's answer (waiting_input) while
+    their items had no waiting_on, so ``gates`` never listed them and the side
+    check never looked. A parked lease whose item or ancestor has a recorded
+    wait is a gate already (``release_waits`` resumes it) and is not repeated.
+    Each row carries the fork's question (the lease's question evidence) and
+    the item's latest progress and note, where main's decisions are recorded.
+    Ordered like the gates: P0 first, then P1, then the rest; the active goal
+    first within a rank; the longest waiting first.
+    """
+    priority_of = priority or (lambda goal: str(goal.get("priority") or ""))
+    by_id = {node["id"]: node for node in doc.get("nodes", [])}
+    ranks: dict[str, str] = {}
+    rows = []
+    for lease in leases.values():
+        if (lease.get("scope") != scope or lease.get("state") != "waiting_input" or lease.get("slot")
+                or not lease.get("host_id")):
+            continue
+        node = by_id.get(lease.get("item_id"))
+        if node is None or node.get("status") == "done":
+            continue
+        chain, current, seen = [], node, set()
+        while current is not None and current["id"] not in seen:
+            seen.add(current["id"])
+            chain.append(current)
+            current = by_id.get(current.get("parent_id")) if current.get("parent_id") else None
+        goal = chain[-1]
+        if goal.get("status") == "done" or any(
+                str(entry.get("waiting_on") or "").strip() or entry.get("status") == "blocked" for entry in chain):
+            continue
+        if goal["id"] not in ranks:
+            try:
+                ranks[goal["id"]] = str(priority_of(goal) or "")
+            except Exception:  # noqa: BLE001 - an unreadable P0 marker keeps the canonical priority
+                ranks[goal["id"]] = str(goal.get("priority") or "")
+        rows.append({"lease_id": str(lease["id"]), "item_id": node["id"], "title": str(node.get("title") or "")[:200],
+                     "root_id": goal["id"], "root_title": str(goal.get("title") or "")[:200],
+                     "priority": ranks[goal["id"]], "since": float(lease.get("updated_at") or lease.get("created_at") or 0),
+                     "question": str(lease.get("evidence") or "")[:PARKED_QUESTION_CHARS],
+                     "progress": str(node.get("progress") or "")[-PARKED_NOTE_CHARS:],
+                     "note": str(node.get("note") or "")[-PARKED_NOTE_CHARS:]})
+    active = doc.get("active_root")
+    rows.sort(key=lambda row: (_rank(row["priority"]), row["root_id"] != active, row["since"], row["lease_id"]))
+    return rows
+
+
+def digest(rows: list[dict[str, Any]], parked: list[dict[str, Any]] | None = None) -> str:
     material = [[row['id'], row['waiting_on'], row['blocked'], row.get('release_hint')] for row in rows]
+    if parked:
+        material.append(["parked", sorted(row["lease_id"] for row in parked)])
     return hashlib.sha256(json.dumps(material, separators=(",", ":")).encode()).hexdigest()[:16]
+
+
+def _parked_lines(parked: list[dict[str, Any]]) -> list[str]:
+    """The parked-fork section: host facts from the ledger and the board, no instruction."""
+    if not parked:
+        return []
+    lines = ["질문으로 멈춘 포크 (호스트가 원장에서 읽은 사실: 보드에 대기 기록 없이 답을 기다림):"]
+    for row in parked:
+        rank = ("[" + row["priority"] + "] ") if row.get("priority") else ""
+        since = time.strftime("%m-%d %H:%MZ", time.gmtime(row["since"])) if row.get("since") else "?"
+        lines.append(f"- {rank}lease {row['lease_id']} / 아이템 {row['item_id']} ({row['title']}) / 목표 "
+                     f"{row['root_id']} ({row['root_title']}), {since}부터 대기")
+        lines.append("  질문: " + (row["question"].replace("\n", " ") or "(질문 기록 없음)"))
+        if row.get("progress"):
+            lines.append("  아이템 progress(최신): " + row["progress"].replace("\n", " "))
+        if row.get("note"):
+            lines.append("  아이템 note(최신): " + row["note"].replace("\n", " "))
+    return lines
 
 
 def event_text(rows: list[dict[str, Any]], interval: int, part: str = "",
                threads: Mapping[str, Mapping[str, Any]] | None = None,
-               included: list[str] | None = None, rules: str | None = None) -> str:
+               included: list[str] | None = None, rules: str | None = None,
+               parked: list[dict[str, Any]] | None = None) -> str:
     """The tick's one event. ``rules`` is the managed instruction (prompt
     ``gate_recheck``: REST, web, ctl and menu edit it; it applies from the next
     tick with no restart). ``threads`` maps a gate id to its thread's new
     messages (gate-check thread reads): they are listed under the first gate of
-    that thread, and the later gates of the thread point to it."""
+    that thread, and the later gates of the thread point to it. ``parked`` are
+    forks parked on a question (``parked_forks``), listed after the gates."""
     lines = [
         "Ciel 게이트 재확인 (호스트 타이머, %d분마다, 메인이 바쁠 때도 동작; Work 포크가 돌고 있을 수 있음)%s." % (
             interval, (" — " + part) if part else ""),
         *(rules if isinstance(rules, str) and rules.strip() else prompt_default("gate_recheck")).split("\n"),
-        "게이트:",
+        "게이트:" if rows else "게이트: 없음",
     ]
+    tail = _parked_lines(parked or [])
     shown: dict[str, str] = {}
-    size = sum(len(line) + 1 for line in lines)
+    size = sum(len(line) + 1 for line in lines) + sum(len(line) + 1 for line in tail)
     for row in rows:
         if included is not None:
             if size > EVENT_TEXT_CHARS - 1500 and included:
@@ -232,7 +311,7 @@ def event_text(rows: list[dict[str, Any]], interval: int, part: str = "",
             if thread.get("more"):
                 lines.append("    (새 메시지가 더 있습니다. 필요한 것만 읽으십시오)")
         size += sum(len(line) + 1 for line in lines[mark:])
-    text = "\n".join(lines)
+    text = "\n".join(lines + tail)
     if len(text) > EVENT_TEXT_CHARS:
         text = text[:EVENT_TEXT_CHARS - 80] + "\n[이벤트 크기 한도에서 게이트 목록이 잘렸습니다. 나머지는 다음 점검에서 확인합니다]"
     return text
@@ -244,17 +323,22 @@ TURN_END_MIN_SECONDS = 60
 def tick_rows(config: Mapping[str, Any], doc: Mapping[str, Any], state: Mapping[str, Any] | None,
               *, now: float | None = None,
               priority: Callable[[Mapping[str, Any]], str] | None = None,
-              turn_end: bool = False) -> tuple[list[dict[str, Any]], str, float] | None:
-    """(gates, digest, stamp) when a tick is due now, else None."""
+              turn_end: bool = False,
+              parked: list[dict[str, Any]] | None = None) -> tuple[list[dict[str, Any]], str, float] | None:
+    """(gates, digest, stamp) when a tick is due now, else None.
+
+    ``parked`` (``parked_forks``) counts like gates: a board whose only stuck
+    work is forks parked on a question is still checked (Celly 2026-11-23).
+    """
     interval = minutes(config)
     if interval == 0:
         return None
     rows = gates(doc, priority)
     # At main's turn end the side also looks for other work, gates or not.
-    if not rows and not turn_end:
+    if not rows and not parked and not turn_end:
         return None
     stamp = time.time() if now is None else now
-    current = digest(rows)
+    current = digest(rows, parked)
     previous = state or {}
     # Main's turn end (user 2026-11-18): the side checks for released blocks,
     # approvals and missed work then, at most once a minute.
@@ -270,12 +354,14 @@ TURN_END_TEXT = None  # The default lives in work_workflow_prompts ("turn_end").
 def tick_event(config: Mapping[str, Any], rows: list[dict[str, Any]], current: str, stamp: float,
                threads: Mapping[str, Mapping[str, Any]] | None = None, turn_end: bool = False,
                review_pending: list[str] | None = None, rules: str | None = None,
-               turn_text: str | None = None, review_text: str | None = None) -> dict[str, Any]:
-    """The one side event of a tick for ``rows``."""
+               turn_text: str | None = None, review_text: str | None = None,
+               parked: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """The one side event of a tick for ``rows`` and the ``parked`` forks."""
     interval = minutes(config)
     slot = int(stamp // (interval * 60))
     fit: list[str] = []
-    text = event_text(rows, interval, "%d gate(s)" % len(rows) if len(rows) > 1 else "", threads, included=fit, rules=rules)
+    text = event_text(rows, interval, "%d gate(s)" % len(rows) if len(rows) > 1 else "", threads, included=fit,
+                      rules=rules, parked=parked)
     if review_pending:
         # Results that wait for main's review (user 2026-11-19: the side tells main).
         template = review_text if isinstance(review_text, str) and review_text.strip() else prompt_default("gate_review")
@@ -286,9 +372,11 @@ def tick_event(config: Mapping[str, Any], rows: list[dict[str, Any]], current: s
     # The text digest keeps one key per exact content: a retry of the same check
     # deduplicates, and a same-slot check with newer evidence is its own event.
     body = hashlib.sha256(text.encode()).hexdigest()[:8]
-    event = {"event_key": f"{EVENT_PREFIX}{current}:{slot}:1:{body}", "text": text, "gates": fit}
+    parked_ids = [row["lease_id"] for row in parked or []]
+    event = {"event_key": f"{EVENT_PREFIX}{current}:{slot}:1:{body}", "text": text, "gates": fit,
+             "parked": parked_ids}
     return {"event_key": event["event_key"], "text": text, "events": [event], "digest": current, "at": stamp,
-            "gates": event["gates"], "interval_minutes": interval}
+            "gates": event["gates"], "parked": parked_ids, "interval_minutes": interval}
 
 
 def due(config: Mapping[str, Any], doc: Mapping[str, Any], state: Mapping[str, Any] | None,
@@ -372,7 +460,7 @@ def host_report(config: Mapping[str, Any], last: Mapping[str, Any] | None, repor
 
 
 __all__ = ["DEFAULT_MINUTES", "EVENT_PREFIX", "KEY", "RANGE", "digest", "due", "effective_priority_for", "event_text",
-           "gates", "host_report", "minutes", "set_minutes", "tick_event", "tick_rows"]
+           "gates", "host_report", "minutes", "parked_forks", "set_minutes", "tick_event", "tick_rows"]
 
 
 def prompt_default(name: str) -> str:

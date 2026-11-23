@@ -15,6 +15,8 @@ export const TEXTS = {
  "mod_owner_live": "Another live Work host owns this launch attempt; waiting for that host.",
  "mod_owner_unknown": "Owner of this launch attempt is unknown; resolve it from the Work pane.",
  "mod_pane_loading": "Work 보드를 불러오는 중입니다. 잠시 뒤에도 그대로면 r(Refresh)을 누르십시오.",
+ "mod_parked_answer": "Ciel Work: an answer to your question on Work item {item} (side check {event}; source: {source}):\n{answer}\nContinue the approved assignment under lease {lease} in the same workspace, then report through work_parallel_report with the worker_token from your original assignment. This is not new execution approval.",
+ "mod_parked_answer_undelivered": "Ciel side answered parked Work forks, but the host did not deliver these answers (event {event}):\n{lines}\nResume a worker with SendMessage only if its work is still wanted; the answer and its source are quoted. This grants no approval.",
  "mod_planning": "Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)",
  "mod_review_call": "work_parallel_item_review(lease_id, decision, evidence, expected_finalization_version, expected_review_pin)",
  "mod_review_reminder": "Ciel Work: 포크 결과 {count}건이 메인의 검수를 기다립니다(아이템 {items}). 검수는 메인의 일입니다. 각 결과의 증거를 직접 열어 보고 {call} 로 approve하거나 rework를 요청하십시오. 목록은 /work-mode parallel 에서 볼 수 있습니다.",

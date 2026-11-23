@@ -2,6 +2,19 @@
 
 ## 2026-11-23
 
+- 15:44:28–15:44:55Z 틱(직전 14:37Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
+  - Andy: 원장 v6275→6285, 보드 v10792→10814. running+slot 1→2, waiting_input 2→1, submitted 21. findings n1166 지속. 새 대화 오류 0. MCP 640ms.
+  - Celly
+    - 원장 v8173→8203, 보드 v9840→9868. waiting_input 9→6, running+slot 0→3.
+    - newfail `revival_refused` 1: 15:23:44Z, 메인이 끝난 포크 a4d04d5a에 메시지를 보냄. 정상 가드다. 바로 앞 15:23:15Z의 `No task found`는 같은 포크다.
+    - 포크 오류 기록 6(15:15–15:19Z).
+    - **MCP 탐침 TimeoutError 4031ms, 2틱 연속**(14:37·15:44Z). 원인 미확인이며 추적한다.
+  - KOBE
+    - 원장 v3066→3068, 보드 v701→703. running+slot 1 → submitted 1.
+    - n107 재시도 결함(라우터 미반영): 14:38:53·14:42:33·14:47:27Z에 `scheduling up to 20 retries`가 다시 나왔고, 14:48:33Z에 `retry 1/20`. 이번 틱 이후 새 체인은 없다.
+  - Prody: 원장 v641→662, 보드 v6834→6853. submitted 6→8, running+slot 1→0. 새 대화 오류 6은 메인의 도구 사용과 외부 API(gh 인증 없음, Walkie 403/400, 모듈 없음)라서 제품 결함이 아니다.
+  - 사용자 지시(Celly의 side-fresh 분석, 수정 요청)를 확인하고 수정에 들어갔다. 기록은 [side-parked-fork-answers](/docs/journal/2026/11/23/fixes/side-parked-fork-answers/record.md).
+
 - 15:14–15:40Z 사용자 화면(Celly P0 장부 256/256) 조사, cc2bac9 배포, 라이브 확인. 운영 세션·라우터 재시작과 상태 파일 변경 없음(아래 정리는 Celly 메인이 한 것).
   - Celly P0:
     - 라이브 라우터 지문 `84eb402c`(fcce6d7 이전)라서 cancelled 행만 비울 수 있었고, 장부가 256/256으로 막혔다.

@@ -1643,6 +1643,20 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn("worker agent-a (lease L1, item n2)", result["notices"][0])
         self.assertIn("Resume it with SendMessage", result["notices"][0])
 
+    def test_a_side_answer_resumes_the_question_parked_worker_with_it(self):
+        # User 2026-11-23: forks parked on a question waited for main alone.
+        result = self.run_scenario("side-answer-resumes-question-parked-worker")
+        self.assertNotIn("reacquire:L3", result["beforeAnswer"])
+        self.assertLess(result["events"].index("reacquire:L3"), result["events"].index("resume:L3"))
+        self.assertEqual(["agent-c"], [row["to"] for row in result["sent"]])
+        self.assertIn("MAIN DECISION 13:16Z: merge now", result["sent"][0]["text"])
+        self.assertIn("lease L3", result["sent"][0]["text"])
+        self.assertNotIn("is cleared on the board", result["sent"][0]["text"])
+        self.assertEqual("Work host resumed the parked worker with the side answer to its question",
+                         result["resumeEvidence"])
+        self.assertEqual({"state": "running", "slot": True}, result["l3"])
+        self.assertEqual({"delivered": ["L3"], "text": ""}, result["answered"])
+
     def test_a_parked_worker_the_native_list_dropped_is_still_resumed(self):
         result = self.run_scenario("parallel-pump-resumes-cleared-parked-worker", "unlisted")
         self.assertEqual(["agent-a"], result["sent"])

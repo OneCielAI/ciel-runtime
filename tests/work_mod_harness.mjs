@@ -1,7 +1,7 @@
 // Drives the packaged ciel-work register.js with a scripted host: no Claude Code,
 // no router. Each scenario prints one JSON line describing the gate decisions.
 import { register } from './register.js'
-import { pollSide, sidePromptSubmit, sidePromptPending } from './side-intake.js'
+import { pollSide, sidePromptSubmit, sidePromptPending, answerParkedForks } from './side-intake.js'
 import { createHash } from 'node:crypto'
 import { copyFileSync, mkdirSync } from 'node:fs'
 // One side pump pass through the same module instance register.js uses.
@@ -2146,6 +2146,44 @@ const scenarios = {
       text:(state.sent || [])[0]?.text || '', l1:{ state:leases.L1.state, slot:leases.L1.slot },
       l2:{ state:leases.L2.state, slot:leases.L2.slot }, l3:{ state:leases.L3.state, slot:leases.L3.slot },
       logs:state.logs.filter(l => /parked|resumed parked/.test(l)) }
+  },
+  // User 2026-11-23: a side answer to a worker parked on a question resumes it
+  // through the Work host on its own lease, carrying the answer. The pump alone
+  // never resumes such a worker (no recorded wait was cleared; L3 above).
+  async 'side-answer-resumes-question-parked-worker'() {
+    const leases = {
+      L3: { id:'L3', item_id:'n4', role:'worker', state:'waiting_input', host_id:'agent-c', agent_name:'work-auto-c',
+        slot:false, plan_version:7, priority:'P2', wait_clear_now:true, wait_seen:false, wait_cleared:false } }
+    const calls = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:9, active_device:0,
+        policy:{ enabled:true, paused:false, priority_limits:{P1:3,P2:2,P3:1,P4:1,P5:1}, launches_per_minute:4 }, leases })
+      if (tool === 'work_parallel_event') {
+        calls.push(args)
+        if (args.event === 'reacquire') leases[args.lease_id].slot = true
+        if (args.event === 'resume') leases[args.lease_id].state = 'running'
+        if (args.event === 'reserve' || args.event === 'reserve_next') throw new Error('no eligible candidate')
+        return text({ version:10 })
+      }
+      return text({})
+    })
+    state.agents = [{ id:'agent-c', status:'idle', type:'fork', spawnedBy:'ciel-work' }]
+    $.session.send = async args => { (state.sent ||= []).push(args)
+      const resumeNext = () => { const fn = async () => ({ agentId:args.to.agentId }); fn.origin = { plugin:'ciel-work' }; return fn }
+      const started = await handlers['agent.spawn']($, { fork:true, subagentType:'fork', name:'work-auto-c',
+        description:'resume', prompt:'', resume:{ agentId:args.to.agentId } }, resumeNext())
+      if (started?.deny) return { isDelivered:false, reason:'a plugin declined the resume: ' + started.deny }
+      return { isDelivered:true } }
+    await handlers['session.start']($, { isInteractive:true }, next(undefined))
+    await handlers['turn.complete']($, {}, next(undefined))
+    await sleep(20)
+    const beforeAnswer = calls.map(c => c.event + ':' + (c.lease_id || ''))
+    const answered = await answerParkedForks($, 'claude:S1', { receipt_id:'e'.repeat(64) },
+      { fork_answers:[{ lease_id:'L3', item_id:'n4', answer:'MAIN DECISION 13:16Z: merge now', source:'n4 progress' }] })
+    return { beforeAnswer, events:calls.map(c => c.event + ':' + (c.lease_id || '')), answered,
+      resumeEvidence:calls.find(c => c.event === 'resume')?.evidence || '',
+      sent:(state.sent || []).map(s => ({ to:s.to?.agentId, text:s.text })), l3:{ state:leases.L3.state, slot:leases.L3.slot } }
   },
   async 'parallel-missing-exit-report-requests-contract'() {
     const leases = { L1: { id:'L1', item_id:'n2', role:'worker', state:'running', host_id:'agent-old', slot:true, plan_version:7 } }

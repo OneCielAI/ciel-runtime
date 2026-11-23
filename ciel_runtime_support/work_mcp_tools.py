@@ -687,10 +687,22 @@ def dispatch_work_tool(
                 if open_rows:
                     return respond(request_id, json.dumps({**status, "reason": "previous_round_pending",
                                                            "pending": len(open_rows)}))
-                from .work_gate_check import tick_event, tick_rows
-                tick = tick_rows(config, doc, last, priority=priority, turn_end=args.get("turn_end") is True)
+                from .work_gate_check import parked_forks, tick_event, tick_rows
+                # Forks parked on a question with nothing recorded on the board
+                # are checked too (Celly 2026-11-23: five waited for main unseen).
+                ledger_leases = None
+                try:
+                    from .work_parallel_mcp import ledger
+                    current_ledger = ledger()
+                    ledger_leases = current_ledger.read().get("leases") or {}
+                except Exception:  # noqa: BLE001 - an unreadable ledger checks the gates alone
+                    current_ledger = None
+                parked = parked_forks(ledger_leases, identity, doc, priority) if ledger_leases is not None else []
+                tick = tick_rows(config, doc, last, priority=priority, turn_end=args.get("turn_end") is True,
+                                 parked=parked)
                 if tick is None:
-                    return respond(request_id, json.dumps({**status, "reason": "not_due" if gates(doc, priority) else "no_gates"}))
+                    return respond(request_id, json.dumps({**status, "reason": "not_due" if gates(doc, priority) or parked
+                                                           else "no_gates"}))
                 rows, current, stamp = tick
                 # Andy 2026-11-18 (user design): one batch per tick, latest state
                 # only. Gates bound to a Walkie thread are checked against the
@@ -724,7 +736,7 @@ def dispatch_work_tool(
                         rows = [row for row in rows if row["id"] not in quiet
                                 or row.get("release_hint")
                                 or INTERNAL_WAIT.search(row.get("waiting_on") or "")]
-                        if not rows:
+                        if not rows and not parked:
                             advance_threads(state_dir, identity, newest)
                             record.write_text(json.dumps({**(last or {}), "at": stamp, "digest": current, "receipt_ids": []},
                                                          ensure_ascii=False), encoding="utf-8")
@@ -736,9 +748,10 @@ def dispatch_work_tool(
                 from .work_gate_check import lease_facts, reviewable_items, round_gates, round_rows
                 review_pending = []
                 try:
-                    from .work_parallel_mcp import finalization, ledger
-                    current_ledger = ledger()
-                    facts, _ = lease_facts(current_ledger.read().get("leases") or {}, identity)
+                    from .work_parallel_mcp import finalization
+                    if current_ledger is None or ledger_leases is None:
+                        raise ValueError("ledger unreadable")
+                    facts, _ = lease_facts(ledger_leases, identity)
                     rows = [{**row, "lease": facts.get(row["id"], "")} for row in rows]
                     review_pending = reviewable_items(finalization(current_ledger).read(), identity)
                 except Exception:  # noqa: BLE001 - an unreadable ledger leaves the gates without the fact
@@ -752,12 +765,18 @@ def dispatch_work_tool(
                 elif review_pending:
                     told = stamp
                 rows, next_offsets = round_rows(rows, round_gates(config), (last or {}).get("offsets"))
+                # Parked forks rotate like the gates: P0 first, the rest continuing.
+                from .work_gate_check import PARKED_PER_ROUND
+                parked_round, parked_offsets = round_rows(
+                    [{**row, "id": row["lease_id"]} for row in parked], PARKED_PER_ROUND,
+                    ((last or {}).get("offsets") or {}).get("parked"))
+                next_offsets["parked"] = parked_offsets
                 # The instructions are managed prompts: an edit applies on this tick.
                 from .work_workflow_prompts import effective as prompt_text
                 event = tick_event(config, rows, current, stamp, threads_by_gate, turn_end=turn_end,
                                    review_pending=review_pending, rules=prompt_text(state_dir, "gate_recheck"),
                                    turn_text=prompt_text(state_dir, "turn_end"),
-                                   review_text=prompt_text(state_dir, "gate_review"))
+                                   review_text=prompt_text(state_dir, "gate_review"), parked=parked_round)
                 receipts = [receive(state_dir, identity, part["text"], part["event_key"], admit=False,
                                     route={"source_kind": "gate_check", **({"turn_end": True} if turn_end else {})}
                                     ).get("receipt_id")
@@ -770,7 +789,8 @@ def dispatch_work_tool(
                     advance_threads(state_dir, identity, newest)
             return respond(request_id, json.dumps({**status, "queued": True, "receipt_id": receipts[0],
                                                   "receipt_ids": receipts, "events": len(receipts),
-                                                  "gates": event["gates"], "threads_read": reads_count},
+                                                  "gates": event["gates"], "parked": event["parked"],
+                                                  "threads_read": reads_count},
                                                  ensure_ascii=False))
         from .work_workflow_tools import NAMES as WORKFLOW_TOOLS
         if name in WORKFLOW_TOOLS:
