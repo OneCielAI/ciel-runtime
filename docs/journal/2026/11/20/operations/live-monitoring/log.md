@@ -2,6 +2,25 @@
 
 ## 2026-11-23
 
+- 19:32:20–19:32:40Z 틱(직전 19:18Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
+  - **Celly 라우터 무기록 구간 재발(반복 이상, 11-22에 기록한 패턴)**
+    - 로컬 13:29:26–13:31:30, 124초 동안 router.log에 한 줄도 없다.
+    - 직전 13:29:15에 MCP POST 클라이언트 reset이 8건 몰렸고, 직후 13:31:30–36에 다시 몰렸다.
+    - 13:31:31·35·35(로컬)에 `anthropic_route_error … status=500 … router pre-output time limit passed before the first upstream open (0 attempts)`가 3건 났다.
+    - 같은 구간 Celly 대화
+      - 19:29:15Z: `Work message refused: the Work store could not be read (Parallel read failed: The operation timed out.)`
+      - 19:32:01Z: side 원문 already
+    - 13:31:39부터는 정상 처리된다.
+    - 정지 원인(GIL, 디스크, 잠금 등)은 미확인이다. 무기록 중 무엇이 막혔는지 이 로그로는 알 수 없다.
+    - 새 finding: `slot held, fork absent since 19:18: n1374 49aafe07 P1 running`. 부재 관측일 뿐 종료로 보지 않는다.
+    - 원장 v8311→8315, waiting_input 12→10, running+slot 1→3.
+    - n1394 P0 재개 거부(이전 재개의 전달 기록 없음, 19:19:41Z)는 가드다.
+  - **KOBE**: ciel-work는 여전히 내려간 상태다(19:33:10Z 확인, 재로드 줄 없음).
+    - 19:23:14Z 메인의 Work 도구 호출이 `conversation identity is unavailable`로 거부됐다. 모드가 세션 식별을 넣어 주지 못하는 상태와 일치한다.
+    - 원장·보드 변화 없음, MCP 451ms.
+  - **Andy**: running+slot 2→3, 원장 v6332→6337. 새 대화 오류는 ripgrep timeout 2와 planning 단계 편집 가드 1이다.
+  - **Prody**: 보드 v6892→6894만 바뀌었다.
+
 - 19:18:02–19:18:24Z 틱(직전 19:14Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
   - **KOBE**: ciel-work 모드는 아직 내려간 상태다. 19:19:00Z까지 재로드 줄이 없다.
     - 대화 기록은 19:16:22Z이 마지막이다. 미갱신을 종료로 보지 않는다.
