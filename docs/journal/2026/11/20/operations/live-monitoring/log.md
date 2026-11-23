@@ -2,6 +2,31 @@
 
 ## 2026-11-23
 
+- 21:52:22–21:52:47Z 틱(직전 21:32Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
+  - **Andy: 예약 슬롯 미바인딩의 직접 원인을 관측했다(정정)**
+    - 로그(로컬 15:38:39–40 = 21:38:39Z)에 다음 두 줄이 있다.
+      - `work_workspace_failed code=workspace_prepare_retained item=n2655 detail="git worktree add timed out after 653 s"`
+      - n2656 `… after 569 s`
+    - 예약 뒤 포크용 worktree 준비(`git worktree add`)가 9–11분 걸리다가 시간 초과가 났다.
+    - 그 뒤 두 리스는 running이고 host가 바인딩됐다(f43e7291→aeb36700, 1d10c498→a772a0f9).
+    - 21:32Z 틱의 "포크 없이 남는 예약"은 바인딩 결함이 아니라 이 준비 대기 구간이었다. 20:33/20:38Z 건도 같은 원인인지는 그 창의 로그에 해당 줄이 없어 미확인이다.
+    - `git worktree add`가 왜 이렇게 오래 걸리는지(저장소 크기, G: 디스크, 잠금)는 미확인이다. 추적 항목으로 남긴다.
+    - 현재 running+slot 5(n2594, n2655, n2656, n2664, n2232), waiting_input 0, submitted 21이다.
+    - 새 대화 오류 10건
+      - host 전용 `work_side_status` 호출 거부 1(가드).
+      - Walkie API `Invalid operation arguments` 400 6(21:43:18–21Z).
+      - 보드 버전 충돌 1.
+      - 진단 스크립트 2.
+  - **KOBE: 재기동 후 정상 동작**
+    - 21:47:34Z orphan sweep가 n107(95728c76 P3)·n28(87e1d8bb P2) waiting_input 리스를 owner=dead로 풀었다.
+    - running+slot 1, 원장 v3091→3095, 보드 v725→728.
+    - 21:49:26Z 메인의 reviewer 포크 요청이 "Work parallel starts workers only" 가드로 거부됐다.
+  - **Celly**: running+slot 3→4, waiting_input 11→9. MCP 782ms(이번에는 성공).
+    - 21:38:38Z `Work item n1384 remains queued as waiting: Parallel read failed: The operation timed out.` 같은 시각 라우터에 20초 이상 무기록 구간이 있었는지는 이번에 측정하지 않았다.
+    - side review 버전 충돌 1, Walkie 400 1.
+  - **Prody**: 보드 v6910→6915, actionable 0→5. 메인 대화에 Walkie 400 3, 스크립트 종료 3.
+  - Walkie API 400(`Invalid operation arguments`)이 Andy·Celly·Prody에서 21:41–21:47Z에 함께 났다. 요청 인자의 문제인지 Walkie 쪽 변화인지는 미확인이다.
+
 - 21:4x–21:51Z 배포 상태 확인(사용자 질문 "전체 배포한거야?"). 이 작업은 재시작이나 변경을 하지 않았다.
   - 파일: 오늘 커밋(5e02ee7^..3d475f9)이 바꾼 런타임 파일 22개를 대조했다. 로컬 3개 루트, Celly, KOBE, Prody 모두 22/22가 3d475f9과 해시 일치다.
   - **KOBE 재기동 관측(이 작업이 한 것 아님)**
