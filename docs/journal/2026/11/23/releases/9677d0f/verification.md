@@ -45,3 +45,8 @@ timestamp: 2026-11-23T17:15:00Z
   - KOBE 대화 기록은 16:28:25Z에 새 세션 `dd8e657c`로 바뀌었다. 이 작업에서는 재시작하지 않았다.
   - 따라서 KOBE에서는 5e02ee7·cc2bac9의 라우터 변경(큐 순서, `root_id` 승인, 재시도 awaiting, `execute_root`)이 그 재시작 이후 라이브다.
   - 9677d0f의 라우터 변경은 다음 재시작부터다.
+- KOBE 두 번째 재시작(관측, 이 작업이 한 것 아님)
+  - 17:15:35Z Claude 자식 종료(코드 0) → 라우터 lifetime 종료. 17:17:54Z 재기동, 17:18:04Z Claude 코드 1 종료(원인 미확인), `--ca-menu resume 3a8e26fe` 런처로 17:22:16Z 라우터 `serve`, 17:22:25Z Claude 시작.
+  - 17:25:03Z `/health`: pid 14388, 버전 `0.2.51-beta.20261123-165946.9677d0f`, 지문 `bc9f4d1c0730c8cc`. 지문은 `ciel_runtime.py` 한 파일의 해시라(`runtime_primitives.source_fingerprint`) 지원 모듈만 바뀐 오버레이에서는 변하지 않는다.
+  - 설치본 라우터 모듈 3개 해시가 9677d0f와 같다(mtime 17:16:11Z, 첫 런처의 self-update 구간과 겹침 — 재작성 주체 🟡 미확인).
+  - 17:26:19Z 관측: scope `3a8e26fe`, 보드 v704, MCP `enabled=true`, 17:25:13Z 게이트 점검 "re-pumped". **KOBE에서는 9677d0f 라우터 변경이 17:22Z 이후 라이브다.** 이 시각 KOBE에는 `waiting_input` 리스가 없어, 멈춘 포크 답변(`fork_answers`)의 실제 효과는 아직 관측할 대상이 없다.

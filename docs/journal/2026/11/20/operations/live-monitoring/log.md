@@ -2,6 +2,27 @@
 
 ## 2026-11-23
 
+- 17:14:46–17:15:08Z 틱(직전 15:44Z) + KOBE 별도 확인 17:19–17:27Z. 이 작업은 운영 세션·라우터 재시작과 상태 파일 변경을 하지 않았다. 시각은 Z다.
+  - **Andy**: 원장 v6285→6305, 보드 v10814→10842. running+slot 2→1, waiting_input 1→2, submitted 21. 포크 표본 5(부분)/오류 0. MCP 1109ms(enabled, 보드 버전 일치). 검수 findings n1166(완료 영수증 있음, 검수 행 없음) 지속. 새 대화 오류 2는 메인의 검증 명령 종료 1이라 제품 결함으로 보지 않는다. router_log `9505-…` 같음(재시작 관측 없음), 15:44Z 이후 처음 나타난 로그 패턴 0.
+  - **Celly**: 원장 v8203→8245, 보드 v9868→9913. waiting_input 6→8, running+slot 3→2. **MCP는 500ms 성공**이라 14:37·15:44Z TimeoutError는 이번에 재현되지 않았고 원인은 미확인 상태로 추적을 계속한다. 포크 오류 표본 9건(부분, agent 3개 16:08–17:10Z)을 원문으로 분리했다.
+    - 포크 보고 검증 거부 6(`evidence` 2000자 초과 2, 산출물 SHA256 없음 4; 16:24:05–16:25:20Z) → 16:25:31Z에 다시 보고해 아이템 n1386 `submitted`로 수락됐다. 정상 검증 가드이며 결함으로 보지 않는다.
+    - Work 포크 가드 3: 자기 worktree 밖 Edit/Write 2(16:08:07, 15:57:14Z), 포크의 TaskStop 불가 1(15:48:50Z).
+    - 포크 도구/외부 서비스 입력 오류: Walkie `Invalid Vault path` 1(16:07:27Z), `client_id` uuid 형식 1(16:06:08Z), 포크의 `work_parallel_status`에 대화 식별 없음 1(15:53:05Z), Bash 종료 1/124 4건.
+    - 메인 대화 신규 8: `auto continue could not read the Work status` 2(15:45:13·16:19:23Z)는 MCP가 같은 틱에 성공했는데도 남아 있는 일시적 상태 읽기 실패로 추적 유지. 나머지는 메인 스크립트/검색 오류 5와 완료 시 병렬 검증·검수 대기 가드 1(16:56:35Z).
+    - router_log `9385-…` 같음, 15:44Z 이후 신규 패턴 0.
+  - **KOBE — 라우터 중단과 재시작 복구를 관측했다**(이 작업이 한 것 아님).
+    - 틱 시점 scope는 사용자가 16:28:24Z에 `/clear`로 연 세션 `dd8e657c`였고(compact 실패한 `3a8e26fe` 크기 축소가 그 작업), 보드는 `empty_view` v0·MCP `enabled=false`·열린 리스 0·포크 `unobserved`였다. 새 세션은 Work 도구를 부른 적이 없어 보드 행이 없을 수 있어, `enabled=false`의 원인을 이 틱만으로 단정하지 않는다.
+    - 이 세션에서 17:09:12Z에 Work 상태 읽기가 `router-disconnected`(게이트 `wg-mwtit1hi-1`)로 실패했고, auto continue 같은 공지가 17:12:34·17:14:48Z에 반복됐다. 라우터 로그에는 그 시각 MCP access 200과 `work_side_*/llm_options/provider_fallback` 호출이 이어졌고, 해당 실패를 남기는 오류 줄은 없었다. **실패 구간은 라우터 로그에서 확인되지 않으며 원인은 미확인이다.** 같은 구간에 native compact 요청 9회 이상이 업스트림에서 최대 입력 토큰 초과 400으로 거부됐다(17:12:50–17:13:59Z, 토큰 1,080,989→452,941로 줄여가며 반복).
+    - 17:15:35Z Claude 자식이 코드 0으로 종료 → 라우터 lifetime 종료(`idle_no_clients`, `claude_exit`). 17:17:54Z 재기동은 버전 `…165946.9677d0f`로 떴으나 Claude 자식이 17:18:04Z 코드 1로 1초 만에 종료했다(진단 줄은 라우터 health=ok만 적고 Claude 출력은 없음; 종료 원인 미확인). 이후 `--continue --ca-menu resume 3a8e26fe` 런처가 17:18:19Z부터 돌고 있고, 두 번째 재기동에서 Claude 자식이 17:22:25Z에 떴다.
+    - **복구 확인(17:26:19Z 단독 재관측)**: scope가 운영 세션 `3a8e26fe`로 돌아왔고 보드 v703→704·MCP `enabled=true` 162ms·열린 리스 `submitted` 1·stale_runs 13·포크 오류 0. 17:24:44Z `Ciel Work mode is on`, 17:25:13Z 게이트 점검 "re-pumped · attention P0,P1,P2,P3". 라우터는 9677d0f(pid 14388, 지문 `bc9f4d1c`는 변하지 않음 — `ciel_runtime.py` 단일 파일 해시라 지원 모듈 변경이 지문에 나오지 않는다). 설치본 `work_gate_check.py`·`side_work_decision.py`·`work_workflow_prompts.py` 해시는 9677d0f와 같다(`a76ecb03`·`4c855ff2`·`4dcc994b`). 다만 mtime이 17:16:11Z라 내 17:11:04Z 설치 뒤 다시 쓰였다. 같은 시각 첫 런처의 `self_update_check`가 17:15:58–17:18:09Z(130초, SystemExit로 끝남)에 돌고 있었고 두 번째 런처(17:16:34Z)가 그 사이 라우터를 띄웠다. 재설치 주체가 self-update라는 것과 17:18:04Z 코드 1 종료와의 관계는 🟡 미확인이다. 내용은 9677d0f이므로 **KOBE에서 9677d0f의 라우터 변경(`fork_answers` 포함)이 이제 라이브다.** 9677d0f 모드 재로드는 3a8e26fe에서 미관측(세션이 새로 떠 설치본 모드를 바로 로드한 것으로 보인다 — 🟡 추정).
+    - n107 재시도: 이번 틱 비교나 로그 창 모두 새 재시도 체인이 없다(`actionable=1, next=n107` 상태 유지). 미발생은 종료 증거가 아니므로 추적 유지.
+    - 기록되지 않은 첫 종료(코드 1)의 원인, 17:09Z `router-disconnected` 구간은 다음 틱에도 단정하지 않고 관측을 이어간다.
+  - **Prody**: 원장 v662→672, 보드 v6853→6868. submitted 8→7, actionable 2→0, halted 6→7. MCP 1702ms 성공. 포크 표본 24/오류 0.
+    - `new_failures decision_refused_stop a3372eba x1` — 17:02:14Z. 같은 시각 대화에 `work_parallel_item_review: rework limit reached (2/2)`가 있어, 메인의 검수 결정이 재작업 한도에 거부된 기록이다(기록은 `register.js:3003`의 Stop 상한 표지). 정상 가드로 분류한다.
+    - side 실패 원문 메인 전달 3건(16:27:52·16:27:57·16:29:00Z, 앞 두 건은 같은 event `ba2c7a923fa1`의 appended/already 쌍). 나머지는 메인의 도구 입력 오류 4건.
+    - **9677d0f 모드 재로드는 17:19:48Z에도 미관측이다.** Prody 세션은 설치(17:11Z) 이후 턴이 끝나지 않았다: 대화의 마지막 `end_turn` 16:45:56Z, 마지막 `turn_duration` 16:46:08Z, 마지막 프롬프트 16:47:19Z. 기록 파일은 갱신 중(mtime 17:19:48Z)이라 종료가 아니라 한 턴이 계속되는 중으로 관측된다. 오늘의 모드 재로드는 01:35:31·11:11:40·15:42:09Z 3회였다.
+  - 미결 추적(변화 없음): Andy n1166, KOBE n107, Celly P0 장부의 옛 scope intent 13개 prune 경로 없음, 오래된 waiting_on 호스트 감사 미구현, 실엔진 재시작 E2E(체크리스트 14)·UI 노출(15) 미수행, py310 shard2 503 복구 테스트 1회 실패 원인 미확인.
+
 - 16:50–17:14Z side-fresh 수정(9677d0f) 배포. 운영 세션·라우터 재시작과 상태 파일 변경 없음.
   - Publish 45222673557 success, npm beta `…165946.9677d0f`. 9개 파일을 6개 루트에 17:11:00–17:11:16Z 설치했다(설치 전 base, 설치 후 new).
   - 모드 재로드: Celly 17:11:20Z, KOBE 17:12:35Z, Andy 17:13:10Z. Prody는 17:13:58Z 기준 미관측이다.
