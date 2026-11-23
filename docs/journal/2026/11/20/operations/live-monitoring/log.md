@@ -2,6 +2,14 @@
 
 ## 2026-11-23
 
+- 16:50–17:14Z side-fresh 수정(9677d0f) 배포. 운영 세션·라우터 재시작과 상태 파일 변경 없음.
+  - Publish 45222673557 success, npm beta `…165946.9677d0f`. 9개 파일을 6개 루트에 17:11:00–17:11:16Z 설치했다(설치 전 base, 설치 후 new).
+  - 모드 재로드: Celly 17:11:20Z, KOBE 17:12:35Z, Andy 17:13:10Z. Prody는 17:13:58Z 기준 미관측이다.
+  - **KOBE 라우터 재시작 관측**(이 작업이 한 것 아님, 주체 미확인)
+    - 지문 `bc9f4d1c`, 버전 `…152815.cc2bac9`. 새 세션 `dd8e657c`가 16:28:25Z부터다.
+    - KOBE에서는 5e02ee7·cc2bac9 라우터 변경이 이 재시작 이후 라이브다. 9677d0f 라우터 변경은 다음 재시작부터다.
+  - 기록: [9677d0f verification](/docs/journal/2026/11/23/releases/9677d0f/verification.md).
+
 - 15:44:28–15:44:55Z 틱(직전 14:37Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
   - Andy: 원장 v6275→6285, 보드 v10792→10814. running+slot 1→2, waiting_input 2→1, submitted 21. findings n1166 지속. 새 대화 오류 0. MCP 640ms.
   - Celly

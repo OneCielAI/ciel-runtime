@@ -87,6 +87,11 @@ timestamp: 2026-11-23T16:20:00Z
     - 이번 요구로 `ask_main` 사용처에 "답이 기록되지 않은 포크 질문"을 더했다. "제한된 경우에만 쓴다"는 테스트의 의도는 그대로 두고 문구만 새 지침에 맞췄다.
     - 수정 뒤 shard 1(`parkedfinal2.165009`) 1688 EXIT 0.
 - CI quality 상당(같은 스냅샷): compileall, ruff 0.15.22, check:docs, npm pack 통과.
+
+# 배포
+
+- 커밋 9677d0f. 배포·라이브 반영은 [9677d0f verification](/docs/journal/2026/11/23/releases/9677d0f/verification.md)에 있다.
+- 라이브 효과(사이드가 멈춘 포크에 답하고 재개)는 각 라우터가 다시 시작된 뒤에만 관측할 수 있다. 라우터 재시작은 이 작업의 금지 범위다.
 - `claude plugin validate` 통과, `claude plugin test` 94/0.
 - 실엔진 로드(Claude Code 2.1.330, 격리 프로필, 실제 자격 증명 없음)
   - real-load-3: 14/15. `corrected_answer_committed`가 실패했다.
