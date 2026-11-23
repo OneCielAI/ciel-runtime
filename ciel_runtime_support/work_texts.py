@@ -38,7 +38,7 @@ TEXTS: dict[str, str] = {
         "> 작업 -> 검증 가능한 구체적 스텝. 새 사용자 요청은 먼저 분류합니다. 독립된 요청은 자체 목표(루트 아이템)가 되고, 제목은 가능하면 항목 번호로 시작합니"
         "다(\"1. ...\", \"2. ...\"). 기존 아이템을 바꾸거나 넓히는 요청은 그 아이템의 자식으로 넣습니다(work_node_add, parent_id). 새 "
         "목표는 끝나지 않은 활성 목표 뒤에 줄을 서고, 활성 목표가 끝나면 활성이 됩니다. 활성 목표는 계속 진행합니다. 계획 중에도 읽기 전용 조사는 허용됩니다. 준비"
-        "되면 work_execute를 호출합니다. 줄을 선 목표는 work_execute의 root_id로 그 목표만 승인합니다(활성 목표는 바뀌지 않고, 승인된 단계는 큐 순서대로 포크에 배정됩니다). 자동 승인이 기본이고, ask 승인으로 설정돼 있으면 Work 대화상자를 씁니다. user_confirmed는 절대 직"
+        "되면 work_execute를 호출합니다. 자동 승인이 기본이고, ask 승인으로 설정돼 있으면 Work 대화상자를 씁니다. user_confirmed는 절대 직"
         "접 넣지 마십시오.\n\n실행 중 보드 관리.\n노드를 추가하거나 나눌 때 work_node_add의 within_scope=true는 이미 승인된 범위 안의 세분화일"
         " 때만 씁니다. 그 밖에는 false로 두고 바뀐 범위를 다시 검토·승인합니다. 대기 중인 목표를 계획하느라 승인된 활성 작업을 멈추지 마십시오. 접근 방식이 바"
         "뀌면 work_replan을 씁니다. 정확한 목표 상세가 필요할 때만 work_status(root_id=...)를 쓰고, 변경에는 expected_version"
@@ -52,6 +52,15 @@ TEXTS: dict[str, str] = {
         "본은 큐만 바꾸며, 활성 자리를 바꾸려면 사용자의 명시적 요청과 user_requested=true가 필요합니다. 다만 활성 스텝이 모두 대기 중이거나 막혀 있으"
         "면 work_select로 다음 실행 가능한 스텝이 있는 대기 목표로 옮길 수 있습니다. 사용자가 명시적으로 긴급·임시 요청을 하면 work_urgent를 use"
         "r_requested=true로 써서 다른 목표를 멈추고, 요청을 분해해서 실행합니다. 멈춘 목표는 그 뒤에 이어집니다."),
+    # Appended to mod_instructions only while the router advertises execute_root
+    # (an older router ignores root_id and approves the active goal).
+    'mod_instructions_execute_root': (
+        "줄을 선 목표는 work_execute의 root_id로 그 목표만 승인합니다(활성 목표는 바뀌지 않고, 승인된 단계는 큐 순서대로 포크에 배정됩니다)."),
+    # work_execute with a queued goal's root_id on a router without execute_root.
+    'mod_execute_root_unsupported': (
+        "work_execute root_id: 이 세션의 라우터는 아직 줄을 선 목표의 승인을 지원하지 않습니다. 이 라우터는 root_id를 무시하고 활성 목표를"
+        " 승인하므로 호출을 보내지 않았습니다. 라우터가 다시 시작된 뒤에 승인할 수 있습니다. 지금 work_execute로 승인할 수 있는 것은 활성 목"
+        "표뿐입니다."),
     # Refusal of main's direct code edit while it delegates execution to forks.
     'mod_main_delegates': (
         "Work 실행 단계에서 메인은 코드를 직접 수정하지 않습니다. 실행은 Work 포크의 일입니다. 이 아이템의 leaf note에 관련 코드, 기술 스펙, 분석, "

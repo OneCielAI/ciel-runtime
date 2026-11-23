@@ -2,6 +2,28 @@
 
 ## 2026-11-23
 
+- 14:37:18–14:39:05Z 틱(직전 13:07:38Z)과 5e02ee7 배포. 운영 세션·라우터 재시작과 상태 파일 변경 없음.
+  - 배포: 5e02ee7을 feature/priority-models·beta에 push했다. Publish 45193606117 success. npm beta `0.2.51-beta.20261123-142311.5e02ee7`, gitHead 5e02ee72cd63가 일치하고, 배포본 14개 파일이 오버레이 new와 해시가 같다.
+    - 해시 확인 오버레이(`overlay-5e02ee7`): 로컬 hotfix5·`.local/share` 13개(`docs/` 없는 레이아웃), npm 전역·Celly 14개 14:36:38Z, KOBE 14:36:55Z, Prody 14:37:08Z. 설치 전 모두 base, 설치 후 모두 new.
+  - 라이브(파일 설치와 구분):
+    - 모드 재로드는 Andy 14:36:44Z, KOBE 14:37:14Z에 관측됐다. Celly(대화 기록 14:34:33Z 이후 갱신 없음)와 Prody(14:43:19Z까지 갱신, 재로드 줄 없음)는 14:43Z 기준 미관측이다.
+    - 라우터 Python 변경(큐 순서, `work_execute` `root_id`, 포크 재시도 분류기 awaiting, 모듈 분리)은 네 라우터 모두 재시작 전이라 아직 라이브가 아니다.
+  - **결함 입증(혼합 버전)**: 재로드된 모드 지침은 `work_execute`의 `root_id`를 안내하는데, 옛 라우터는 `root_id`를 무시하고 활성 목표를 승인한다. fcce6d7 코드 재현에서 `root_id=n4`를 요청하자 `n1`이 승인됐다. 14:43:55Z까지 네 호스트의 `work_execute` 호출은 0건이라 라이브 피해는 없다. 수정과 검증은 [execute-root-capability](/docs/journal/2026/11/23/fixes/execute-root-capability/record.md)에 있다.
+  - Andy: 원장 v6264→6275. waiting_input 1→2, submitted 21, running+slot 1. findings n1166 지속. 새 대화 오류는 5건이며 모두 제품 결함이 아니다.
+    - Walkie 403 13:27Z(외부)
+    - 버전 충돌 2(13:35·14:12Z, 재시도 경로)
+    - `n2554 is not a goal` 13:54Z(메인 인자)
+    - ripgrep 시간 초과 13:55Z
+  - Celly: 원장 v8151→8173. running+slot 5→0, waiting_input 4→9. newfail `revival_refused` 2(13:15:07·13:15:11Z, 끝난 포크에 보낸 메시지라 정상 가드). MCP 탐침 TimeoutError 4016ms 1회(원인 미확인, 다음 틱에서 재확인). 포크 오류 기록 1(13:21:32Z).
+  - KOBE: 원장 v3060→3066, 보드 v701. n107 재시도 결함이 배포 전까지 계속됐다: 13:13·13:23·13:43·14:31Z에 `scheduling up to 20 retries`→`retry 1/20`. 14:37:14Z 재로드 이후에는 모드의 awaiting 처리가 라이브다. 다만 분류기의 awaiting 응답은 라우터 Python이라 라우터 재시작 전에는 나오지 않는다. 라이브 효과는 미확인이다.
+  - Prody: 원장 v628→641. submitted 6, running+slot 2→1. 포크 오류 기록 3(13:34:50Z, 14:36:43·14:37:22Z 같은 포크). 메인 자체 스크립트 오류 여러 건 — 제품 결함 아님.
+  - 최종 트리 검증(배포 전):
+    - CI 상당: py310 unit shard 1–3(1777/1628/1833, EXIT 0), py311 router/channel/runtime(1686/628/460, EXIT 0).
+    - 41개 파일 3환경: 각 1303 실행/0 실패, `real_backend` 각 120/0.
+    - ruff 0.15.22, compileall, check:docs, npm pack.
+    - 라우터 실기동: Windows·py310·py311 모두 health 200, 버스트 200/200·64/64.
+    - shard 2 첫 실행의 `test_recovery_503_retries_within_the_requests_remaining_allowance` 1건은 동시 부하 중에만 나왔다. 단독 10회와 shard 재실행에서는 통과했다. 원인은 미확인이다.
+
 - 13:07:38Z 틱(직전 12:42:53Z). 4호스트 수집 성공. 운영 재시작·상태 파일 변경·배포 없음.
   - Andy: 원장 v6251→6264, 보드 v10745→10756. submitted 22→21, running+slot 2→1, waiting_input 1. findings 2→1(n2641 해소, n1166 지속). 새 대화 오류 2: ripgrep 시간 초과 12:45:56Z, 메인 자체 OKF 검증 exit 1 12:57:53Z — 제품 결함 아님. MCP 734ms.
   - Celly: 원장 v8106→8151, 보드 v9786→9802. waiting_input 6→4, running+slot 3→5. newfail `revival_refused` 1(12:44:28Z, 메인이 이 프로세스가 띄운 끝난 포크에 메시지 — 정상 가드). Walkie 403 `Conversation access denied` 12:50:40Z(외부). 포크 도구 오류 12건(12:45–13:07Z): 보고 형식 거부 `handoff/workspace fields: needs exactly …` 6회 — 포크마다 다음 호출에서 필드를 채워 성공(검증 가드 정상, 첫 시도 누락은 모델 입력), ripgrep 시간 초과 4, 포크의 `work_parallel_status` 호출이 `conversation identity is unavailable`로 거부 1(13:04:25Z, 포크는 세션 식별자가 없어 정상 가드), Walkie 400 1. MCP 218ms.

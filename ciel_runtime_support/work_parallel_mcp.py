@@ -454,7 +454,7 @@ EVIDENCE_GROUPS = ("confirmed", "waiting", "reservation", "uncertain", "validati
 GROUP_LABELS = {"legacy_reviewer": "Legacy reviewer (57dbfb3, read-only, draining)"}
 MODEL_LEASE_LIMIT = 24
 # Report contracts this router accepts, advertised in every parallel status.
-PARALLEL_CAPABILITIES = ("question_wait",)
+PARALLEL_CAPABILITIES = ("question_wait", "execute_root")
 MODEL_ENDED_LIMIT = 8
 MODEL_TEXT_LIMIT = 180
 MAX_ENDED_REVIEWS = 20
@@ -834,6 +834,8 @@ def project(store, identity, board=None, *, host_view=False, caller_nonce=None, 
             # Report contracts this router accepts. The mod gives a fork the
             # question_wait contract (waiting_on + release_hint in a question's
             # detail) only when this lists it: an older router refuses them.
+            # execute_root: work_execute approves the exact root_id it names;
+            # an older router ignores root_id and approves the active goal.
             "capabilities": list(PARALLEL_CAPABILITIES)}
     if host_view:
         # The Work pane and /work-mode parallel show the same durable rows and

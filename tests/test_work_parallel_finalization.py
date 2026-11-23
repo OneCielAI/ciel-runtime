@@ -681,6 +681,11 @@ class MainReviewTests(unittest.TestCase):
         # the router lists it; this router accepts that detail shape.
         self.assertIn("question_wait", self.call("status", {})["capabilities"])
 
+    def test_parallel_status_advertises_queued_goal_approval(self):
+        # The mod sends work_execute root_id only to a router that lists it; an
+        # older router ignores root_id and approves the active goal instead.
+        self.assertIn("execute_root", self.call("status", {})["capabilities"])
+
     def test_question_wait_records_structured_gate_and_resumes_original_lease(self):
         from ciel_runtime_support.side_work_decision import apply as side_apply
         from ciel_runtime_support import work_gate_check as gate_check

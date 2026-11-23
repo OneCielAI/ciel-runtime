@@ -244,10 +244,16 @@ class SettingsCompareAndSet(Isolated):
         barrier, outcomes = threading.Barrier(2), {}
 
         def write(value):
+            # The base config is read before the race: this fixture writes in
+            # place (truncate, then write), so an unlocked read racing the other
+            # thread's write could see an empty file (py310 shard 2, 2026-11-23:
+            # JSONDecodeError at char 0). The product saves by atomic replace;
+            # inside the race every read and write is under the settings lock.
+            config = self.load()
             barrier.wait()
             try:
-                settings(self.load(), {"key": "work_side_intake_max_active", "value": value,
-                                       FINGERPRINT_FIELD: seen}, self.write_file, load=self.load)
+                settings(config, {"key": "work_side_intake_max_active", "value": value,
+                                  FINGERPRINT_FIELD: seen}, self.write_file, load=self.load)
                 outcomes[value] = "saved"
             except SettingsConflict:
                 outcomes[value] = "conflict"

@@ -1099,6 +1099,34 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(1, len(result["executes"]))
         self.assertEqual("n9", result["executes"][0].get("root_id"))
 
+    def test_queued_goal_is_never_sent_to_a_router_that_ignores_root_id(self):
+        # The installed mod reloads before the router restarts. A router
+        # without execute_root ignores root_id and approves the active goal
+        # (reproduced on fcce6d7: requested n4, approved n1).
+        for approval in ("ask", "auto"):
+            old = self.run_scenario("execute-root-capability", "old", approval, "n9")
+            self.assertIn("deny", old["result"], old)
+            self.assertIn("root_id", old["result"]["deny"], old)
+            self.assertEqual((0, [], []), (old["asked"], old["engine"], old["executes"]), old)
+
+    def test_queued_goal_is_approved_through_a_router_that_reads_root_id(self):
+        ask = self.run_scenario("execute-root-capability", "new", "ask", "n9")
+        self.assertEqual((1, ["n9"]), (ask["asked"], ask["executes"]), ask)
+        auto = self.run_scenario("execute-root-capability", "new", "auto", "n9")
+        self.assertEqual({"result": "engine-ran"}, auto["result"], auto)
+        self.assertEqual(["n9"], auto["engine"], auto)
+
+    def test_active_goal_root_id_still_works_on_an_old_router(self):
+        # Every router approves the active goal; naming it is not a queued approval.
+        old = self.run_scenario("execute-root-capability", "old", "auto", "n1")
+        self.assertEqual({"result": "engine-ran"}, old["result"], old)
+
+    def test_root_id_instruction_follows_the_router_capability(self):
+        old = self.run_scenario("execute-root-instruction", "old")
+        new = self.run_scenario("execute-root-instruction", "new")
+        self.assertEqual((True, False), (old["hasRules"], old["namesRootId"]), old)
+        self.assertEqual((True, True), (new["hasRules"], new["namesRootId"]), new)
+
     def test_dialog_names_the_subagent_that_asked(self):
         result = self.run_scenario("execute-approval-attested", "Approve", "a1b2c3")
         self.assertEqual("Requested by: subagent a1b2c3", result["asked"][0][2])

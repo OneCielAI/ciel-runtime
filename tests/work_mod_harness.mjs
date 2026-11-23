@@ -4542,6 +4542,8 @@ Object.assign(scenarios, {
     const { $ } = host(async (tool, args) => { calls.push({ tool, args })
       if (tool === 'work_status') return args.format === 'text' ? text('Plan of ' + (args.root_id || 'active')) : text(board)
       if (tool === 'work_execute') return text('Plan approved; Work is in the executing phase.')
+      if (tool === 'work_parallel_status') return text({ version:3, policy:{ enabled:true, paused:false }, leases:{},
+        capabilities:['question_wait', 'execute_root'] })
       return text({}) })
     const asked = []
     $.ui.ask = async question => { asked.push(question); return 'Approve' }
@@ -4550,6 +4552,43 @@ Object.assign(scenarios, {
     const result = await handlers['tool.call']($, { tool:'mcp__ciel-runtime-router__work_execute', root_id:'n9' }, engineNext)
     return { result, asked, executes:calls.filter(c => c.tool === 'work_execute').map(c => c.args),
       plans:calls.filter(c => c.tool === 'work_status' && c.args.format === 'text').map(c => c.args.root_id || null) }
+  },
+  // 2026-11-23 rollout: the installed mod reloads at once, the router only
+  // when it restarts. A router from before execute_root ignores root_id and
+  // approves the ACTIVE goal (fcce6d7 _execute reads no root), so the plan
+  // the person approved would not be the goal that runs. argv[3]: old | new
+  // router, argv[4]: ask | auto approval, argv[5]: root to request.
+  async 'execute-root-capability'() {
+    const [mode, approval, root] = [process.argv[3], process.argv[4], process.argv[5]]
+    const calls = []
+    const board = { ...snapshot('planning', 7), approval, active_root:{ id:'n1', title:'Active goal' } }
+    const { $ } = host(async (tool, args) => { calls.push({ tool, args })
+      if (tool === 'work_status') return args.format === 'text' ? text('Plan of ' + (args.root_id || 'active')) : text(board)
+      if (tool === 'work_execute') return text('Plan approved; Work is in the executing phase.')
+      if (tool === 'work_parallel_status') return text({ version:3, policy:{ enabled:true, paused:false }, leases:{},
+        ...(mode === 'new' ? { capabilities:['question_wait', 'execute_root'] } : { capabilities:['question_wait'] }) })
+      return text({}) })
+    const asked = []
+    $.ui.ask = async question => { asked.push(question); return 'Approve' }
+    const engine = []
+    const engineNext = async e => { engine.push(e); return { result:'engine-ran' } }
+    engineNext.origin = { plugin:'engine' }
+    const result = await handlers['tool.call']($, { tool:'mcp__ciel-runtime-router__work_execute', root_id:root }, engineNext)
+    return { result, asked:asked.length, engine:engine.map(e => e.root_id || null),
+      executes:calls.filter(c => c.tool === 'work_execute').map(c => c.args.root_id || null) }
+  },
+  // Main is told about root_id only while its router accepts it.
+  async 'execute-root-instruction'() {
+    const mode = process.argv[3]
+    const { $ } = host(async tool => {
+      if (tool === 'work_parallel_status') return text({ version:3, policy:{ enabled:true, paused:false }, leases:{},
+        capabilities: mode === 'new' ? ['question_wait', 'execute_root'] : ['question_wait'] })
+      return text({ ...snapshot(), auto_continue:false }) })
+    await handlers['session.start']($, { isInteractive:true }, next(undefined))
+    const promptNext = async e => e; promptNext.origin = { plugin:'engine' }
+    const prompt = await handlers['prompt.submit']($, { origin:{ kind:'composer' }, text:'continue', context:[] }, promptNext)
+    const context = (prompt.context || []).join('\n')
+    return { namesRootId:context.includes('work_execute의 root_id'), hasRules:context.includes('Ciel Work 모드는') }
   },
   async 'execute-auto-forwards-clean'() {
     const { $ } = host(async (tool, args) => tool === 'work_status' ? text(snapshot('planning', 3)) : text('ok'))

@@ -1,0 +1,1133 @@
+{
+  "kind": "side actor retirement under refused TaskStop, real load",
+  "claude_version": "2.1.330 (Claude Code)",
+  "side_session": "fresh",
+  "mod_sha256": {
+    "register.js": "eb20a3e547d6ef1e129739e5584fa0dd7972efd75894f0e614f90f96242432ee",
+    "side-intake.js": "2c4d1a73fd52f3d10809dbf30becb14f321cab2be45cafcb487728c9133552cd",
+    "texts.generated.js": "1630524d88160586e4b9afb2fe5a6537e3643ecca19411fade18070d1b97f201"
+  },
+  "fault_mod_sha256": "5b6dbb55327d4b0e0e4bc43a2c568df2f3d4c6d3ec935a100ffa6996a9612d16",
+  "source_matches_snapshot": true,
+  "steps": {
+    "mod_load_line": "hooks module ciel-work@inline loaded (worker, environment 1, tier user); events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,sess",
+    "fault_load_line": "hooks module stop-fault@inline loaded (worker, environment 3, tier user); events: tool.call",
+    "session_start_settled_ms": 62.0,
+    "e1_sent_s": 6.5,
+    "actor1_held": true,
+    "actor1_held_s": 8.6,
+    "first_denial_seen_s": 9.7,
+    "e2_sent_s": 9.7,
+    "e2_stage": "processed",
+    "e2_done_s": 16.7,
+    "e1_stage": "processed",
+    "e1_done_s": 131.0
+  },
+  "root_pid_recorded": true,
+  "reload": {
+    "register_sha256_before": "eb20a3e547d6ef1e129739e5584fa0dd7972efd75894f0e614f90f96242432ee",
+    "register_sha256_after": "d9099fa6c956c0ab475b1ec4a5e8cadfd2dc91d5250b3589b6b38af8be70ef2e",
+    "edited_s": 8.6,
+    "load_lines": 2,
+    "reloaded_s": 9.7
+  },
+  "kill": "SUCCESS: The process with PID 110940 (child process of PID 72624) has been terminated.",
+  "stop_calls": {
+    "denied": [
+      "a519d1d899214b2dd",
+      "a519d1d899214b2dd"
+    ],
+    "denied_listed": [
+      "running",
+      "running"
+    ],
+    "passed": [
+      {
+        "id": "a519d1d899214b2dd",
+        "before": "running",
+        "after": "killed",
+        "result": "{\"ref\":1,\"result\":{\"message\":\"Successfully stopped task: a519d1d899214b2dd (Side SSE 65c03380432f)\",\"task_id\":\"a519d1d899214b2dd\",\"task_type\":\"local_agent\",\"command\":\"Side SSE 65c03380432f\"},\"text\":\"{\\\"message\\\":\\\"Successfully stopped task: a519d1d899214b2dd (Side SSE 65c03380432f)\\\",\\\"task_id\\\":\\\"a"
+      }
+    ],
+    "times": [
+      "2026-11-23T14:54:01.284Z",
+      "2026-11-23T14:54:02.294Z",
+      "2026-11-23T14:54:04.337Z"
+    ]
+  },
+  "agent_completions": [
+    "2026-11-23T14:54:04.345Z [INFO] [Stall] agent_completion agentId=a519d1d899214b2dd agentType=ciel-work:side-fresh exitPath=cancelled durationMs=4347 turns=0 finalStopReason=none lastChunkAgeMs=6 lastToolUseId=none lastToolResultSeen=none",
+    "2026-11-23T14:54:07.837Z [INFO] [Stall] agent_completion agentId=a1c03f3019a030837 agentType=ciel-work:side-fresh exitPath=completed durationMs=331 turns=1 finalStopReason=end_turn lastChunkAgeMs=6 lastToolUseId=none lastToolResultSeen=none",
+    "2026-11-23T14:55:02.042Z [INFO] [Stall] agent_completion agentId=a7419d4fd181f2cc4 agentType=ciel-work:side-fresh exitPath=completed durationMs=215 turns=1 finalStopReason=end_turn lastChunkAgeMs=3 lastToolUseId=none lastToolResultSeen=none",
+    "2026-11-23T14:55:02.191Z [INFO] [Stall] agent_completion agentId=a7419d4fd181f2cc4 agentType=ciel-work:side-fresh exitPath=completed durationMs=98 turns=1 finalStopReason=end_turn lastChunkAgeMs=8 lastToolUseId=none lastToolResultSeen=none",
+    "2026-11-23T14:56:02.215Z [INFO] [Stall] agent_completion agentId=a0e7c10aad68326cf agentType=ciel-work:side-fresh exitPath=completed durationMs=925 turns=1 finalStopReason=end_turn lastChunkAgeMs=7 lastToolUseId=none lastToolResultSeen=none"
+  ],
+  "side_log": [
+    "2026-11-23T14:53:52.792Z [DEBUG] hooks module ciel-work@inline loaded (worker, environment 1, tier user); events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,session.compact,classic.Stop,session.receive,prompt.submit,command.run,",
+    "2026-11-23T14:53:52.817Z [DEBUG] plugin-dir watch: watching ciel-work, ciel-work-gate, stop-fault; folders of plugins none",
+    "2026-11-23T14:53:53.054Z [DEBUG] hooks module ciel-work@inline session.start settled in 62.0ms (worker hop, next() included)",
+    "2026-11-23T14:53:59.957Z [DEBUG] $.agent.register (ciel-work): ciel-work:side-fresh listed",
+    "2026-11-23T14:54:00.249Z [WARN] [claude-code:unrecognized_model] {\"model\":\"fixture-main\",\"query_source\":\"agent:custom:ciel-work:side-fresh\"}",
+    "2026-11-23T14:54:00.275Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh",
+    "2026-11-23T14:54:01.105Z [DEBUG] hooks module ciel-work@inline reloaded in 66.5ms; events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,session.compact,classic.Stop,session.receive,prompt.submit,command.run,tool.call,session.send,",
+    "2026-11-23T14:54:01.173Z [DEBUG] hooks module ciel-work@inline session.start settled in 65.8ms (worker hop, next() included)",
+    "2026-11-23T14:54:01.196Z [DEBUG] [ciel-work] $.ui.log: reloaded (19 hooks: agent.spawn, session.append, session.start, classic.SessionStart, prompt.attachment, turn.start, turn.step, turn.complete, session.compact, classic.Stop, session.receive, prompt.submit, command.run, tool.call, session.send, t",
+    "2026-11-23T14:54:01.258Z [DEBUG] $.tool.call (ciel-work): TaskStop (task_id)",
+    "2026-11-23T14:54:01.264Z [DEBUG] tool.call TaskStop toolu_plugin_02d8efedc6fe4fc686d7bd106b3fb476: resolved by a hooks module (deny of 29 chars; reason left out because it can quote tool input)",
+    "2026-11-23T14:54:01.264Z [DEBUG] $.tool.call (ciel-work): TaskStop answered in 6ms, 62 chars, denied",
+    "2026-11-23T14:54:02.290Z [DEBUG] $.tool.call (ciel-work): TaskStop (task_id)",
+    "2026-11-23T14:54:02.294Z [DEBUG] tool.call TaskStop toolu_plugin_aa6ed642b4ae474ab67be8476926fb1c: resolved by a hooks module (deny of 29 chars; reason left out because it can quote tool input)",
+    "2026-11-23T14:54:02.294Z [DEBUG] $.tool.call (ciel-work): TaskStop answered in 4ms, 62 chars, denied",
+    "2026-11-23T14:54:04.301Z [DEBUG] $.tool.call (ciel-work): TaskStop (task_id)",
+    "2026-11-23T14:54:04.316Z [INFO] [Stall] tool_dispatch_start tool=TaskStop toolUseId=toolu_plugin_e3b9132acdd44ba5b3bec3b7dd2f03e5 permissionDecisionMs=7",
+    "2026-11-23T14:54:04.322Z [INFO] [Stall] tool_dispatch_end tool=TaskStop toolUseId=toolu_plugin_e3b9132acdd44ba5b3bec3b7dd2f03e5 outcome=ok durationMs=6",
+    "2026-11-23T14:54:04.336Z [DEBUG] $.tool.call (ciel-work): TaskStop answered in 35ms, 172 chars",
+    "2026-11-23T14:54:04.345Z [INFO] [Stall] agent_completion agentId=a519d1d899214b2dd agentType=ciel-work:side-fresh exitPath=cancelled durationMs=4347 turns=0 finalStopReason=none lastChunkAgeMs=6 lastToolUseId=none lastToolResultSeen=none",
+    "2026-11-23T14:54:07.469Z [DEBUG] $.agent.register (ciel-work): ciel-work:side-fresh listed",
+    "2026-11-23T14:54:07.758Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh",
+    "2026-11-23T14:54:07.837Z [INFO] [Stall] agent_completion agentId=a1c03f3019a030837 agentType=ciel-work:side-fresh exitPath=completed durationMs=331 turns=1 finalStopReason=end_turn lastChunkAgeMs=6 lastToolUseId=none lastToolResultSeen=none",
+    "2026-11-23T14:54:52.823Z [DEBUG] plugin-dir watch on <path> idle, polling every 30000ms",
+    "2026-11-23T14:54:52.825Z [DEBUG] plugin-dir watch on <path> idle, polling every 30000ms",
+    "2026-11-23T14:54:52.825Z [DEBUG] plugin-dir watch on <path> idle, polling every 30000ms",
+    "2026-11-23T14:55:01.981Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh",
+    "2026-11-23T14:55:02.042Z [INFO] [Stall] agent_completion agentId=a7419d4fd181f2cc4 agentType=ciel-work:side-fresh exitPath=completed durationMs=215 turns=1 finalStopReason=end_turn lastChunkAgeMs=3 lastToolUseId=none lastToolResultSeen=none",
+    "2026-11-23T14:55:02.133Z [DEBUG] [ciel-work] $.ui.log (to debug): Ciel side: asked the side actor for a57d82d46ca9 to correct its answer (side answer carries no decision JSON)",
+    "2026-11-23T14:55:02.153Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh",
+    "2026-11-23T14:55:02.191Z [INFO] [Stall] agent_completion agentId=a7419d4fd181f2cc4 agentType=ciel-work:side-fresh exitPath=completed durationMs=98 turns=1 finalStopReason=end_turn lastChunkAgeMs=8 lastToolUseId=none lastToolResultSeen=none",
+    "2026-11-23T14:56:02.044Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh",
+    "2026-11-23T14:56:02.215Z [INFO] [Stall] agent_completion agentId=a0e7c10aad68326cf agentType=ciel-work:side-fresh exitPath=completed durationMs=925 turns=1 finalStopReason=end_turn lastChunkAgeMs=7 lastToolUseId=none lastToolResultSeen=none"
+  ],
+  "unconfirmed_lines": [],
+  "unloaded_lines": [],
+  "failed_to_load": [],
+  "mcp_calls": [
+    {
+      "after_s": 1.7,
+      "name": "work_status"
+    },
+    {
+      "after_s": 2.0,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 2.4,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 3.4,
+      "name": "work_status"
+    },
+    {
+      "after_s": 3.6,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 4.0,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 4.1,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 5.5,
+      "name": "work_status"
+    },
+    {
+      "after_s": 6.1,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 8.2,
+      "name": "work_side_claim",
+      "claim": "65c03380432f",
+      "error": false
+    },
+    {
+      "after_s": 8.2,
+      "name": "work_side_ack"
+    },
+    {
+      "after_s": 8.3,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 8.4,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 8.4,
+      "name": "work_status"
+    },
+    {
+      "after_s": 8.5,
+      "name": "work_status"
+    },
+    {
+      "after_s": 8.6,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 8.6,
+      "name": "work_live_settings"
+    },
+    {
+      "after_s": 8.7,
+      "name": "work_host_page"
+    },
+    {
+      "after_s": 8.7,
+      "name": "work_host_page"
+    },
+    {
+      "after_s": 8.7,
+      "name": "work_host_page"
+    },
+    {
+      "after_s": 8.8,
+      "name": "work_host_page"
+    },
+    {
+      "after_s": 8.8,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 9.5,
+      "name": "work_side_texts"
+    },
+    {
+      "after_s": 9.5,
+      "name": "work_status"
+    },
+    {
+      "after_s": 9.6,
+      "name": "work_status"
+    },
+    {
+      "after_s": 9.6,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 9.6,
+      "name": "work_status"
+    },
+    {
+      "after_s": 9.6,
+      "name": "work_status"
+    },
+    {
+      "after_s": 9.7,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 9.7,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 9.8,
+      "name": "work_live_settings"
+    },
+    {
+      "after_s": 9.8,
+      "name": "work_host_page"
+    },
+    {
+      "after_s": 9.8,
+      "name": "work_host_page"
+    },
+    {
+      "after_s": 9.8,
+      "name": "work_host_page"
+    },
+    {
+      "after_s": 9.8,
+      "name": "work_host_page"
+    },
+    {
+      "after_s": 9.9,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 10.4,
+      "name": "work_side_claim",
+      "claim": "abb10247a1c9",
+      "error": false
+    },
+    {
+      "after_s": 10.4,
+      "name": "work_side_ack"
+    },
+    {
+      "after_s": 10.5,
+      "name": "work_side_fail",
+      "category": "processing_error",
+      "reason": "Agent type 'ciel-work:side-fresh' not found. Available agents: claude, claude-code-guide, Explore, general-purpose, Plan, statusline-setup"
+    },
+    {
+      "after_s": 10.5,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 10.5,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 10.8,
+      "name": "work_status"
+    },
+    {
+      "after_s": 10.9,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 11.6,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 11.6,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 12.5,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 12.6,
+      "name": "work_status"
+    },
+    {
+      "after_s": 12.8,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 12.8,
+      "name": "work_status"
+    },
+    {
+      "after_s": 12.9,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 13.6,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 15.7,
+      "name": "work_side_claim",
+      "claim": "abb10247a1c9",
+      "error": false
+    },
+    {
+      "after_s": 15.7,
+      "name": "work_side_ack"
+    },
+    {
+      "after_s": 15.8,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 15.9,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 16.2,
+      "name": "work_side_understanding",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 16.2,
+      "name": "work_side_resolve",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 16.3,
+      "name": "work_side_reply",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 16.3,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 16.4,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 16.4,
+      "name": "work_status"
+    },
+    {
+      "after_s": 16.9,
+      "name": "work_status"
+    },
+    {
+      "after_s": 17.9,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 17.9,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 19.9,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 21.9,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 24.0,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 24.8,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 25.0,
+      "name": "work_status"
+    },
+    {
+      "after_s": 26.0,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 28.0,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 30.1,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 32.1,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 34.1,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 34.2,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 36.2,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 38.2,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 40.2,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 41.0,
+      "name": "work_status"
+    },
+    {
+      "after_s": 42.3,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 44.3,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 46.3,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 48.4,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 50.4,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 50.4,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 52.4,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 54.5,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 56.5,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 58.5,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 60.5,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 62.6,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 64.6,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 66.6,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 66.7,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 68.7,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 69.5,
+      "name": "work_side_texts"
+    },
+    {
+      "after_s": 69.5,
+      "name": "work_side_gate_check"
+    },
+    {
+      "after_s": 69.5,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 69.6,
+      "name": "work_side_gate_check"
+    },
+    {
+      "after_s": 69.6,
+      "name": "work_status"
+    },
+    {
+      "after_s": 69.6,
+      "name": "work_side_gate_check"
+    },
+    {
+      "after_s": 69.7,
+      "name": "work_side_gate_check"
+    },
+    {
+      "after_s": 69.7,
+      "name": "work_proposal_status"
+    },
+    {
+      "after_s": 69.9,
+      "name": "work_status"
+    },
+    {
+      "after_s": 69.9,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 69.9,
+      "name": "work_side_texts"
+    },
+    {
+      "after_s": 70.0,
+      "name": "work_status"
+    },
+    {
+      "after_s": 70.0,
+      "name": "work_side_gate_check"
+    },
+    {
+      "after_s": 70.0,
+      "name": "work_proposal_status"
+    },
+    {
+      "after_s": 70.0,
+      "name": "work_side_claim",
+      "claim": "a57d82d46ca9",
+      "error": false
+    },
+    {
+      "after_s": 70.1,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 70.1,
+      "name": "work_side_ack"
+    },
+    {
+      "after_s": 70.1,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 70.5,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 70.5,
+      "name": "work_side_understanding",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 70.6,
+      "name": "work_side_resolve",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 70.6,
+      "name": "work_side_wake"
+    },
+    {
+      "after_s": 70.6,
+      "name": "work_side_reply",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 70.6,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 70.7,
+      "name": "work_side_wake"
+    },
+    {
+      "after_s": 70.7,
+      "name": "work_status"
+    },
+    {
+      "after_s": 70.7,
+      "name": "work_status"
+    },
+    {
+      "after_s": 70.7,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 70.8,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 70.9,
+      "name": "work_status"
+    },
+    {
+      "after_s": 70.0,
+      "name": "work_status"
+    },
+    {
+      "after_s": 71.0,
+      "name": "work_proposal_status"
+    },
+    {
+      "after_s": 71.0,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 71.0,
+      "name": "work_status"
+    },
+    {
+      "after_s": 71.1,
+      "name": "work_side_texts"
+    },
+    {
+      "after_s": 71.1,
+      "name": "work_status"
+    },
+    {
+      "after_s": 71.1,
+      "name": "work_status"
+    },
+    {
+      "after_s": 71.1,
+      "name": "work_side_gate_check"
+    },
+    {
+      "after_s": 71.1,
+      "name": "work_proposal_status"
+    },
+    {
+      "after_s": 71.1,
+      "name": "work_proposal_status"
+    },
+    {
+      "after_s": 71.1,
+      "name": "work_status"
+    },
+    {
+      "after_s": 71.7,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 71.8,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 71.8,
+      "name": "work_status"
+    },
+    {
+      "after_s": 72.0,
+      "name": "work_status"
+    },
+    {
+      "after_s": 72.2,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 72.8,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 72.8,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 74.1,
+      "name": "work_status"
+    },
+    {
+      "after_s": 74.8,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 76.8,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 78.2,
+      "name": "work_status"
+    },
+    {
+      "after_s": 78.9,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 80.9,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 83.0,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 85.0,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 86.2,
+      "name": "work_status"
+    },
+    {
+      "after_s": 87.0,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 89.1,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 89.1,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 91.1,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 93.1,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 95.2,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 97.2,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 99.3,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 101.3,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 102.3,
+      "name": "work_status"
+    },
+    {
+      "after_s": 103.4,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 105.4,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 105.4,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 107.4,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 109.4,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 111.5,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 113.5,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 115.6,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 117.7,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 120.1,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 122.8,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 123.0,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 125.0,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 127.2,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 129.3,
+      "name": "work_side_claim",
+      "claim": "65c03380432f",
+      "error": false
+    },
+    {
+      "after_s": 129.5,
+      "name": "work_side_ack"
+    },
+    {
+      "after_s": 129.7,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 129.8,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 129.8,
+      "name": "work_side_texts"
+    },
+    {
+      "after_s": 129.9,
+      "name": "work_side_gate_check"
+    },
+    {
+      "after_s": 130.0,
+      "name": "work_proposal_status"
+    },
+    {
+      "after_s": 130.1,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 130.6,
+      "name": "work_side_understanding",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 130.7,
+      "name": "work_side_resolve",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 130.8,
+      "name": "work_side_reply",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 130.9,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 131.3,
+      "name": "work_parallel_event"
+    },
+    {
+      "after_s": 131.4,
+      "name": "work_status"
+    },
+    {
+      "after_s": 131.9,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 132.0,
+      "name": "work_side_status"
+    },
+    {
+      "after_s": 132.4,
+      "name": "work_status"
+    },
+    {
+      "after_s": 134.0,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    },
+    {
+      "after_s": 136.1,
+      "name": "work_side_claim",
+      "claim": null,
+      "error": false
+    }
+  ],
+  "model_requests": [
+    {
+      "after_s": 8.6,
+      "agent": true,
+      "label": "SIDE-EVENT-1"
+    },
+    {
+      "after_s": 14.6,
+      "agent": true,
+      "label": "held-stream-dropped"
+    },
+    {
+      "after_s": 16.0,
+      "agent": true,
+      "label": "SIDE-EVENT-2"
+    },
+    {
+      "after_s": 69.8,
+      "agent": false,
+      "label": null
+    },
+    {
+      "after_s": 70.3,
+      "agent": true,
+      "label": null
+    },
+    {
+      "after_s": 70.4,
+      "agent": true,
+      "label": "correction-answered"
+    },
+    {
+      "after_s": 70.9,
+      "agent": false,
+      "label": null
+    },
+    {
+      "after_s": 130.3,
+      "agent": true,
+      "label": "SIDE-EVENT-1"
+    }
+  ],
+  "receipt_refs": {
+    "e1": "65c03380432f",
+    "e2": "abb10247a1c9"
+  },
+  "final_stages": {
+    "e1": "processed",
+    "e2": "processed"
+  },
+  "correction": {
+    "not_delivered_lines": [],
+    "asked_lines": [
+      "2026-11-23T14:55:02.133Z [DEBUG] [ciel-work] $.ui.log (to debug): Ciel side: asked the side actor for a57d82d46ca9 to correct its answer (side answer carries no decision JSON)"
+    ],
+    "answered": 1,
+    "resume_refused": [],
+    "other_events": {
+      "a57d82d46ca9": "processed"
+    }
+  },
+  "checks": {
+    "mod_loaded": true,
+    "fault_mod_loaded": true,
+    "no_failed_to_load": true,
+    "no_unload": true,
+    "actor1_held_live": true,
+    "hot_reloaded": true,
+    "event1_processed": true,
+    "event2_processed": true,
+    "actor1_refused_twice_while_running": true,
+    "actor1_stop_passed_and_ended": true,
+    "no_stop_for_actors_that_ended_themselves": true,
+    "no_cleanup_unconfirmed": true,
+    "event2_queued_after_first_refusal": true,
+    "correction_delivered_first_attempt": true,
+    "corrected_answer_committed": true
+  },
+  "passed": true,
+  "profile_changed": [
+    "~/.claude.json"
+  ],
+  "profile_unchanged": true,
+  "scratch_removed": true
+}
