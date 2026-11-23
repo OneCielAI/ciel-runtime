@@ -2165,6 +2165,72 @@ const scenarios = {
     await handlers['turn.complete']($, { agentId:'agent-old', reason:'answer' }, next(undefined))
     return { calls, tools, sent:state.sent, lease:leases.L1 }
   },
+  // KOBE n107 2026-11-23: after each retry message the router saw the fork's
+  // own retry message at the tail (awaiting) instead of the error. The host took
+  // that as recovery, so every new error started a fresh chain at 1/20 and the
+  // 20-attempt cap never engaged (14 errors in 70 minutes, no progress).
+  async 'fork-api-retry-counts-through-awaiting'() {
+    const leases = { L1: { id:'L1', item_id:'n107', role:'worker', state:'running', host_id:'agent-f', slot:true, plan_version:7 } }
+    let apiErr = null
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:9, active_device:1,
+        policy:{enabled:true,paused:false,priority_limits:{P1:5,P2:3,P3:1,P4:1,P5:1}}, leases,
+        coordination:{runs:[{lease_id:'L1',exit:null}],receipts:[]},
+        fork_api_errors:apiErr ? { L1:apiErr } : {} })
+      return text({})
+    })
+    const timers = []
+    $.clock.after = (ms, fn) => { const t = { ms, fn, cancelled:false }; timers.push(t); return { cancel() { t.cancelled = true } } }
+    const fireRetry = async () => {
+      for (const t of timers.splice(0)) { if (t.cancelled) continue; if (t.ms === 60000) await t.fn(); else timers.push(t) }
+    }
+    state.agents = [{ id:'agent-f', status:'running', type:'fork', spawnedBy:'ciel-work', name:'work-n107' }]
+    await handlers['session.start']($, { isInteractive:false }, next(undefined))
+    const row = (n, waiting) => ({ agent_id:'agent-f', retryable:!waiting, ...(waiting ? { awaiting:true } : {}),
+      error_uuid:'err-' + n, last_progress_uuid:'prog-0', kind:'auto_compact_failed', compaction:true })
+    for (let n = 1; n <= 3; n++) {
+      apiErr = row(n, false)
+      await handlers['turn.complete']($, { reason:'answer' }, next(undefined))
+      await fireRetry()
+      apiErr = row(n, true)
+      await handlers['turn.complete']($, { reason:'answer' }, next(undefined))
+      await fireRetry()
+    }
+    const chained = state.logs.filter(line => /fork API/.test(line))
+    // Real progress (a new assistant record) ends the chain as recovered.
+    apiErr = null
+    await handlers['turn.complete']($, { reason:'answer' }, next(undefined))
+    return { chained, after:state.logs.filter(line => /fork API/.test(line)).slice(chained.length),
+      retries:(state.sent || []).filter(s => /재시도|retry/i.test(String(s.text))).length }
+  },
+  // A fork that never answers the retry it took: one silent window is waited
+  // out, the second counts as the next attempt, so 20 attempts stay the bound.
+  async 'fork-api-retry-silent-window-is-an-attempt'() {
+    const leases = { L1: { id:'L1', item_id:'n107', role:'worker', state:'running', host_id:'agent-f', slot:true, plan_version:7 } }
+    let apiErr = { agent_id:'agent-f', retryable:true, error_uuid:'err-1', last_progress_uuid:'prog-0', kind:'server_error 503', compaction:false }
+    const { $, state } = host(async tool => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:9, active_device:1,
+        policy:{enabled:true,paused:false,priority_limits:{P1:5,P2:3,P3:1,P4:1,P5:1}}, leases,
+        coordination:{runs:[{lease_id:'L1',exit:null}],receipts:[]}, fork_api_errors:{ L1:apiErr } })
+      return text({})
+    })
+    const timers = []
+    $.clock.after = (ms, fn) => { const t = { ms, fn, cancelled:false }; timers.push(t); return { cancel() { t.cancelled = true } } }
+    const fireRetry = async () => {
+      for (const t of timers.splice(0)) { if (t.cancelled) continue; if (t.ms === 60000) await t.fn(); else timers.push(t) }
+    }
+    state.agents = [{ id:'agent-f', status:'running', type:'fork', spawnedBy:'ciel-work', name:'work-n107' }]
+    await handlers['session.start']($, { isInteractive:false }, next(undefined))
+    await handlers['turn.complete']($, { reason:'answer' }, next(undefined))
+    await fireRetry()                                   // attempt 1 sent
+    apiErr = { ...apiErr, retryable:false, awaiting:true }
+    const sends = () => (state.sent || []).filter(s => s.to?.agentId === 'agent-f').length
+    await fireRetry(); const afterOneWindow = sends()   // waited, nothing sent
+    await fireRetry(); const afterTwoWindows = sends()  // counted as attempt 2
+    return { afterOneWindow, afterTwoWindows, logs:state.logs.filter(line => /fork API/.test(line)) }
+  },
   async 'parallel-second-missing-exit-salvages-before-stop'() {
     const leases = { L1: { id:'L1', item_id:'n2', role:'worker', state:'running', host_id:'agent-old', slot:true, plan_version:7 } }
     const calls = [], tools = []
@@ -4466,6 +4532,24 @@ Object.assign(scenarios, {
     return { result, engine, asked:asked.map(a => a.question.split('\n').slice(0, 3)),
       executes:calls.filter(c => c.tool === 'work_execute').map(c => c.args),
       resultHasToken:JSON.stringify(result).includes('host-token') }
+  },
+  // A queued goal is approved by its exact root_id: the dialog shows that
+  // goal's plan and the attested call carries the same root_id (Andy
+  // 2026-11-23: queued goals could never leave planning).
+  async 'execute-approval-queued-root'() {
+    const calls = []
+    const board = { ...snapshot('planning', 7), approval:'ask' }
+    const { $ } = host(async (tool, args) => { calls.push({ tool, args })
+      if (tool === 'work_status') return args.format === 'text' ? text('Plan of ' + (args.root_id || 'active')) : text(board)
+      if (tool === 'work_execute') return text('Plan approved; Work is in the executing phase.')
+      return text({}) })
+    const asked = []
+    $.ui.ask = async question => { asked.push(question); return 'Approve' }
+    const engineNext = async () => ({ result:'engine-ran' })
+    engineNext.origin = { plugin:'engine' }
+    const result = await handlers['tool.call']($, { tool:'mcp__ciel-runtime-router__work_execute', root_id:'n9' }, engineNext)
+    return { result, asked, executes:calls.filter(c => c.tool === 'work_execute').map(c => c.args),
+      plans:calls.filter(c => c.tool === 'work_status' && c.args.format === 'text').map(c => c.args.root_id || null) }
   },
   async 'execute-auto-forwards-clean'() {
     const { $ } = host(async (tool, args) => tool === 'work_status' ? text(snapshot('planning', 3)) : text('ok'))

@@ -88,11 +88,18 @@ def _ledger_lease_states(ledger_path):
     """{lease id: state} from the execution ledger, or None when unreadable.
 
     None keeps eviction to cancelled rows only; it never authorizes anything.
+    The ledger is written by atomic replace, so one read is one committed
+    snapshot; reading the file here keeps work_parallel_p0 free of an import
+    of work_parallel (which imports this module).
     """
-    from .work_parallel import WorkParallelStore
+    from .work_parallel_primitives import PARALLEL_JSON_CACHE
+    path = Path(ledger_path)
     try:
-        leases = WorkParallelStore(ledger_path).read()["leases"]
-    except (WorkParallelError, OSError, ValueError, KeyError, TypeError):
+        cached, _ = PARALLEL_JSON_CACHE.get(path)
+        leases = (cached if cached is not None else json.loads(path.read_text(encoding="utf-8")))["leases"]
+        if type(leases) is not dict:
+            return None
+    except (OSError, ValueError, KeyError, TypeError):
         return None
     return {key: row.get("state") for key, row in leases.items() if isinstance(row, dict)}
 

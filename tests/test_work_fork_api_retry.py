@@ -89,6 +89,31 @@ class WorkForkApiRetryTests(unittest.TestCase):
                     _write_jsonl(path, rows)
                     self.assertIsNone(classify_fork_transcript(path))
 
+    def test_a_retry_message_after_the_error_is_awaiting_not_recovered(self):
+        # KOBE n107 2026-11-23: after each host retry message the tail was a user
+        # record, so the error vanished and the host logged "recovered" with no
+        # new assistant output; the 20-attempt cap never engaged.
+        from ciel_runtime_support.work_fork_api_retry import classify_fork_transcript
+
+        error = {"type": "assistant", "uuid": "err-1", "isApiErrorMessage": True,
+                 "error": "invalid_request_error",
+                 "message": {"content": [{"type": "text",
+                                          "text": "Prompt is too long · automatic compaction failed: API Error: TimeoutError: timed out"}]},
+                 "timestamp": "2026-11-23T11:31:20Z"}
+        with tempfile.TemporaryDirectory() as raw:
+            path = Path(raw) / "agent-awaiting.jsonl"
+            _write_jsonl(path, [
+                {"type": "assistant", "uuid": "prog-1", "message": {"content": [{"type": "text", "text": "step"}]}},
+                error,
+                {"type": "user", "uuid": "retry-1", "isMeta": True,
+                 "message": {"content": "[ciel-runtime 포크 재시도 1/20]"}},
+            ])
+            info = classify_fork_transcript(path)
+        self.assertIsNotNone(info)
+        self.assertEqual((False, True), (info["retryable"], info["awaiting"]))
+        self.assertEqual(("err-1", "prog-1", "auto_compact_failed", True),
+                         (info["error_uuid"], info["last_progress_uuid"], info["kind"], info["compaction"]))
+
     def test_project_parallel_includes_fork_api_errors_only_in_host_view(self):
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)

@@ -1,0 +1,57 @@
+{
+ "worktree": "C:/Users/djlov/ciel-runtime/.local/tmp/work-parallel",
+ "python": "3.11.6",
+ "started_at": 1795443448.0465796,
+ "last_wait_error": "URLError",
+ "port": 54547,
+ "health": {
+  "status": 200,
+  "keys": [
+   "active_client_count",
+   "active_client_pids",
+   "chat",
+   "config_dir",
+   "events",
+   "events_websocket",
+   "external_event_receivers",
+   "home",
+   "instance_id",
+   "model",
+   "ok",
+   "otlp_logs",
+   "pid",
+   "plan",
+   "provider",
+   "router_port",
+   "source_fingerprint",
+   "speech",
+   "telemetry_logs_tool",
+   "tui",
+   "tui_status",
+   "tui_stream",
+   "user",
+   "version",
+   "web_chat",
+   "web_chat_api",
+   "workspace"
+  ],
+  "version": "0.2.51",
+  "pid_matches": true
+ },
+ "exited_early": null,
+ "burst_connect": {
+  "ok": 200
+ },
+ "burst_health": {
+  "200": 64
+ },
+ "alive_after_burst": true,
+ "start_line": "ciel-runtime router starting on 127.0.0.1:54547 (client base http://127.0.0.1:54547, log level ERROR, source=default)",
+ "traceback_lines": 0,
+ "log_tail": [
+  "ciel-runtime router starting on 127.0.0.1:54547 (client base http://127.0.0.1:54547, log level ERROR, source=default)",
+  "web: http://127.0.0.1:54547/",
+  "web_tailscale_https_recommended: ciel-runtime --ca-web-port 54547 --ca-tailscale-https=54547"
+ ],
+ "temp_removed": true
+}

@@ -2102,8 +2102,7 @@ def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> 
             runtime=ChannelMcpRuntimeServices(
                 submit_input=runtime_input_gateway().submit_stream_input, read_runtime_inputs=read_runtime_inputs,
                 telemetry_logs=_TELEMETRY_LOG_RUNTIME.tool, restart_session=runtime_session_restart_service().queue_tool,
-                recover_sse_delivery=lambda args: router_recovery(args, status_repository=_RUNTIME_INPUT_STATUS_REPOSITORY, compaction=_RUNTIME_COMPACTION, restart=runtime_session_restart_service().queue_tool, root=ROUTER_INSTANCE_DIR), load_config=load_config, save_config=save_config,
-                log=router_log,
+                recover_sse_delivery=lambda args: router_recovery(args, status_repository=_RUNTIME_INPUT_STATUS_REPOSITORY, compaction=_RUNTIME_COMPACTION, restart=runtime_session_restart_service().queue_tool, root=ROUTER_INSTANCE_DIR), load_config=load_config, save_config=save_config, log=router_log,
             ),
         ),
     )
@@ -3006,7 +3005,7 @@ def _router_server_context() -> RouterServerContext:
     server_runtime = router_server_runtime.RouterServerRuntime(
         router_server_runtime.RouterServerConfig(ROUTER_INSTANCE_DIR, PID_PATH, ROUTER_PORT, ROUTER_BASE, LOG_LEVEL_PATH, LOG_LEVEL_NAMES, RouterHandler),
         router_server_runtime.RouterServerStatePorts(load_config, reset_api_key_cooldowns_for_router_start, router_bind_host, current_log_level, os.getpid, os.environ.get, _ROUTER_ACCESS_POLICY.administrative_external_access_enabled, _REMOTE_BRIDGE.enabled, ensure_router_external_access_token, ensure_remote_bridge_access_token),
-        router_server_runtime.RouterServerEffects(os.chmod, sys.stderr, RouterThreadingHTTPServer, start_managed_router_lifetime_watchdog,
+        router_server_runtime.RouterServerEffects(os.chmod, sys.stderr, ThreadingHTTPServer, start_managed_router_lifetime_watchdog,  # RouterServerRuntime raises the listen backlog to ROUTER_REQUEST_QUEUE_SIZE
                                                   lambda bind_host: configure_requested_web_endpoints(ROUTER_PORT, ROUTER_HOST, bind_host,
                                                                                                        config=load_config()),
                                                    configure_router_server_transport, lambda: (_SESSION_API_KEYS.attach_markers(), start_router_services())[-1], stop_router_services, lambda path: fault_log.enable(path, "router")),
@@ -3019,11 +3018,6 @@ def _router_server_context() -> RouterServerContext:
 _ROUTER_SERVER_API = RouterServerCompatibilityApi(_router_server_context)
 router_health_payload = _ROUTER_SERVER_API.health_payload
 build_router_http_services = _ROUTER_SERVER_API.build_http_services
-
-class RouterThreadingHTTPServer(ThreadingHTTPServer):
-    # Set before TCPServer.__init__ -> server_activate() calls socket.listen().
-    request_queue_size = router_server_runtime.ROUTER_REQUEST_QUEUE_SIZE
-
 
 class RouterHandler(RouterHttpHandler):
     services_factory = staticmethod(build_router_http_services)

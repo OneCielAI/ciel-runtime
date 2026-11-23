@@ -178,7 +178,7 @@ class LaneTests(unittest.TestCase):
     def reserve_next(self):
         return self.run_event({"fork": True}, event="reserve_next")
 
-    def test_ordinary_order_is_newest_first_and_a_boost_moves_ahead_then_is_consumed(self):
+    def test_boosts_go_first_newest_release_first_then_ordinary_queue_order(self):
         self.configure(3)
         self.boost("a", "older", 100.0)
         self.boost("b", "newer", 200.0)
@@ -195,11 +195,12 @@ class LaneTests(unittest.TestCase):
 
     def test_capacity_refusal_keeps_the_boost(self):
         self.configure(1)
-        self.reserve_next()                                # takes the only P1 slot (c)
-        self.boost("a", "later", 300.0)
+        # Queue order (user 2026-11-23): the first queued leaf takes the only P1 slot.
+        self.assertEqual("a", self.reserve_next()["item_id"])
+        self.boost("b", "later", 300.0)
         with self.assertRaises(WorkParallelError):
             self.reserve_next()
-        self.assertEqual("boosted", self.row("a")["state"])
+        self.assertEqual("boosted", self.row("b")["state"])
 
     def park(self, item_id):
         reserved = self.run_event({"fork": True}, event="reserve", item_id=item_id, priority="P1")
@@ -249,7 +250,7 @@ class LaneTests(unittest.TestCase):
     def test_unreadable_sidecar_never_blocks_ordinary_scheduling(self):
         self.configure(3)
         sidecar_for(self.ledger.path).path.write_text("{not json", encoding="utf-8")
-        self.assertEqual("c", self.reserve_next()["item_id"])
+        self.assertEqual("a", self.reserve_next()["item_id"])          # ordinary queue order
         self.assertEqual("unavailable", m.project(self.ledger, SCOPE)["wait_boost"]["reason"])
 
 

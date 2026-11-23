@@ -14,6 +14,8 @@ from .work_parallel import (WorkParallelStore, WorkParallelConflict, WorkParalle
                             active_by_priority, digest, hash_worker_token, integer, require,
                             text, worker_token_matches)
 from .workspace_router_selection import _process_identity as process_identity
+from .work_parallel_question import _worker_question
+from .work_parallel_fork_lookup import _fork_attribution, _fork_identity
 
 TOOL_NAMES = ("work_parallel_status", "work_parallel_configure", "work_parallel_run",
               "work_parallel_event", "work_parallel_report", "work_parallel_item_review",
@@ -298,7 +300,7 @@ def _reconcile_root(coord, board, root_id, identity):
 
 
 def _p0_runnable_leaves(store, board, identity):
-    """Planning-safe runnable leaves of active exact P0 roots, oldest first."""
+    """Planning-safe runnable leaves of active exact P0 roots in queue order (active first, then tree order)."""
     nodes = {node["id"]: node for node in board.get("nodes", [])}
     children = {node_id: [] for node_id in nodes}
     for node in nodes.values():
@@ -311,8 +313,9 @@ def _p0_runnable_leaves(store, board, identity):
         # Corrupt P0 state is displayed by status and conservatively schedules P1.
         return []
     rows = []
-    for root in board.get("nodes", []):
-        if root.get("parent_id") is not None or root.get("status") == "done":
+    active = board.get("active_root")
+    for root in sorted((n for n in board.get("nodes", []) if n.get("parent_id") is None), key=lambda n: n["id"] != active):
+        if root.get("status") == "done":
             continue
         if side.matching_active_marker(
                 side_state, identity, root["id"], root.get("created_at")) is None:
@@ -336,7 +339,6 @@ def _p0_runnable_leaves(store, board, identity):
                    and not row.get("waiting_on") for row in ancestors):
                 rows.append({"item_id": node_id, "root_id": root["id"],
                              "created_at": node.get("created_at", node.get("updated_at", 0))})
-    rows.sort(key=lambda row: (-float(row["created_at"]), row["item_id"]))
     return rows
 
 
@@ -1239,147 +1241,6 @@ def _approval_changed(cstate, board, lease_id):
         return _root_scope_digest(board, run["root_id"]) != run["fingerprint"]
     except WorkParallelError:
         return True
-
-
-def _question_detail(lease, args, evidence):
-    """Return the unvalidated question body for the receipt validator."""
-    detail = args.get("detail")
-    if isinstance(detail, dict):
-        return copy.deepcopy(detail)
-    return {
-        "question": evidence,
-        "blocking_todos": [lease["item_id"]],
-        "decision_needed": evidence,
-    }
-
-
-def _validate_question_detail_before_write(detail):
-    """Validate a question body before any durable write; return its hint."""
-    from .work_parallel_receipts import _validate_detail
-    _validate_detail("question", detail)
-    if "release_hint" not in detail:
-        return None
-    return tree.normalize_release_hint(detail["release_hint"])
-
-
-def _record_question_wait(board_store, lease, detail):
-    """Record question_wait on the assigned leaf before any receipt is written.
-
-    ``waiting_on`` is the exact external answer/decision state this fork waits
-    for. ``release_hint.lookup`` is the read-only evidence target by which the
-    side/gate actor verifies it; neither value is an answer, approval, or
-    authorization to execute. The lease's own item is the only writable target,
-    even if caller arguments name another item (no item_id is consulted here).
-    Only the exact leaf is changed; status and ancestors stay untouched.
-    """
-    item_id = lease["item_id"]
-    waiting_on = detail["waiting_on"]
-    try:
-        release_hint = tree.normalize_release_hint(detail["release_hint"])
-    except tree.WorkPlanError as error:
-        raise WorkParallelError(str(error)) from None
-
-    def mutate(doc):
-        nodes = doc["nodes"]
-        by_id = {node["id"]: node for node in nodes}
-        if item_id not in by_id:
-            raise WorkParallelError("unknown assigned Work item")
-        assigned = detail.get("blocking_todos")
-        if (type(assigned) is not list or len(assigned) != 1
-                or type(assigned[0]) is not str or assigned[0] != item_id):
-            raise WorkParallelError(
-                "question_wait blocking_todos must be exactly the one assigned Work item; "
-                "a duplicate or extra entry is refused before parking")
-        if any(node["parent_id"] == item_id for node in nodes):
-            raise WorkParallelError("question_wait must be recorded on a leaf Work item")
-        index = next(i for i, row in enumerate(nodes) if row["id"] == item_id)
-        node = nodes[index]
-        if node["status"] == "done":
-            raise WorkParallelError("question_wait requires an unfinished assigned Work item")
-        if str(node.get("waiting_on") or "").strip():
-            raise WorkParallelError("assigned Work item already has a recorded wait")
-        replacement = dict(node)
-        replacement["waiting_on"] = waiting_on
-        replacement["release_hint"] = copy.deepcopy(release_hint)
-        replacement["updated_at"] = time.time()
-        nodes[index] = replacement
-
-    from .work_plan_store import WorkPlanConflict
-
-    for _ in range(4):
-        try:
-            version = board_store.read()["version"]
-            board_store.transaction(mutate, expected_version=version)
-            return
-        except (WorkParallelError, tree.WorkPlanError):
-            raise
-        except Exception as error:
-            if isinstance(error, WorkPlanConflict) or (
-                    "plan changed" in str(error) and "version" in str(error)):
-                continue
-            raise WorkParallelError(str(error)) from error
-    raise WorkParallelConflict("Work plan changed; question_wait not recorded")
-
-
-def _worker_question(store, board_store, lease, coord, assignment, args, evidence):
-    """Persist a question, recording a paired external wait before parking."""
-    detail = _question_detail(lease, args, evidence)
-    raw = args.get("detail")
-    provided = raw if isinstance(raw, dict) else {}
-    top_level_wait = args.get("waiting_on")
-    top_level_hint = args.get("release_hint")
-    if "waiting_on" in detail or "release_hint" in detail:
-        supplied_wait = ((top_level_wait is not None
-                          and provided.get("waiting_on") != top_level_wait)
-                         or (top_level_hint is not None
-                             and provided.get("release_hint") != top_level_hint))
-        if supplied_wait:
-            raise WorkParallelError(
-                "question_wait requires detail.waiting_on/release_hint; "
-                "top-level wait fields are not recorded")
-        if "waiting_on" not in detail or "release_hint" not in detail:
-            raise WorkParallelError(
-                "question_wait requires waiting_on and a structured release_hint before parking")
-        detail["release_hint"] = _validate_question_detail_before_write(detail)
-    elif top_level_wait is not None or top_level_hint is not None:
-        raise WorkParallelError(
-            "question_wait requires waiting_on and a structured release_hint before parking; "
-            "put both in detail because top-level wait fields are not recorded")
-
-    # A missing coordination assignment cannot durably bind a structured
-    # question_wait back to this exact lease, so decline rather than fabricate
-    # a board wait or park a receipt that the side cannot trace.
-    if "waiting_on" in detail and assignment is None:
-        raise WorkParallelError(
-            "question_wait assignment is missing; structured question_wait refused before parking")
-
-    has_wait = "waiting_on" in detail and "release_hint" in detail
-    # Validate the receipt body before any board, coordination, or ledger write.
-    _validate_question_detail_before_write(detail)
-    if has_wait:
-        _record_question_wait(board_store, lease, detail)
-    if assignment is not None:
-        cstate = coord.read()
-        _, question_receipt_digest = coord.persist_receipt(
-            lease["id"], "question", detail, expected_version=cstate["version"])
-    else:
-        question_receipt_digest = None
-    try:
-        d, _ = store.report_question(
-            lease["id"], plan_version=lease["plan_version"], evidence=evidence,
-            expected_version=store.read()["version"])
-    except WorkParallelConflict:
-        current = store.read()["leases"].get(lease["id"])
-        if current is None or current["state"] != "running" or not current["slot"]:
-            raise
-        d, _ = store.report_question(
-            lease["id"], plan_version=lease["plan_version"], evidence=evidence,
-            expected_version=store.read()["version"])
-    result = {"lease_id": lease["id"], "version": d["version"], "item_id": lease["item_id"],
-              "state": d["leases"][lease["id"]]["state"], "slot_released": True}
-    if question_receipt_digest:
-        result["receipt_digest"] = question_receipt_digest
-    return result
 
 
 def _worker_event(store, board_store, lease, args):
@@ -3837,147 +3698,6 @@ def _bind_rework_launch(store, lease, host, handoff_drift="unknown"):
     # wording is retried by parallelEvent; a later idempotent bind repairs the
     # finalization and workspace halves too.
     raise WorkParallelConflict("Work finalization state changed; reread")
-
-
-MAX_ATTRIBUTION_NAMES = 64
-_REWORK_FORK_NAME = re.compile(r"work-rework-(.{1,200})-a([1-9][0-9]{0,2})\Z", re.DOTALL)
-
-
-def _launch_rows(store, identity, reviews):
-    """Every rework launch record of this conversation: schema-5 and stranded-v1."""
-    rows = [row for row in reviews["reviews"].values()
-            if row["scope"] == identity and row["decision"] == "rework"
-            and row["replacement_lease_id"] is not None]
-    rows += [row for row in stranded(store).read()["rows"].values()
-             if row["scope"] == identity and row["replacement_lease_id"] is not None]
-    return rows
-
-
-def _fork_attribution(store, identity, names):
-    """Host-only read: which rework launch of this conversation a fork name belongs to.
-
-    The mod asks this for a native fork it cannot attribute from its own state
-    (a hot reload, or a lease that has left its status read). It reads the
-    finalization launch rows and the ledger and writes nothing.
-
-    - ``current``: the name is the dispatch name of a launch that is unresolved
-      or bound, and its replacement lease is still open.
-    - ``stale``: the name belongs to a known launch of this conversation, but to
-      an earlier attempt (``earlier_attempt``), to the latest attempt after it
-      was resolved (``attempt_resolved``), to a terminal replacement lease
-      (``lease_terminal``), or to a launch whose replacement lease is done or
-      gone (``lease_ended``).
-    - ``unknown``: no evidence. The caller must not stop a fork on this answer.
-
-    An earlier attempt is recognized by its audit row, or by the replacement
-    lease id and a lower attempt number in ``work-rework-<lease>-a<N>``: a new
-    attempt is recorded only after the one before it was resolved. A name that
-    matches more than one launch with different answers is ``unknown``.
-    """
-    from .work_parallel_finalization import UNRESOLVED_LAUNCH_STATES
-    require(type(names) is list and len(names) <= MAX_ATTRIBUTION_NAMES
-            and all(text(name, 200) for name in names), "bounded rework fork names required")
-    reviews = finalization(store).read()
-    leases = store.read()["leases"]
-    launches = _launch_rows(store, identity, reviews)
-
-    def judge(name, row):
-        launch = row["launch"]
-        lease = leases.get(row["replacement_lease_id"])
-        if name == launch["dispatch_name"]:
-            if launch["state"] == "spawn_denied":
-                return "stale", "attempt_resolved"
-            if launch["state"] not in UNRESOLVED_LAUNCH_STATES + ("bound",):
-                return None
-            if lease is None or lease["scope"] != identity or lease["state"] == "done":
-                return "stale", "lease_ended"
-            if lease["state"] in ("unreported", "orphaned"):
-                return "stale", "lease_terminal"
-            return "current", None
-        if any(entry["dispatch_name"] == name for entry in launch["audit"]):
-            return "stale", "earlier_attempt"
-        parsed = _REWORK_FORK_NAME.fullmatch(name)
-        if (parsed is not None and parsed.group(1) == row["replacement_lease_id"]
-                and int(parsed.group(2)) < launch["attempt"]):
-            return "stale", "earlier_attempt"
-        return None
-
-    forks = []
-    for name in names:
-        found = [(row, verdict) for row in launches for verdict in (judge(name, row),)
-                 if verdict is not None]
-        if not found or len({verdict for _, verdict in found}) != 1:
-            forks.append({"name": name, "status": "unknown"})
-            continue
-        row, (status, reason) = found[0]
-        answer = {"name": name, "status": status, "lease_id": row["replacement_lease_id"],
-                  "attempt": row["launch"]["attempt"]}
-        if reason is not None:
-            answer["reason"] = reason
-        forks.append(answer)
-    return {"forks": forks, "finalization_version": reviews["version"]}
-
-
-def _fork_identity(store, identity, ids, names):
-    """Host-only read for the SendMessage revival gate: is this agent a Work fork?
-
-    Matches every ledger lease of this conversation in any state (a lease is
-    deleted only while it is an unbound reservation) and every rework launch
-    row, including the dispatch names of earlier attempts in its bounded audit.
-    Writes nothing. An unreadable store raises, so the caller fails closed.
-    Only matched queries are returned; an unmatched one has no durable record,
-    which does not prove the agent is not a Work fork (the launch audit is
-    bounded and an earlier attempt's agent id is kept only once it bound).
-    """
-    def bounded(values):
-        return values is None or (type(values) is list and len(values) <= MAX_ATTRIBUTION_NAMES
-                                  and all(text(value, 200) for value in values))
-    require(bounded(ids) and bounded(names) and len(ids or []) + len(names or []) >= 1,
-            "bounded fork ids/names required")
-    from .work_parallel import ACTIVE_STATES
-    ledger_state = store.read()
-    reviews = finalization(store).read()
-    leases = {key: row for key, row in ledger_state["leases"].items() if row["scope"] == identity}
-    launches = _launch_rows(store, identity, reviews)
-    matches = []
-
-    def lease_match(query, by, lease):
-        if by == "id":
-            current = lease.get("host_id") == query
-            hit = current
-        else:
-            agent_name = lease.get("agent_name")
-            hit = agent_name == query or lease.get("dispatch_name") == query
-            current = agent_name == query or (agent_name is None and lease.get("dispatch_name") == query)
-        if hit:
-            matches.append({"query": query, "by": by, "owner": "lease", "lease_id": lease["id"],
-                            "lease_state": lease["state"],
-                            "active": lease["state"] in ACTIVE_STATES and lease.get("host_id") is not None,
-                            "current": current})
-
-    def launch_match(query, by, row):
-        launch = row["launch"]
-        if by == "id":
-            current = launch["agent_id"] == query
-            hit = current
-        else:
-            current = launch["dispatch_name"] == query
-            hit = current or any(entry["dispatch_name"] == query for entry in launch["audit"])
-        if hit:
-            replacement = leases.get(row["replacement_lease_id"])
-            matches.append({"query": query, "by": by, "owner": "launch",
-                            "lease_id": row["replacement_lease_id"],
-                            "lease_state": None if replacement is None else replacement["state"],
-                            "active": False, "current": current})
-
-    for by, values in (("id", ids or []), ("name", names or [])):
-        for query in values:
-            for lease in leases.values():
-                lease_match(query, by, lease)
-            for row in launches:
-                launch_match(query, by, row)
-    return {"matches": matches, "ledger_version": ledger_state["version"],
-            "finalization_version": reviews["version"]}
 
 
 def _orphan_preview(store, *, include_dead_parked=False):

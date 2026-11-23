@@ -19,7 +19,9 @@ class WorkSettingsCliTests(unittest.TestCase):
         saved = []
         args = argparse.Namespace(action=action, key=key, value=value, json=True)
         with patch('ciel_runtime_support.work_parallel_mcp.ledger') as ledger:
-            ledger.return_value.read.return_value = {'policy': {
+            # A real ledger always has leases; the settings list reads them for
+            # the orphan-lease row (work_parallel_menu.values -> _orphan_preview).
+            ledger.return_value.read.return_value = {'version': 0, 'leases': {}, 'launches': [], 'policy': {
                 'enabled': True, 'paused': False, 'priority_limits': {'P1': 5, 'P2': 3, 'P3': 1, 'P4': 1, 'P5': 1},
                 'launches_per_minute': 4, 'max_rework': 2}}
             try:

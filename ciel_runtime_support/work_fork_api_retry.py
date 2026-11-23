@@ -113,6 +113,9 @@ def classify_fork_transcript(path: Path) -> dict[str, Any] | None:
         return None
     last_relevant: dict[str, Any] | None = None
     last_progress_uuid = ""
+    # The newest retryable error with nothing but user records after it: the
+    # fork has the host's retry (or another message) and has not answered yet.
+    pending_error: tuple[dict[str, Any], str, bool] | None = None
     for line in lines:
         if not line.strip() or len(line) > MAX_RECORD_BYTES:
             continue
@@ -123,22 +126,28 @@ def classify_fork_transcript(path: Path) -> dict[str, Any] | None:
         if not isinstance(row, dict) or row.get("type") not in ("assistant", "user"):
             continue
         last_relevant = row
-        if row.get("type") == "assistant" and row.get("isApiErrorMessage") is not True:
-            uid = row.get("uuid")
-            if isinstance(uid, str) and uid.strip():
-                last_progress_uuid = uid.strip()[:64]
-    if last_relevant is not None:
-        classified = _classify_error_record(last_relevant)
-        if classified is not None:
-            kind, compaction = classified
-            result = {
-                "retryable": True,
-                "error_uuid": _error_uuid(last_relevant, kind),
-                "last_progress_uuid": last_progress_uuid,
-                "kind": kind,
-                "compaction": compaction,
-                "record_at": _parse_time(last_relevant.get("timestamp")),
-            }
+        if row.get("type") == "assistant":
+            classified = _classify_error_record(row)
+            pending_error = (row, *classified) if classified is not None else None
+            if row.get("isApiErrorMessage") is not True:
+                uid = row.get("uuid")
+                if isinstance(uid, str) and uid.strip():
+                    last_progress_uuid = uid.strip()[:64]
+    if last_relevant is not None and pending_error is not None:
+        record, kind, compaction = pending_error
+        # retryable: the error is the last record, so the host sends a retry.
+        # awaiting: a message followed it and no assistant record yet; this is
+        # not recovery (KOBE n107 2026-11-23 logged "recovered" each time and
+        # restarted its 20-attempt chain at 1/20 for over an hour).
+        result = {
+            "retryable": last_relevant is record,
+            **({} if last_relevant is record else {"awaiting": True}),
+            "error_uuid": _error_uuid(record, kind),
+            "last_progress_uuid": last_progress_uuid,
+            "kind": kind,
+            "compaction": compaction,
+            "record_at": _parse_time(record.get("timestamp")),
+        }
     with _CACHE_LOCK:
         _CACHE[key] = (stamp, result)
         _CACHE.move_to_end(key)

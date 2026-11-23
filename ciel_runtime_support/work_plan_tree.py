@@ -818,8 +818,12 @@ def runnable_leaves(doc: dict[str, Any]) -> list[dict[str, Any]]:
                 "note": leaf.get("note", ""),
                 "path": path_titles(doc, leaf["id"]),
             })
-    rows.sort(key=lambda row: (not row["focused"], priority_rank(row["priority"]),
-                               -float(row["created_at"]), row["item_id"]))
+    # Inside one priority the queue order stands: roots as queued (active
+    # first), each root's leaves in-progress first then tree order. The stable
+    # sort only lifts focused rows and ranks priorities (user 2026-11-23: forks
+    # run in queue order up to each priority's limit; newest-first starved the
+    # goal queued first).
+    rows.sort(key=lambda row: (not row["focused"], priority_rank(row["priority"])))
     return rows
 
 
@@ -951,11 +955,15 @@ def attention(doc: dict[str, Any], node_ids: list[str], *, include_self: bool = 
     return counts
 
 
-def readiness(doc: dict[str, Any]) -> tuple[bool, str]:
-    root = doc.get("active_root")
+def readiness(doc: dict[str, Any], root_id: str | None = None) -> tuple[bool, str]:
+    root = root_id or doc.get("active_root")
     if root is None:
         return False, "no active goal; create one with work_plan_set"
     by_id = _index(doc)
+    if root not in by_id or by_id[root]["parent_id"] is not None:
+        raise WorkPlanError(f"{root} is not a goal")
+    if by_id[root]["status"] == "done":
+        return False, f"goal {root} is already done"
     leaves = _leaves(doc, root)
     if not leaves or leaves == [root]:
         return False, "the goal has no steps yet; decompose it into phases, tasks and steps"

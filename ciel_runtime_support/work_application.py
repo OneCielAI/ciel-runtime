@@ -627,18 +627,19 @@ class WorkApplication:
             tree.select_root(doc, root, user_requested=args.get("user_requested") is True)
             return {"root_id": root, "phase": doc["phase"]}
         if command == "execute":
-            self._only(args, {"expected_version", "user_confirmed"})
-            ready, reason = tree.readiness(doc)
+            self._only(args, {"expected_version", "user_confirmed", "root_id"})
+            root = self._id(args, "root_id") if "root_id" in args else doc.get("active_root")
+            ready, reason = tree.readiness(doc, root)
             if not ready:
                 raise tree.WorkPlanError(f"The plan is not ready to execute: {reason}.")
-            if doc["phase"] == tree.PHASE_EXECUTING:
+            if tree.root_phase(doc, root) == tree.PHASE_EXECUTING:
                 outcome = "already"
             elif self.approval_ask and args.get("user_confirmed") is not True:
                 outcome = "confirmation_required"
             else:
-                tree.set_phase(doc, tree.PHASE_EXECUTING)
+                tree.set_phase(doc, tree.PHASE_EXECUTING, root)
                 outcome = "started"
-            return {"outcome": outcome, "phase": doc["phase"], "root_id": doc.get("active_root")}
+            return {"outcome": outcome, "phase": tree.root_phase(doc, root), "root_id": root}
         if command == "replan":
             self._only(args, {"expected_version", "reason"})
             if "reason" in args and not isinstance(args["reason"], str):

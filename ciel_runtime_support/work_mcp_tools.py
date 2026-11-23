@@ -227,13 +227,15 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
         {
             "name": "work_execute",
             "description": (
-                "Approve the active goal's plan and switch Work to the executing phase. The plan must reach at least "
-                "goal -> phase -> task. When user approval is configured, call it again with user_confirmed=true "
-                "only after the user explicitly agreed to the plan."
+                "Approve a goal's plan and switch it to the executing phase: the active goal, or the exact queued "
+                "goal named by root_id (it stays queued; its approved steps get Work forks in queue order). The plan "
+                "must reach at least goal -> phase -> task. When user approval is configured, call it again with "
+                "user_confirmed=true only after the user explicitly agreed to the plan."
             ),
             "inputSchema": {
                 "type": "object",
-                "properties": {"user_confirmed": {"type": "boolean"}, "expected_version": _EXPECTED_VERSION},
+                "properties": {"user_confirmed": {"type": "boolean"}, "expected_version": _EXPECTED_VERSION,
+                               "root_id": {"type": "string", "description": "Exact goal to approve; omit for the active goal. Does not change the active goal."}},
             },
         },
         {
@@ -1060,23 +1062,29 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
             d, spec, user_requested=args.get("user_requested") is True), expected_version=expected)
         return _after(doc, f"Urgent goal {root} is active; all other goals are held until it finishes. Review its plan and call work_execute.")
     if name == "work_execute":
-        return _execute(store, approval_ask, args.get("user_confirmed") is True, expected_version=expected)
+        root_id = args.get("root_id")
+        if root_id is not None and (not isinstance(root_id, str) or not root_id.strip()):
+            raise tree.WorkPlanError("root_id must be a goal id")
+        return _execute(store, approval_ask, args.get("user_confirmed") is True, expected_version=expected,
+                        root_id=root_id)
     if name == "work_replan":
         doc, _ = store.transaction(lambda d: tree.set_phase(d, tree.PHASE_PLANNING), expected_version=expected)
         return _after(doc, "Work returned to the planning phase.")
     raise tree.WorkPlanError(f"unknown Work tool {name}")
 
 
-def _execute(store: WorkPlanStore, approval_ask: bool, user_confirmed: bool, *, expected_version: int | None = None) -> str:
+def _execute(store: WorkPlanStore, approval_ask: bool, user_confirmed: bool, *, expected_version: int | None = None,
+             root_id: str | None = None) -> str:
     def mutate(doc: dict[str, Any]) -> str:
-        ready, reason = tree.readiness(doc)
+        root = root_id or doc.get("active_root")
+        ready, reason = tree.readiness(doc, root)
         if not ready:
             raise tree.WorkPlanError(f"The plan is not ready to execute: {reason}.")
-        if doc["phase"] == tree.PHASE_EXECUTING:
+        if tree.root_phase(doc, root) == tree.PHASE_EXECUTING:
             return "already"
         if approval_ask and not user_confirmed:
             return "pending"
-        tree.set_phase(doc, tree.PHASE_EXECUTING)
+        tree.set_phase(doc, tree.PHASE_EXECUTING, root)
         return "started"
 
     doc, outcome = store.transaction(mutate, expected_version=expected_version)

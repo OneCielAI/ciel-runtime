@@ -926,6 +926,29 @@ class WorkExecute(Isolated):
         code, output, _ = self.cli(ns("execute", session=A, confirm=True, expected_version=0))
         self.assertEqual((1, "version_conflict"), (code, json.loads(output[-1])["error"]))
 
+    def test_execute_target_approves_one_queued_goal_and_keeps_the_active_one(self):
+        doc = self.plan.read_snapshot()
+        self.plan.transaction(lambda d: tree.set_plan(d, {
+            "title": "Queued work", "note": "", "priority": "P1", "children": [
+                {"title": "Phase", "children": [{"title": "Task", "children": []}]}]}, None),
+            expected_version=doc["version"])
+        queued = next(n["id"] for n in self.plan.read_snapshot()["nodes"]
+                      if n["parent_id"] is None and n["id"] != self.root_id)
+        code, output, _ = self.cli(ns("execute", queued, session=A))
+        refused = json.loads(output[-1])
+        self.assertEqual((3, "confirmation_required"), (code, refused["error"]))
+        for shown in ("queued goal " + queued, "Queued work", "phase planning", "The active goal stays active"):
+            self.assertIn(shown, refused["message"])
+        self.assertEqual((queued, "planning"), (refused["would"]["root_id"], refused["would"]["phase"]))
+        code, output, _ = self.cli(ns("execute", queued, session=A, confirm=True, operation_id="ctl-execute-3"))
+        self.assertEqual(0, code, output)
+        reply = json.loads(output[-1])
+        self.assertEqual(("started", "executing", queued),
+                         (reply["result"]["outcome"], reply["result"]["phase"], reply["result"]["root_id"]))
+        after = self.plan.read_snapshot()
+        self.assertEqual((self.root_id, "planning", "executing"),
+                         (after["active_root"], tree.root_phase(after, self.root_id), tree.root_phase(after, queued)))
+
     def test_execute_is_audited_as_ctl(self):
         import os
         code, output, _ = self.cli(ns("execute", session=A, confirm=True, operation_id="ctl-execute-2"))

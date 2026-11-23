@@ -139,7 +139,7 @@ ciel-runtimectl work side-discard-failed [CATEGORY] --session S --confirm
 ciel-runtimectl side discard-failed [CATEGORY] --session S --confirm   # 위와 같은 조작
 ciel-runtimectl work operation-reconcile OPERATION --session S --confirm
 ciel-runtimectl work operation-release OPERATION --session S --confirm [--expected-version N]
-ciel-runtimectl work execute --session S --confirm [--expected-version N]
+ciel-runtimectl work execute [ROOT] --session S --confirm [--expected-version N]   # ROOT: 줄을 선 목표 하나만 승인
 ciel-runtimectl work workflow [ROOT] --session S        # 승인 워크플로우: 단계·담당·차단 사유·제안서·승인·QA·재작업·메인 할 일
 ciel-runtimectl work workflow-prompts|workflow-metrics --session S
 ciel-runtimectl work workflow-resolve ROOT resend|cancel|escalate_main|escalate_model=MODEL --session S [--confirm]
@@ -163,7 +163,7 @@ ciel-runtimectl work prompt-reset NAME --session S
 | `handoff-ack` (시간 제한 handoff 포함) | `side-handoff` | 없음 |
 | `side-drain` | `side-drain` | 없음 |
 | `side-discard-failed` | `side-discard-failed` (= `POST /ca/work/api/v1/side/discard-failed`) | `--confirm` |
-| `execute` | `execute` (보드 명령, 웹 Execute와 같음) | `--confirm`(확인 전에 활성 계획 root·제목·phase·approval 표시) |
+| `execute [ROOT]` | `execute` (보드 명령, 웹 Execute와 같음. ROOT를 주면 `root_id`) | `--confirm`(확인 전에 대상 목표 root·제목·phase·approval 표시) |
 | `operation-reconcile` | `operation-reconcile` | `--confirm` |
 | `operation-release` | `operation-release` | `--confirm`(효과가 이미 일어났을 수 있음, 재시도는 중복 가능) |
 | `workflow-resolve` | `workflow-resolve` | `cancel`·`escalate_*`만 `--confirm` |
@@ -198,6 +198,7 @@ reconcile이 `not_observable`을 기록한 뒤에만 되며, 방금 읽은 `rece
 `--confirm` 없이 실행하면 활성 계획의 root id·제목·phase·approval과 보낼 요청을 보여 주고 종료
 코드 3으로 끝난다. 요청은 방금 읽은 보드 버전(`GET /state`의 `version`)에 고정되며 그사이 계획이
 바뀌면 `version_conflict`(종료 코드 1)이다. 준비되지 않은 계획은 REST 검증기의 이유와 함께 거부된다.
+ROOT를 주면 활성 목표는 그대로 두고 줄을 선 그 목표 하나만 승인한다(보드 명령 `execute`의 `root_id`, MCP `work_execute`의 `root_id`와 같음). 승인된 목표의 단계는 우선순위별 병렬 한도 안에서 큐 순서대로 포크에 배정된다.
 
 `work status --session S`와 `work capacity --session S`는 `GET /parallel`의 `fork_gate`
 (`state`: `loaded`·`not_loaded`·`unknown`, `reason`, `gate_version`, `observed_at`, `reported_at`, `message`)와

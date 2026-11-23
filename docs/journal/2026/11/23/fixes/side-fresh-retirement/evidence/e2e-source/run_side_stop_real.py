@@ -500,9 +500,15 @@ finally:
     result["passed"] = result["passed"] and result["profile_unchanged"]
     os.chdir(SOURCE)
     removed = False
+
+    def writable(remove, path, _info):
+        # Git object files are read-only on Windows; clear the bit, then retry.
+        os.chmod(path, 0o600)
+        remove(path)
+
     for _ in range(30):
         try:
-            shutil.rmtree(OWNED)
+            shutil.rmtree(OWNED, onerror=writable)
             removed = True
             break
         except OSError:

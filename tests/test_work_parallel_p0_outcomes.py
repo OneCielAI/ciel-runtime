@@ -110,30 +110,32 @@ class P0LaneTests(P0OutcomeBase):
 
     def test_a_refused_goal_goes_behind_the_others(self):
         from ciel_runtime_support.work_parallel_p0_outcomes import P0Outcomes
-        _, late = self.goal("refused", ["x"])
-        healthy, ids = self.goal("healthy", ["y"])
-        self.assertEqual(ids["y"], self.call("p0_reserve_next", {"fork": True}, role="worker")["item_id"])
+        _, first = self.goal("refused", ["x"])
+        healthy, later = self.goal("healthy", ["y"])
+        # Queue order (user 2026-11-23): the goal queued first is reserved first.
+        self.assertEqual(first["x"], self.call("p0_reserve_next", {"fork": True}, role="worker")["item_id"])
         current = self.store.read()
         lease = next(iter(current["leases"]))
         self.assertTrue(lease)
-        found = m._p0_outcome_key(self.store, self.board.doc, SCOPE, ids["y"])
-        P0Outcomes(self.store.path).note_refusal(found[0], ids["y"], "workspace_prepare_failed", "boom")
+        found = m._p0_outcome_key(self.store, self.board.doc, SCOPE, first["x"])
+        P0Outcomes(self.store.path).note_refusal(found[0], first["x"], "workspace_prepare_failed", "boom")
         rows = m._p0_next_rows(self.store, self.board.doc, SCOPE)
-        self.assertEqual([late["x"], ids["y"]], [row["item_id"] for row in rows])
+        self.assertEqual([later["y"], first["x"]], [row["item_id"] for row in rows])
         self.assertTrue(healthy)
 
 
 class P0GoalRowTests(P0OutcomeBase):
     def test_each_goal_says_what_it_has_or_why_it_has_none(self):
-        pending, _ = self.goal("pending", ["b"])
         run_root, run = self.goal("runs", ["a"])
-        waits, wait = self.goal("waits", ["c"])
-        tree.update_node(self.board.doc, wait["c"], waiting_on="vendor answer")
         empty = tree.add_node(self.board.doc, None, "empty", priority="P1", now=self.tick())
         node = next(row for row in self.board.doc["nodes"] if row["id"] == empty)
         side = p0_store(self.store)
         side.activate_root(SCOPE, empty, node["created_at"], set_by="user", expected_version=side.read()["version"], now=6.0)
-        # Newest first: the empty goal is itself a leaf, "c" waits, then "a", then "b".
+        waits, wait = self.goal("waits", ["c"])
+        tree.update_node(self.board.doc, wait["c"], waiting_on="vendor answer")
+        pending, _ = self.goal("pending", ["b"])
+        # Queue order (user 2026-11-23): "a", then the empty goal (itself a
+        # leaf); "c" waits; "b" is queued last and gets no fork in two launches.
         self.launch()
         self.launch()
         rows = self.goals()

@@ -1626,10 +1626,12 @@ async function workToolCall($, e, next) {
     if (s?.enabled && s.approval === 'ask') {
       let answer
       const approvalSession = await sessionId($)
+      // A queued goal is approved by its exact id; the person sees that plan.
+      const targetRoot = typeof input.root_id === 'string' && input.root_id ? input.root_id : s.active_root?.id
       // M5: the person sees who asked: main, or which subagent.
       const asker = e.agentId === undefined ? 'main' : 'subagent ' + clipped(e.agentId, 40)
       try {
-        const plan = await planText($, s.active_root?.id)
+        const plan = await planText($, targetRoot)
         if (plan.length > 24000) return { deny: 'Plan too long for approval; keep planning.' }
         answer = await $.ui.ask('Approve this Work plan?\n\nRequested by: ' + asker + '\n\n' + plan, ['Approve', 'Keep planning'])
       } catch { return { deny: 'Work approval was not obtained; keep planning.' } }
@@ -1648,6 +1650,7 @@ async function workToolCall($, e, next) {
       try {
         reply = await $.mcp.call('ciel-runtime-router', 'work_execute', { session_id: approvalSession,
           expected_version: current.version, user_confirmed: true,
+          ...(targetRoot && targetRoot !== s.active_root?.id ? { root_id: targetRoot } : {}),
           _host: { ...await hostCredential($), internal: true, user_confirmed: true } })
       } catch (error) {
         await refresh($)
@@ -3674,13 +3677,27 @@ function cancelForkApiRetryTimers() {
     if (chain.timer) { try { chain.timer.cancel() } catch {}; chain.timer = null }
   }
 }
+// The fork took a retry (or another message) after its error and has not
+// answered yet: the router reports awaiting with the same last progress. That
+// is not recovery; the chain and its attempt count stay (KOBE n107 2026-11-23:
+// each retry was logged "recovered" and the next error restarted at 1/20).
+function forkApiAwaiting(apiErr, chain) {
+  return !!chain && apiErr?.awaiting === true && apiErr.agent_id === chain.agentId
+    && String(apiErr.last_progress_uuid || '') === chain.lastProgressUuid
+}
 function forkApiRetryActive(scope, lease, state) {
   const apiErr = state?.fork_api_errors?.[lease?.id]
   if (!lease || lease.state !== 'running' || !lease.host_id || !ownLeaseProcess(lease)) return false
-  if (apiErr?.retryable !== true || apiErr.agent_id !== lease.host_id) return false
   const chain = forkApiRetries.get(scope + ':' + lease.id)
+  if (forkApiAwaiting(apiErr, chain)) return !chain.exhausted
+  if (apiErr?.retryable !== true || apiErr.agent_id !== lease.host_id) return false
   if (chain && chain.exhausted && chain.lastProgressUuid === String(apiErr.last_progress_uuid || '')) return false
   return true
+}
+function forkApiNextDelay(attempts) {
+  return attempts < FORK_API_RETRY_FIRST_COUNT ? FORK_API_RETRY_FIRST_MS
+    : attempts < FORK_API_RETRY_MAX ? FORK_API_RETRY_SECOND_MS
+      : FORK_API_RETRY_FINAL_GRACE_MS
 }
 function armForkApiRetryTimer($, scope, key, chain, delayMs) {
   if (chain.timer) { try { chain.timer.cancel() } catch {}; chain.timer = null }
@@ -3696,7 +3713,15 @@ function armForkApiRetryTimer($, scope, key, chain, delayMs) {
       clearForkApiRetry(key); return
     }
     const apiErr = fresh.fork_api_errors?.[chain.leaseId]
-    if (!apiErr || apiErr.retryable !== true || apiErr.agent_id !== chain.agentId) {
+    if (forkApiAwaiting(apiErr, chain)) {
+      // The fork has the last retry. Wait one more window for its answer; a
+      // second silent window counts as an attempt, so the 20-attempt bound holds.
+      chain.awaitingWindows = (chain.awaitingWindows || 0) + 1
+      if (chain.awaitingWindows < 2 || chain.exhausted) {
+        armForkApiRetryTimer($, scope, key, chain, forkApiNextDelay(chain.attempts))
+        return
+      }
+    } else if (!apiErr || apiErr.retryable !== true || apiErr.agent_id !== chain.agentId) {
       if (chain.attempts > 0 && !chain.exhausted) {
         $.ui.log('Work fork API retry recovered: ' + chain.itemId + ' (' + chain.agentId.slice(0, 12) + ') after ' + chain.attempts + ' attempt(s)')
       }
@@ -3722,6 +3747,7 @@ function armForkApiRetryTimer($, scope, key, chain, delayMs) {
       return
     }
     chain.attempts++
+    chain.awaitingWindows = 0
     chain.lastErrorUuid = String(apiErr.error_uuid || chain.lastErrorUuid)
     chain.kind = String(apiErr.kind || chain.kind)
     chain.compaction = apiErr.compaction === true
@@ -3735,10 +3761,7 @@ function armForkApiRetryTimer($, scope, key, chain, delayMs) {
     try { await $.session.send({ to: { agentId: lease.host_id }, text }) } catch {}
     $.ui.log('Work fork API retry ' + chain.attempts + '/' + FORK_API_RETRY_MAX + ' (' + chain.kind + ') → '
       + lease.item_id + ' (' + lease.host_id.slice(0, 12) + ')')
-    const nextDelay = chain.attempts < FORK_API_RETRY_FIRST_COUNT ? FORK_API_RETRY_FIRST_MS
-      : chain.attempts < FORK_API_RETRY_MAX ? FORK_API_RETRY_SECOND_MS
-        : FORK_API_RETRY_FINAL_GRACE_MS
-    armForkApiRetryTimer($, scope, key, chain, nextDelay)
+    armForkApiRetryTimer($, scope, key, chain, forkApiNextDelay(chain.attempts))
   })
 }
 function parallelProcessForkApiRetries($, state, scope) {
@@ -3748,8 +3771,9 @@ function parallelProcessForkApiRetries($, state, scope) {
     if (!key.startsWith(scope + ':')) continue
     const lease = leases[chain.leaseId]
     const apiErr = errors[chain.leaseId]
-    if (!lease || lease.state !== 'running' || lease.host_id !== chain.agentId || parallelHasReceipt(state, lease)
-        || apiErr?.retryable !== true || apiErr.agent_id !== chain.agentId) {
+    const leaseOk = lease && lease.state === 'running' && lease.host_id === chain.agentId && !parallelHasReceipt(state, lease)
+    if (leaseOk && forkApiAwaiting(apiErr, chain)) continue
+    if (!leaseOk || apiErr?.retryable !== true || apiErr.agent_id !== chain.agentId) {
       if (chain.attempts > 0 && !chain.exhausted && lease && (lease.state === 'running' || parallelHasReceipt(state, lease))) {
         $.ui.log('Work fork API retry recovered: ' + chain.itemId + ' (' + chain.agentId.slice(0, 12) + ') after ' + chain.attempts + ' attempt(s)')
       }
@@ -3784,12 +3808,8 @@ function parallelProcessForkApiRetries($, state, scope) {
       prior.kind = String(apiErr.kind || prior.kind)
       prior.compaction = apiErr.compaction === true
       prior.lastErrorUuid = String(apiErr.error_uuid || prior.lastErrorUuid)
-      if (!prior.timer && !prior.exhausted) {
-        const nextDelay = prior.attempts < FORK_API_RETRY_FIRST_COUNT ? FORK_API_RETRY_FIRST_MS
-          : prior.attempts < FORK_API_RETRY_MAX ? FORK_API_RETRY_SECOND_MS
-            : FORK_API_RETRY_FINAL_GRACE_MS
-        armForkApiRetryTimer($, scope, key, prior, nextDelay)
-      }
+      prior.awaitingWindows = 0
+      if (!prior.timer && !prior.exhausted) armForkApiRetryTimer($, scope, key, prior, forkApiNextDelay(prior.attempts))
     }
   }
 }

@@ -66,6 +66,8 @@ CONFIRM_TEXT = {
     # The console's own text, plus the plan it acts on (the console shows it on screen).
     "execute": ("Start execution for the active plan? Active plan {root} “{title}”, phase {phase}, approval "
                 "{approval}."),
+    "execute-goal": ("Start execution for queued goal {root} “{title}”, phase {phase}, approval {approval}? "
+                     "The active goal stays active; this goal's approved steps get Work forks in queue order."),
     "operation-reconcile": ("Reconcile “{command}” ({op})? This checks the actual store to see whether the command "
                             "took effect. Nothing is re-run automatically. If the store cannot show it, the outcome "
                             "stays unknown."),
@@ -587,15 +589,22 @@ class WorkCtl:
         if action == "execute":
             # The web Execute button: the board command `execute` with the
             # person's confirmation, pinned to the plan version just shown.
+            # A target names one exact queued goal; the active goal stays.
             state = self.get(session, "/ca/work/api/v1/state")
             root = state.get("active_root") or {}
+            if target:
+                board = self.get(session, "/ca/work/api/v1/board")
+                root = self._one([n for n in board.get("nodes") or [] if n.get("parent_id") is None],
+                                 "id", target, "goal")
             body = {"expected_version": (args.expected_version if args.expected_version is not None
                                          else state.get("version", 0)),
-                    "user_confirmed": True}
-            gate(action, {**body, "root_id": root.get("id"), "title": root.get("title"), "phase": state.get("phase"),
-                          "approval": state.get("approval")},
+                    "user_confirmed": True, **({"root_id": root.get("id")} if target else {})}
+            phase = (root.get("phase") or "planning") if target else state.get("phase")
+            gate("execute-goal" if target else action,
+                 {**body, "root_id": root.get("id"), "title": root.get("title"), "phase": phase,
+                  "approval": state.get("approval")},
                  root=root.get("id") or "(none)", title=root.get("title") or "no active plan",
-                 phase=state.get("phase"), approval=state.get("approval"))
+                 phase=phase, approval=state.get("approval"))
             return self.post(session, "execute", body, op)
         if action == "workflow-resolve":
             # The web Workflow tab's buttons: cancel, resend, escalate_main, escalate_model=MODEL.

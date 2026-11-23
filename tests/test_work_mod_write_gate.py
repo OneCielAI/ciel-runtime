@@ -1074,6 +1074,31 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertFalse(result["resultHasToken"])
         self.assertEqual(["Approve this Work plan?", "", "Requested by: main"], result["asked"][0])
 
+    def test_fork_api_retry_counts_attempts_while_the_fork_takes_each_retry(self):
+        result = self.run_scenario("fork-api-retry-counts-through-awaiting")
+        chained = result["chained"]
+        self.assertEqual(1, sum("scheduling up to 20 retries" in line for line in chained), chained)
+        self.assertEqual([], [line for line in chained if "recovered" in line], chained)
+        attempts = [line.split("retry ", 1)[1].split(" ", 1)[0] for line in chained if "fork API retry " in line]
+        self.assertEqual(["1/20", "2/20", "3/20"], attempts, chained)
+        self.assertEqual(3, result["retries"])
+        self.assertEqual(1, sum("recovered" in line and "after 3 attempt(s)" in line for line in result["after"]),
+                         result["after"])
+
+    def test_a_fork_that_never_answers_its_retry_still_reaches_the_bound(self):
+        result = self.run_scenario("fork-api-retry-silent-window-is-an-attempt")
+        self.assertEqual((1, 2), (result["afterOneWindow"], result["afterTwoWindows"]), result["logs"])
+        self.assertEqual([], [line for line in result["logs"] if "recovered" in line], result["logs"])
+        self.assertIn("Work fork API retry 2/20 (server_error 503) → n107 (agent-f)", result["logs"])
+
+    def test_ask_approval_of_a_queued_goal_shows_and_records_that_goal(self):
+        result = self.run_scenario("execute-approval-queued-root")
+        self.assertEqual({"result": "Plan approved; Work is in the executing phase."}, result["result"])
+        self.assertEqual(["n9"], result["plans"])
+        self.assertIn("Plan of n9", result["asked"][0])
+        self.assertEqual(1, len(result["executes"]))
+        self.assertEqual("n9", result["executes"][0].get("root_id"))
+
     def test_dialog_names_the_subagent_that_asked(self):
         result = self.run_scenario("execute-approval-attested", "Approve", "a1b2c3")
         self.assertEqual("Requested by: subagent a1b2c3", result["asked"][0][2])

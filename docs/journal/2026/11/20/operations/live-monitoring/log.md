@@ -2,6 +2,20 @@
 
 ## 2026-11-23
 
+- 13:07:38Z 틱(직전 12:42:53Z). 4호스트 수집 성공. 운영 재시작·상태 파일 변경·배포 없음.
+  - Andy: 원장 v6251→6264, 보드 v10745→10756. submitted 22→21, running+slot 2→1, waiting_input 1. findings 2→1(n2641 해소, n1166 지속). 새 대화 오류 2: ripgrep 시간 초과 12:45:56Z, 메인 자체 OKF 검증 exit 1 12:57:53Z — 제품 결함 아님. MCP 734ms.
+  - Celly: 원장 v8106→8151, 보드 v9786→9802. waiting_input 6→4, running+slot 3→5. newfail `revival_refused` 1(12:44:28Z, 메인이 이 프로세스가 띄운 끝난 포크에 메시지 — 정상 가드). Walkie 403 `Conversation access denied` 12:50:40Z(외부). 포크 도구 오류 12건(12:45–13:07Z): 보고 형식 거부 `handoff/workspace fields: needs exactly …` 6회 — 포크마다 다음 호출에서 필드를 채워 성공(검증 가드 정상, 첫 시도 누락은 모델 입력), ripgrep 시간 초과 4, 포크의 `work_parallel_status` 호출이 `conversation identity is unavailable`로 거부 1(13:04:25Z, 포크는 세션 식별자가 없어 정상 가드), Walkie 400 1. MCP 218ms.
+  - KOBE: 원장 v3060 유지, 보드 v688→691. n107 재시도 결함 지속(미배포): 12:48–13:04Z 동안 `scheduling up to 20 retries`→`retry 1/20` 3회 반복. 수정은 회귀 진행 중.
+  - Prody: 원장 v620→628, 보드 v6817→6820. 새 대화 오류 1(메인 자체 스크립트 AssertionError 12:58:10Z). MCP 1123ms.
+  - 회귀 `combo.125354`(큐 순서·대기 목표 승인·포크 재시도): 28개 파일 세 환경 각 848 실행/0 실패, `test_work_mod_real_backend` 진행 중.
+
+- 12:42:53Z 틱(직전 11:35Z는 KOBE·Prody SSH 실패로 Andy·Celly만 수집, 미기록). 4호스트 수집 성공. 운영 재시작·상태 파일 변경·배포 없음.
+  - Andy: 원장 v6188→6251, 보드 v10745(노드 496, 루트 62, 정지 152). 열린 리스 submitted 21→22, running+slot 0→2, waiting_input 1. findings 1→2(n1166 유지, 새 n2641 `submitted, completion receipt, no review row` — 이후 12:5xZ 원장에서 n2641은 done). 11:51Z 사용자 지시 뒤 메인이 P0 목표마다 새 리프를 만들어 12:03:57Z 포크 7개 실행, 12:52:50Z 확인 포크 0·waiting 1·uncertain 3: n2638·n2640·n2641·n2642 done, n2639 unreported(12:31:56Z salvage)→재파견 submitted, n2629 waiting_input, n2594 unreported(12:48:37Z salvage)→재파견 running. 대화 오류 4: 버전 충돌 2(11:45·11:53Z, 메인 재시도 정상 경로), 보드 경로 스크립트 exit 3(11:51:44Z, 메인 자체 스크립트), Walkie 무응답 1(12:24:34Z, 외부). MCP 859ms.
+  - Celly: 원장 v8065→8106, 보드 v9786. waiting_input 4→6, running+slot 5→3. newfail `revival_refused` 8c322de1×1·d56b59e3×1 = 메인이 unreported 리스에 메시지 보내려다 거부됨(12:00:49·12:22:46Z, 정상 가드). 포크 transport_interrupted 3건 11:35:42Z(재시도 예약, 정상 경로). auto continue Work 상태 못 읽음 11:49:38Z 1건(원인 미확인). 확인 포크 0·waiting 5·uncertain 4(12:50:25Z). MCP 219ms.
+  - KOBE: 원장 v3060, 보드 v688, running+slot 1. **결함 입증**: n107 포크(a944a21f7982)가 11:31:20Z부터 12:40:39Z까지 `Prompt is too long · automatic compaction failed: API Error: TimeoutError` 20회 반복. 호스트 로그는 매번 `retry 1/20` → `recovered after 1 attempt(s)` → 새 체인. 원인: 재시도 메시지가 포크 대화 끝에 user 기록으로 붙으면 라우터 분류기(`work_fork_api_retry.classify_fork_transcript`)가 마지막 기록만 보고 오류 없음으로 판정, 모드가 이를 회복으로 처리해 체인을 지웠다. 20회 상한과 exit contract가 한 번도 작동하지 않았다. 수정·검증은 [work-queue-restart](/docs/journal/2026/11/23/fixes/work-queue-restart/record.md) 원인 3.
+  - Prody: 원장 v620, 보드 v6817, submitted 6·running+slot 2. 대화 오류 3(메인 인자 오류 `goal n1101 has no workflow`, 없는 경로 Read, 버전 충돌) — 제품 결함 아님. MCP 2702ms.
+  - 미결 추적: Andy n1166 review row 누락 지속, Celly auto continue 상태 못 읽음 재발, KOBE n102 finding 소멸 사유 미확인(이번 틱 findings 0).
+
 - 11:12–11:31Z 틱(직전 10:32Z)과 fcce6d7 배포 후 라이브 확인. 운영 재시작·상태 파일 변경 없음.
   - 배포: fcce6d7을 feature/priority-models·beta에 push, Publish 45160770706 success, npm beta `0.2.51-beta.20261123-105743.fcce6d7`. 해시 확인 오버레이 15/15: 로컬 3루트(Andy가 쓰는 hotfix5 루트 포함, 11:04:48Z), Celly, KOBE, Prody.
   - 모드 라이브: 재로드 Celly 11:04:51Z, KOBE 11:11:06Z, Prody 11:11:40Z, Andy 11:19:22Z(`reloaded (19 hooks`). 라우터 Python 변경(P0 정리, 계보 채택, `question_wait` 능력 광고)은 네 라우터 모두 설치 전에 시작돼 아직 라이브 아님.
