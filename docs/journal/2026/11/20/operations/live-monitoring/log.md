@@ -2,6 +2,21 @@
 
 ## 2026-11-23
 
+- 20:32:19–20:32:54Z 틱(직전 20:12Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
+  - **100.64.0.x 단절 지속(40분째)**: 20:33:18Z에 TCP 연결을 시도했다. Walkie 8787, KOBE·Prody ssh 1004 모두 6초 timeout이다. KOBE·Prody는 관측할 수 없다.
+    - Andy·Celly 라우터의 Walkie 전송 실패가 계속된다.
+      - transcript 전송 실패: Andy 108, Celly 79.
+      - 외부 SSE connect timeout: Andy 23, Celly 12.
+    - 두 메인 대화의 walkie MCP는 계속 끊겨 있다.
+    - Celly 메인도 20:26:47Z에 `Ciel Bridge` 어댑터를 직접 점검했다. 같은 단절을 보고 있다.
+  - **Andy**: 원장 v6374→6385, submitted 23→24, waiting_input 1→2, running+slot 3→0.
+    - n2652 검수 없음 finding이 사라졌다(지연이었음).
+    - n1166만 남았다.
+  - **Celly**: waiting_input 12→13, running+slot 1→0. 실행 중인 포크가 없다.
+    - 20:30:40Z 사용자가 메인의 도구 호출 2건을 거부했다(사람의 결정).
+    - `ChannelFileLockBusy` 1(로컬 14:18:01, transcript 전송 poll)이 났다. 11-21 이전 패턴과 같은 잠금 경쟁이다.
+    - 포크 오류 1건, 메인 오류 3건은 경로 없음과 스크립트 오류다.
+
 - 20:12:19–20:13:05Z 틱(직전 19:52Z) + 네트워크 확인 20:18Z. 운영 세션·라우터 재시작과 상태 파일 변경 없음.
   - **이 PC에서 100.64.0.x 대역 전체에 닿지 않는다(네트워크 사건, 제품 결함 아님)**
     - KOBE(100.64.0.14)·Prody(100.64.0.12) ssh: `ssh failed`.
