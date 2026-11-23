@@ -2,6 +2,32 @@
 
 ## 2026-11-23
 
+- 19:13:56–19:14:20Z 틱(직전 18:38Z) + KOBE 확인 19:17Z. 이 작업은 운영 세션·라우터 재시작과 상태 파일 변경을 하지 않았다.
+  - **KOBE — ciel-work 모드가 내려간 상태(반복 이상)**
+    - 19:07:56Z 대화에 `ciel-work was unloaded: it crashed the hooks worker`가 남았다. 19:17:08Z(대화 기록 갱신 19:16:22Z)까지 재로드 줄이 없다.
+    - 따라서 KOBE에서는 Work 훅(펌프, 게이트 라운드, side, fork gate)이 지금 돌지 않는 것으로 관측된다.
+    - 원인은 미확인이다. 디버그 로그 없이 실행된 세션이다. 내 3d475f9 설치(19:12Z)는 모드 파일을 바꾸지 않았고 충돌보다 뒤다.
+    - 같은 문구는 11-21 Andy 17:15Z에서도 1회 있었다.
+    - 복구(세션 재시작이나 모드 재로드 유도)는 금지 범위라 하지 않았다.
+    - 직전 상황
+      - 18:41:24–18:41:55Z: 사용자 지시("실제 와키 쓰레드에서 찾아")에 메인이 읽기 전용 감사 에이전트 5개를 `general-purpose`로 띄우려 했고, Work fork gate가 5회 거부했다. 정상 가드다.
+      - 18:46:40Z: 메인이 n28 P2 `work_parallel_run`을 직접 실행했다.
+      - 이후 native 포크 확인 0↔1이 오갔다.
+    - 원장 v3074→3091, 보드 v709→725, waiting_input 1→2(n107 P3, n28 P2, 둘 다 slot 없음). MCP 178ms.
+  - **Andy**: 원장 v6320→6332, running+slot 0→2, submitted 22→21. MCP 547ms.
+    - 19:03:32Z `stale completion workspace snapshot; result retained`(n1166 복구 시도, Andy_Main 보고와 같음).
+    - 18:53:08Z n2650 포크 `transport_interrupted`로 재시도 예약.
+    - 보드 버전 충돌 가드 2.
+    - Andy_Main이 보고한 "rework_ready 6행"에 대해, 이 모니터가 읽는 루트 finalization(v2271)에서는 rework_ready가 n2175·n1166 2행이다. 상태 투영이 읽는 원장과 같은 것인지는 미확인이다.
+  - **Celly**: 원장 v8288→8310, waiting_input 8→11, running+slot 5→2. MCP 265ms.
+    - n1374 `transport_interrupted` 재시도 예약 1.
+    - 활성 목표 변경 거부 1.
+    - side 실패 원문 전달 1.
+    - auto continue 상태 읽기 실패 1(19:13:16Z).
+    - 포크 오류 5: question evidence 2000자 초과, 보고 종류, TaskList·TaskStop 가드, Work 상태 읽기 실패로 Walkie 읽기 거부(19:12:02Z). 모두 가드나 검증 거부다.
+  - **Prody**: 원장 v680 그대로, 보드 v6885→6891. MCP 1114ms. 메인이 host 전용 `work_side_status`를 불러 거부됐다(가드).
+  - 3d475f9(위험 삭제 면제)는 6개 루트에 설치를 마쳤다. 라이브 효과는 각 세션이 옵션을 켠 채 새로 실행될 때부터다.
+
 - 18:38:17–18:39:31Z 틱(직전 17:32Z). 이 작업은 운영 세션·라우터 재시작과 상태 파일 변경을 하지 않았다.
   - **Andy**: 원장 v6314→6320, 보드 v10846→10865. submitted 21→22, waiting_input 2. MCP 766ms. 포크 오류 0. n1166 지속.
     - auto continue 상태 읽기 실패 공지 1(18:34:55Z). 같은 틱의 MCP는 성공했다. 이 공지는 이제 Andy·Celly·KOBE·Prody 네 호스트 모두에서 관측됐다. 원인은 미확인이며 추적 중이다.
