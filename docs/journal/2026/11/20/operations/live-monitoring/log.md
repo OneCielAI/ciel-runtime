@@ -2,6 +2,69 @@
 
 ## 2026-11-23
 
+- 22:40–23:05Z **사용자 질문 조사: side-fresh 중복, 포크 수 부족, 대기가 풀리지 않는 이유(Andy·Celly·Prody)**. 읽기 전용, 운영 상태 변경 없음.
+  - 포크가 적은 이유
+    - 세 호스트 모두 실행 후보가 0이다.
+    - 펌프 결함이 아니라, 미완료 리프가 대기·계획·열린 리스에 걸려 있다(`work_parallel_status.priority_diagnosis`).
+
+      | 호스트 | P0 | P1 | P3 | P5 |
+      |---|---|---|---|---|
+      | Andy | 미완료 14: 대기 13, 실행 1 | 79: 대기 72, 계획 4, 리스 3 | 67: 대기 47, 계획 19 | 51: 대기 41, 계획 10 |
+      | Celly | 17: 대기 10, 리스 7 | – | – | 55: 대기 52 |
+      | Prody | 3: 대기 2, 실행 1 | 1: 계획 | 2: 대기 | 1: 대기 |
+
+      - Celly P0의 리스 7은 running 3, waiting_input 2, submitted 2다. 질문에 걸려 멈춘 포크는 8개다.
+      - Prody P4는 3개 중 대기 2, 예약 1이다.
+    - Andy P0 대기는 대부분 메인이 걸어 둔 순차 의존이다. 기록 문구에 "order n2594 E2E > #113 > 131641 > #114 > #115"가 있다. 사슬은 실행 중인 n2594 하나에 걸려 있다.
+      - n2561/n2601: #113·131641 릴리스 확인 대기
+      - n2582: #115
+      - n2472: 156289 병합
+      - n1823: 123240 검수
+  - Andy 대기 기록
+    - waiting_on 151건 중 99건이 자유 문장이다. 노드 id를 적은 대기 52건은 다음과 같다.
+      - 대상이 열려 있음: 40개 노드(53건)
+      - 대상이 blocked: 2건
+      - **대상 노드가 사라짐: 5건**(n2303, n764, n1020, n1248, n2389)
+    - 완료된 노드를 가리키는 대기와 done 노드에 남은 대기는 0이다.
+  - **side-fresh 중복 실행: 측정된 원인(펌프 정지 → 리스 만료 → 강제 정지 → 재처리)**
+    - 22:01:24–22:06:15Z 동안 Andy 라우터에 `work_side_claim`·`work_side_renew`가 0건이다. 분당 횟수로 측정했고, 직전 분당 claim은 9–22건이었다.
+    - 그 사이 mod가 보낸 MCP 요청(22902–22906)은 22:06:15–22Z에야 완료로 기록됐다. 라우터는 응답 완료 시점에 로그를 남긴다(`channel_mcp_http_controller.py:91`).
+    - side 리스는 120초이고, 2초 펌프가 남은 시간 90초 미만일 때만 갱신한다(`side_intake_processing.py:316`, `side-intake.js:1932–1944`).
+    - 22:06:17Z에 side 액터 3개가 동시에 `[Request interrupted by user]`로 끝났다(a08b5f02, aaecc435, a63b3bef). 각각 15분, 12.5분, 5분째 작업 중이었다.
+    - 같은 이벤트를 새 액터가 처음부터 다시 처리했다.
+      - 40d33d66e413: aaecc435 → a1bfa828(22:06:48–22:12:25)
+      - 51a377278167: a63b3bef → adc94837(22:07:29–22:13:35)
+      - 355c03b99a6e: 20:31–21:00Z에도 같은 형태로 재처리(abb7bf3d → a4b639da)
+    - 라우터 쪽 5분 지연의 원인은 미확인이다.
+  - 동시에 여러 개가 뜨는 이유: Andy 워크스페이스 설정 `work_side_intake.max_active=5`다. 여기에 P1 예약 슬롯이 하나 더 있다(`side-intake.js:1948–1962`). 이벤트 하나당 액터 하나라 설계상 동시 실행이다.
+  - **side-fresh 문맥 불일치(코드·문구로 확인)**
+    - Andy는 `work_side_intake.session="fresh"`다. Celly 액터도 `ciel-work:side-fresh` 형식이다.
+    - fresh는 빈 대화로 시작한다(`side-intake.js:2089–2093`). 받는 workload는 노드의 id, 제목, 상태, 우선순위, phase, waiting_on(160자)뿐이다. note·progress·evidence가 없다(`side-intake.js:311–341`).
+    - 그런데 관리 프롬프트는 대화를 물려받았다고 가정한다.
+      - `gate_actor`: "메인의 컨텍스트…를 그대로 물려받은 포크", "물려받은 대화 기록에 메인이 최근 직접 확인한 결과…"
+      - `gate_recheck`: "그 이전 것은 이미 컨텍스트에 있습니다"
+      - `work_workflow_prompts.py:110–177, 228–229`
+    - fresh 액터는 메인의 결정·진행 기록·이전 스레드 글 없이 판정한다.
+  - 게이트 재확인 성과(Andy, 11-22 00:00Z 이후 영수증)
+    - 305회 중 게이트 재확인의 대기 해제는 4건이다(n1357 1, n2582 3).
+    - 요약에 "미조회"·"미확인"이 반복된다(20:02Z 회차는 10게이트 모두 미조회).
+    - 22:06Z 회차는 처리에 28분이 걸렸다.
+    - 이 세션의 격리 141건
+      - invalid_answer 116건(결정 JSON 없음 등)
+      - superseded 14건
+      - processing_error 7건과 turn_error 4건(그중 "the session was stopped and nobody has sent input since" 다수)
+  - **과잉 해제 사례**: n2582
+    - side가 "156289의 Daniel 승인"으로 대기를 풀었다.
+    - 메인이 progress에 정정을 남겼다: "Correcting side event 1c420b87a1c6: … covering only 120/160px isolated comparison and conditional #115 update/CI. Broader n2582 remains held". 승인 범위보다 넓게 해제했다는 뜻이다.
+  - Celly
+    - 라우터가 22:5xZ에 `/health`를 15–20초 안에 응답하지 못했다. 로그에는 `listener_reachable_health_busy`와 16:56:18 로컬 `anthropic_route_error … pre-output time limit` 500이 있다.
+    - 같은 시각 G: 디스크는 유휴 0%, 전송당 0.71–0.92초, 큐 2–3이었다. 지연과의 인과는 미확인이다.
+    - Celly side 영수증은 ACL 때문에 읽을 수 없어 게이트 회차를 분석하지 못했다.
+    - 멈춘 포크 8개의 evidence는 외부 답을 기다리는 내용이다. 예: n1343은 Bob의 157754 답.
+  - Prody
+    - 22:5xZ `work_parallel_status`는 위 표와 같다(후보 0).
+    - 이후 ssh가 `Received disconnect … 11: Device SSH authorization revoked or expired`로 거부돼 더 관측하지 못했다(미결).
+
 - 22:18:18–22:18:42Z 틱(직전 22:16Z 재시작 확인 프로브). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
   - MCP는 4호스트 모두 `probe_succeeded`다(Andy v10938 1063 ms, Celly v10061 687 ms, KOBE v734 335 ms, Prody v6924 1278 ms). new_failures는 4호스트 모두 0이다.
   - Andy
