@@ -25,4 +25,11 @@ timestamp: 2026-11-24T16:50:00Z
 ## 검증
 
 - 실패 테스트 먼저: `tests/test_work_gate_check.py::GateCheckUnitTests::test_due_now_then_strictly_after_interval` 수정 전 실패([red-before-fix.txt](evidence/red-before-fix.txt)), 수정 후 통과.
-- 임시 격리 Windows pytest 및 기존 Linux `ciel-runtime-test-py310`·`ciel-runtime-test-py311` 컨테이너에서 게이트 재확인·스톨·사일런트 포크·파킹 포크·릴리즈 힌트 영향 파일 전체 통과.
+- 임시 격리 Windows pytest 및 기존 Linux `ciel-runtime-test-py310`·`ciel-runtime-test-py311` 컨테이너에서 게이트 재확인·스톨·사일런트 포크·파킹 포크·릴리즈 힌트 영향 파일 전체 통과(12개 파일 각 166건 실패 0).
+
+## 배포 (2026-11-24)
+
+- 커밋 `f7a06ee`(`f7a06ee1a409697d3c38f3b057ee7386083191e8`)를 `feature/priority-models`와 `beta`에 push했다.
+- `Publish to npm` 실행 `45442020634` 성공: `@one-ciel-ai/ciel-runtime@beta` = `0.2.51-beta.20261124-165156.f7a06ee`, tarball 내 변경 7개 파일 SHA-256이 오버레이 `.new`와 7/7 일치.
+- 해시 확인 오버레이 `overlay-f7a06ee`(7개 파일, base `9a46b96`)를 7개 루트(로컬 hotfix5·`.local/share/ciel-runtime`·npm 전역, Celly 관리자 권한, KOBE, Prody, Betty) 모두 설치 전 `base 7/7` → 설치 후 `new 7/7`으로 확인했다.
+- **라이브 효과(파일 설치와 구분)**: 운영 세션과 라우터는 재시작하지 않았다. `work_gate_check.py`, `restart_takeover.py`, `company_prompt_reload.py`, `runtime_session_restart.py`, `ciel_runtime.py`, `work_parallel_mcp.py`는 라우터/런처 재시작 후 반영되며, `register.js`는 Claude Code 플러그인 재로드 또는 세션 재시작 후 반영된다.

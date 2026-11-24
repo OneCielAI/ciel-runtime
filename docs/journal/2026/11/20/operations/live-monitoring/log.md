@@ -15,6 +15,10 @@
     3. KOBE 동시 회수 중 `work_parallel_mcp.py:4300` 미처리 `KeyError`→`WorkParallelError` 변환(`legacy_no_owner` 분류·회수 정책 자체는 별도 미결).
     4. 게이트 재확인(`work_gate_check.py`) 10분 주기 엄격 적용: `digest` 변경·`turn_end`(60초) 우회 제거. 실패 테스트 재현→수정→격리 Windows 12개 파일 166 passed, Linux py310/py311 12개 파일 각 166건 실패 0. (`session=fresh`에서 수신 SSE 이벤트 자체도 `side-fresh`로 실행되는 점은 설계 동작으로 구분 보고.)
     - `py_compile`, `ruff check`, `npm run check:docs`, `npm pack --dry-run`, OKF `--strict` 3건 모두 통과.
+    - 배포 결과: 커밋 `f7a06ee`를 `feature/priority-models`·`beta` push → `Publish to npm` `45442020634` 성공(`0.2.51-beta.20261124-165156.f7a06ee`, tarball 7/7 해시 일치) → `overlay-f7a06ee` 7개 루트(로컬 3·Celly·KOBE·Prody·Betty) 모두 `base 7/7 → new 7/7` 파일 설치 확인. 운영 세션·라우터 재시작 없음(라우터 Python 수정은 라우터 재시작 후, `register.js`는 세션/플러그인 재로드 후 라이브 반영).
+  - 동료 세션(`Andy_Main (3)`) 제보 접수(별도 조사 대기, 이번 배포 미포함):
+    - 152171 스레드에서 메인 검수 요청 `[159769]` 직후 사이드 액터가 오래된 Work 노드 내용으로 모순 답글 `[159790]` 작성; 132164 `[159817]` 첨부 설계서(28,577 B)를 읽지 않고 승인 문구를 작성한 `[159864]` 및 승인 버튼 미처리.
+    - 사이드 액터 답글들이 `ack=false` 및 `messages.work.update(state='ack')` 누락으로 Walkie 미읽음 접힘이 안 되는 현상.
 
 - 2026-11-24 15:58:24–15:59:06Z 틱(직전 15:42Z), 5호스트.
   - Andy: 실행 5 유지, 대기 5→4, 제출 21 유지, 원장 7133→7146. n1166 완료 영수증은 있으나 검수 행 없음(반복). MCP 4,016 ms 시간 초과 1회(연속 두 틱); 16:00:32Z `/health` 200, PID 112668 유지. 15:43:07Z `/ca/mcp`에서 `work-plan.json` 교체 중 WinError 5 1건, 15:43:08Z 도구 응답 오류로 관측. 파일 접근 거부 원인과 이후 프로브 지연의 관련성은 미확인. 별도 context-usage 쓰기 경고 1건(15:42:58Z), 외부 SSE EOF 16건(첫 15:42:13Z), 포크 오류 1건(15:56:50Z, 원인 미확인). 15:46:44Z 시작 화면 미확인으로 입력 보류 1건.
