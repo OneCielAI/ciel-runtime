@@ -2,6 +2,25 @@
 
 ## 2026-11-23
 
+- 2026-11-24 13:12:31–13:13:04Z 틱(직전 12:52Z), 5호스트.
+  - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 MCP `probe_succeeded`(299–1,765 ms), new_failures 0. 4886d62·7edfc0c는 파일만 설치(라이브 아님).
+  - Prody
+    - running+slot 1→2, waiting_input 2→3, 원장 894→900
+    - n1200(running, P1): 포크 기록이 135분째 갱신되지 않았다(10:58Z 이후, 반복). 새 n1278(running, P1)은 기록이 계속 갱신되고 있다.
+    - 응답 없는 실행 포크 감지는 구현 중이다(배포 전).
+    - 대화 오류 9: 파일 크기 제한, 메인 스크립트 오류, 외부 API 400
+  - Betty
+    - 새 finding: n1784(리스 789fc3ec, P1)는 submitted이고 완료 영수증도 있는데 검수 행이 없다. native=running 13:12Z. 방금 생긴 상태다.
+    - activity PermissionError 1. 같은 계열이 Betty에서도 나왔다.
+    - 이번 창에 `unseen_failed`는 없다.
+  - Andy
+    - running+slot 1→2, 원장 7036→7042. n1166(반복).
+    - activity PermissionError 1(반복)
+    - 이번 창에 auto continue 읽기 실패 안내는 없다.
+  - Celly: waiting_input 5→6, submitted 1, 원장 8893→8899, MCP 1,578 ms. 대화 오류 0.
+  - KOBE: waiting_input 4, 원장 3323. 대화 오류 0.
+  - Sarah(.25): SSH가 배너 전에 끊긴다. 미확인.
+
 - 2026-11-24 12:52:55–12:53:32Z 틱(직전 12:32Z), 5호스트.
   - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 MCP `probe_succeeded`(387–2,953 ms), new_failures 0. 4886d62·7edfc0c는 파일만 설치(라이브 아님).
   - Andy: "auto continue could not read the Work status" 2건(12:34:09Z, 12:41:00Z). Andy에서 총 3건, 전체 호스트로는 6건이다.
