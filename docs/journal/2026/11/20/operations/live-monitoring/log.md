@@ -2,6 +2,34 @@
 
 ## 2026-11-23
 
+- 2026-11-24 08:40:17–08:40:45Z 틱(직전 08:20Z), 5호스트.
+  - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 모두 MCP `probe_succeeded`. 4886d62와 7edfc0c는 파일만 설치된 상태다(라이브 아님).
+  - Andy
+    - running+slot 3, submitted 24→23, 원장 6957→6967, MCP 782 ms
+    - n1166, n2708(반복)
+    - 로그: 업스트림 transient retry 20, SSE EOF 19
+    - 대화 오류 3건: 웹 문서 404, 외부 API 400, 메인 스크립트 오류
+  - Celly
+    - running+slot 5→6, waiting_input 4→3, 원장 8820→8827, MCP 797 ms
+    - 08:2x–08:3xZ 업스트림 불안정(게이트웨이 소관)
+      - transient retry 119, 늦은 SSE 재시도 5
+      - `anthropic_sse_forward_error` ERROR 6(08:31Z, 업스트림이 message_stop 전에 오류를 냄)
+      - 같은 시각 포크 n1405 `transport_interrupted`는 재시도 가드가 최대 20회 재시도로 예약했다.
+    - activity 파일 권한 오류 5(반복)
+  - KOBE
+    - running+slot 0→1, waiting_input 4, MCP 278 ms
+    - P3 정원 가드 안내 2건(n107 등)
+  - Prody
+    - running+slot 1, 원장 839→846, MCP 535 ms. 08:21Z의 4초 초과는 다시 나오지 않았다.
+    - new_failures `decision_refused_stop f799babf x1`
+      - 리스 f799babf(n1271, P4)는 이미 `done`이다.
+      - 메인의 검수 결정이 거부됐고 Stop을 다시 잡지 않았다는 기록이다. 가드 동작이다.
+    - 대화 오류 7건: 메인 스크립트와 경로 오류
+  - Betty
+    - running+slot 1→0, waiting_input 1→2, 원장 925→926, MCP 302 ms
+    - 이번 창에 `unseen_failed`는 없다. 턴 중 SSE 입력 자체가 있었는지는 보지 않았다.
+  - Sarah(.25): 08:4xZ에도 SSH가 배너 전에 끊긴다. 미확인.
+
 - 2026-11-24 08:20:46–08:21:22Z 틱(직전 07:37Z), 5호스트.
   - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. new_failures 0.
   - 배포: 채널 수정 4886d62를 npm beta `0.2.51-beta.20261124-080748.4886d62`로 냈다. 7개 루트에 해시 확인 설치했다(08:08–08:20Z, 파일만, 라이브 아님). 자세한 내용은 [mid-turn-socket-handover](../../../24/fixes/mid-turn-socket-handover/record.md).
