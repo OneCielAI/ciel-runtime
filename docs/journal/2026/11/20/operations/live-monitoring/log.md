@@ -2,6 +2,36 @@
 
 ## 2026-11-23
 
+- 2026-11-24 10:53:18–10:53:50Z 틱(직전 10:32Z), 5호스트.
+  - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 MCP `probe_succeeded`(253–3,304 ms), new_failures 0. 4886d62·7edfc0c는 파일만 설치(라이브 아님).
+  - 추적 항목 "auto continue could not read the Work status"(Andy 10:18Z, Prody 06:20Z, Celly 08:49Z)
+    - 소스(register.js): Stop이 보드를 읽을 때 `STOP_READ_MS` 10초 기한이 있다. 이 기한을 넘기거나 읽기가 실패하면 이 안내를 낸다. 11-15에 2초에서 10초로 늘린 기한이다.
+    - Andy 10:16–10:18Z 라우터 로그(로컬 04:16–04:18)
+      - `work_status` 호출 18건, 오류 행은 없다.
+      - 같은 시각 25만 토큰대 업스트림 요청 여러 건이 함께 돌고 있었다.
+    - 이번에 기한 초과인지 읽기 실패인지는 확인하지 못했다(CLI 쪽 기록 없음). 결함으로 단정하지 않고 계속 추적한다.
+  - Andy
+    - running+slot 1→3, 원장 6996→7015, MCP 1,422 ms
+    - n1166(반복)
+    - 대화: 외부 API 400, `n2554 is not a goal`, 계획 버전 충돌(가드)
+  - Celly
+    - running+slot 3, waiting_input 4→5, 원장 8865→8871
+    - 10:44Z 로컬 게이트웨이 5xx(3)와 `upstream_direct_http_error`(3)(게이트웨이 소관)
+      - 같은 시각 포크 n1468이 503을 받았다. 재시도 가드가 진행 중이다(2/20까지 관측).
+    - `work_workspace_failed workspace_prepare_retained` n1355(`git worktree add` 31초 시간 초과, 반복 유형)
+    - activity·context_usage 권한 오류 5(반복)
+  - KOBE
+    - running+slot 0→1, 원장 3304→3306
+    - `transcript_delta_delivery_failed` timeout 3(10:32Z, 반복 항목)
+    - P3 정원 가드 1
+  - Prody
+    - 원장 891, MCP 3,304 ms
+    - 대화 오류 5건: 외부 API 400 2, 메인 스크립트 인코딩·Traceback
+  - Betty
+    - 원장 934, MCP 253 ms
+    - 이번 창에 `unseen_failed`는 없다. 대화 오류 0.
+  - Sarah(.25): SSH가 배너 전에 끊긴다. 미확인.
+
 - 2026-11-24 10:32:28–10:33:42Z 틱(직전 10:12Z).
   - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. new_failures 0. 4886d62·7edfc0c는 파일만 설치(라이브 아님).
   - Andy
