@@ -25,7 +25,8 @@ MAX_FORK_ANSWERS = 8
 # re-checked and found still unmet. Main hears of each wait once.
 MAX_STALL_NOTICES = 8
 MAX_STALL_TEXT = 600
-STALL_KINDS = ('wait', 'question')
+# silent: a running fork whose transcript stopped growing (work_silent_forks).
+STALL_KINDS = ('wait', 'question', 'silent')
 STALL_FIELDS = {'item_id', 'lease_id', 'kind', 'waiting_on', 'checked', 'needed'}
 MAX_FORK_ANSWER_CHARS = 4000
 MAX_FORK_ANSWER_SOURCE_CHARS = 300
@@ -109,16 +110,41 @@ def _record_stalls(doc, notices, parked_projection, receipt_id):
     pre-read) is a stall. A wait is told once: its node's note records the
     notice with the wait text, and work_gate_check.stalled_forks stops listing
     it until the wait text changes. A question stall records the lease id.
+    A silent stall (a running fork whose transcript stopped growing) is told
+    only while the router's own re-read (``parked_projection['silent']``,
+    work_silent_forks.silent_projection) still sees that silence; it records
+    the router's mark (lease and last record time), once per silence.
     """
     from .work_gate_check import STALL_TOLD
     rows = ({row['lease_id']: row for row in parked_projection['rows']
              if type(row) is dict and row.get('state') == 'waiting_input' and row.get('slot') is False}
             if type(parked_projection) is dict and type(parked_projection.get('rows')) is list else None)
+    silences = ({row['lease_id']: row for row in parked_projection['silent'] if type(row) is dict}
+                if rows is not None and type(parked_projection.get('silent')) is list else None)
     by_id = {node['id']: node for node in doc['nodes']}
     noticed, refused, now = [], [], time.time()
     for row in notices:
         if rows is None:
             refused.append({'item_id': row['item_id'], 'reason': 'the Work ledger was unreadable'})
+            continue
+        if row['kind'] == 'silent':
+            from .work_silent_forks import told as silence_told
+            silence = (silences or {}).get(row['lease_id'])
+            node = by_id.get(row['item_id'])
+            if silences is None:
+                refused.append({'item_id': row['item_id'], 'reason': 'the fork transcript was unreadable'})
+            elif silence is None or silence.get('item_id') != row['item_id'] or node is None or node['status'] == 'done':
+                refused.append({'item_id': row['item_id'], 'reason': 'not a silent running worker of this item'})
+            elif silence_told(node.get('note'), silence['mark']):
+                refused.append({'item_id': row['item_id'], 'reason': 'already_notified'})
+            else:
+                checked = row['checked'].strip().splitlines()[0][:300]
+                _append_note(doc, node['id'], NEWLINES + STALL_TOLD + receipt_id[:12] + '): ' + silence['mark']
+                             + ' — ' + checked, now)
+                by_id = {entry['id']: entry for entry in doc['nodes']}
+                noticed.append({**{key: row[key] for key in ('item_id', 'lease_id', 'kind', 'waiting_on', 'checked',
+                                                             'needed')},
+                                'since': str(silence.get('since') or ''), 'last': str(silence.get('last') or '')})
             continue
         lease = rows.get(row['lease_id'])
         node = by_id.get(row['item_id'])

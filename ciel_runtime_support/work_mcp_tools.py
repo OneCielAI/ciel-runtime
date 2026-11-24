@@ -701,6 +701,14 @@ def dispatch_work_tool(
                 # Forks whose wait has not moved for hours are checked once more
                 # and reported to main once per wait (user 2026-11-24).
                 stalled = stalled_forks(ledger_leases, identity, doc, priority=priority) if ledger_leases is not None else []
+                # Running forks whose own transcript stopped growing are checked
+                # the same way, once per silence (user 2026-11-24, Prody n1200).
+                if ledger_leases is not None:
+                    try:
+                        from .work_silent_forks import silent_forks
+                        stalled = stalled + silent_forks(ledger_leases, identity, doc, priority=priority)
+                    except Exception:  # noqa: BLE001 - an unreadable transcript leaves the other rows
+                        pass
                 tick = tick_rows(config, doc, last, priority=priority, turn_end=args.get("turn_end") is True,
                                  parked=parked, stalled=stalled)
                 if tick is None:

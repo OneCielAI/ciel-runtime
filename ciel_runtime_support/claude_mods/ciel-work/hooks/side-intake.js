@@ -2617,12 +2617,15 @@ async function commitProposal($,actor,event,proposal,sentVia,usage) {
     if (!value.result?.duplicate && (value.result?.fork_answers?.length || value.result?.unanswered_forks?.length)) {
       try { forkText = (await answerParkedForks($,actor.identity,event,value.result)).text } catch {}
     }
-    // Forks stuck on a wait the side found still unmet (user 2026-11-24): the
-    // router recorded each wait as told, so this is main's one notice of it.
+    // Forks stuck on a wait the side found still unmet, or running forks whose
+    // transcript stopped growing (user 2026-11-24): the router recorded each
+    // wait or silence as told, so this is main's one notice of it.
     if (!value.result?.duplicate && value.result?.stall_notices?.length) {
       const stalls = value.result.stall_notices
       const lines = stalls.map(row => '- '+row.item_id+' (lease '+row.lease_id+')'
-        +(row.kind === 'wait' ? ' waits on "'+line(row.waiting_on,160)+'"' : ' is parked on a question')
+        +(row.kind === 'wait' ? ' waits on "'+line(row.waiting_on,160)+'"'
+          : row.kind === 'silent' ? T('mod_stall_silent',{since:line(row.since,40),last:line(row.last,100)})
+          : ' is parked on a question')
         +'. Checked: '+line(row.checked,300)+'. Needs: '+line(row.needed,300))
       const text = T('mod_stall_notice',{plural:stalls.length > 1 ? 's' : '',them:stalls.length > 1 ? 'them' : 'it',
         event:event.receipt_id.slice(0,12),lines:lines.join('\n')})

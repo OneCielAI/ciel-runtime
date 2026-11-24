@@ -74,6 +74,23 @@ class SideForkAnswerTests(unittest.TestCase):
         self.assertIn('deploy 0.4.509 or decide the order', notice)
         self.assertIn('no execution approval', notice)
 
+    def test_a_silent_running_fork_reaches_main_once_with_its_last_record(self):
+        # User 2026-11-24 (Prody n1200): a running fork that stopped without an
+        # answer is told to main, with the silence the router confirmed.
+        row = self.run_case('silent')
+        self.assertEqual(['silent'], [s['kind'] for s in row['resolved'][0]['stall_notices']])
+        self.assertEqual(1, len(row['appended']), row['appended'])
+        notice = row['appended'][0]
+        self.assertIn('Ciel side: stalled Work fork', notice)
+        self.assertIn('n2 (lease L4)', notice)
+        self.assertIn('2026-11-24T10:58:19Z', notice)
+        self.assertIn('tool_use:Bash', notice)
+        self.assertIn('n2 progress unchanged since 10:31Z', notice)
+        self.assertIn('check the fork, resume or stop it', notice)
+        self.assertNotIn('parked on a question', notice)
+        self.assertNotIn('the wait still holds', notice)
+        self.assertIn('no execution approval', notice)
+
     def test_an_idle_main_is_woken_toward_the_stall_notice(self):
         row = self.run_case('stalled-idle')
         self.assertEqual(1, len(row['appended']), row['appended'])

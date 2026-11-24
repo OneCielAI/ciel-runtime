@@ -1,0 +1,24 @@
+[
+ {
+  "file": "tests/test_router_debug.py",
+  "code": 1,
+  "summary": "1 failed, 24 passed in 9.08s",
+  "failed": [
+   "FAILED tests/test_router_debug.py::RouterDebugTests::test_router_recognises_its_own_health_payload"
+  ]
+ },
+ {
+  "file": "tests/test_unisolated_test_guard.py",
+  "code": 1,
+  "summary": "1 failed, 7 passed, 8 subtests passed in 13.07s",
+  "failed": [
+   "FAILED tests/test_unisolated_test_guard.py::IsolatedCliAssetTests::test_cli_asset_paths_follow_isolation"
+  ]
+ },
+ {
+  "file": "tests/test_work_gate_check.py",
+  "code": 0,
+  "summary": "25 passed in 4.55s",
+  "failed": []
+ }
+]

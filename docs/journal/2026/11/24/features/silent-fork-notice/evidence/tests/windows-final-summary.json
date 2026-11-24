@@ -1,0 +1,26 @@
+{
+ "files": 136,
+ "passed": 2732,
+ "failed": 2,
+ "skipped": 201,
+ "bad": [
+  {
+   "file": "tests/test_router_debug.py",
+   "code": 1,
+   "seconds": 5.2,
+   "summary": "1 failed, 24 passed in 3.27s",
+   "failed": [
+    "FAILED tests/test_router_debug.py::RouterDebugTests::test_router_recognises_its_own_health_payload"
+   ]
+  },
+  {
+   "file": "tests/test_unisolated_test_guard.py",
+   "code": 1,
+   "seconds": 10.2,
+   "summary": "1 failed, 7 passed, 8 subtests passed in 8.15s",
+   "failed": [
+    "FAILED tests/test_unisolated_test_guard.py::IsolatedCliAssetTests::test_cli_asset_paths_follow_isolation"
+   ]
+  }
+ ]
+}

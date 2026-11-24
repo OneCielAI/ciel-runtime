@@ -1,0 +1,3 @@
+Python 3.10.22
+tests/test_wait_boost_pytest_bridge.py :: RAN 1 failures=0 errors=0 skipped=0
+DONE

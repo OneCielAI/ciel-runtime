@@ -184,7 +184,19 @@ def _parked_projection(store, identity, decision):
         from .work_parallel_mcp import ledger
         from .work_wait_release import parked_projection
         parallel = ledger()
-        return parked_projection(parallel.read(), store.read(), identity), parallel.path
+        document, board = parallel.read(), store.read()
+        projection = parked_projection(document, board, identity)
+        if any(isinstance(row, dict) and row.get('kind') == 'silent' for row in decision.get('stall_notices') or []):
+            # A silent-fork notice is told only while the router itself still
+            # sees that running fork's transcript stopped (user 2026-11-24).
+            try:
+                from .work_silent_forks import silent_projection
+                silent = silent_projection(document, board, identity, resolve=True)
+            except Exception:  # noqa: BLE001 - an unreadable transcript refuses the silent notice
+                silent = None
+            if silent is not None:
+                projection['silent'] = silent
+        return projection, parallel.path
     except Exception:
         try:
             from .work_parallel_mcp import ledger

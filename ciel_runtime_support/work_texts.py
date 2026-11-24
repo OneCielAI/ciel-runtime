@@ -75,12 +75,17 @@ TEXTS: dict[str, str] = {
         "Resume a worker with SendMessage only if its work is still wanted; the answer and its source are quoted. "
         "This grants no approval."),
     # Forks waiting for hours on a condition the side re-checked and found still
-    # unmet (user 2026-11-24); {lines} lists each fork, told once per wait.
+    # unmet, or running forks whose transcript stopped growing (user 2026-11-24);
+    # {lines} lists each fork, told once per wait or silence.
     'mod_stall_notice': (
-        "Ciel side: stalled Work fork{plural} (event {event}). The side re-checked {them} and the wait still holds:\n"
+        "Ciel side: stalled Work fork{plural} (event {event}). The side re-checked {them} and the stall still holds:\n"
         "{lines}\n"
-        "Decide or act on what each needs; a person may have to be asked. The side reports each wait once. "
+        "Decide or act on what each needs; a person may have to be asked. The side reports each stall once. "
         "This grants no execution approval."),
+    # One silent running fork in mod_stall_notice's {lines} (the router's re-read:
+    # {since} is its last transcript record, {last} that record's kind).
+    'mod_stall_silent': (
+        " is running with its slot held, but its transcript has not grown since {since} (last record: {last})"),
     # Refusal of main's direct code edit while it delegates execution to forks.
     'mod_main_delegates': (
         "Work 실행 단계에서 메인은 코드를 직접 수정하지 않습니다. 실행은 Work 포크의 일입니다. 이 아이템의 leaf note에 관련 코드, 기술 스펙, 분석, "

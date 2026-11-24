@@ -72,6 +72,16 @@ class SideBackgroundPromptTests(unittest.TestCase):
                 self.assertIn('"needed"', text)
                 self.assertIn("조회하지 않고 넣지 마십시오", text)
 
+    def test_a_silent_running_fork_is_told_to_main_once(self):
+        # User 2026-11-24 (Prody n1200): a running fork whose transcript stopped
+        # growing is caught and told to main through stall_notices kind silent.
+        for name in ("gate_actor", "gate_recheck"):
+            text = INSTRUCTIONS[name]
+            with self.subTest(name=name):
+                self.assertIn("응답 없이 멈춘 포크", text)
+                self.assertIn('"silent"', text)
+                self.assertIn("포크에 메시지를 보내거나 중지하지 마십시오", text)
+
     def test_a_status_or_spec_question_on_a_running_item_goes_to_its_fork(self):
         # User 2026-11-24: a status question or a spec change about an item a
         # fork is running goes to that fork, which answers or acts on it.

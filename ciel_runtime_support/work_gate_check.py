@@ -321,10 +321,32 @@ def digest(rows: list[dict[str, Any]], parked: list[dict[str, Any]] | None = Non
     return hashlib.sha256(json.dumps(material, separators=(",", ":")).encode()).hexdigest()[:16]
 
 
+def _silent_lines(silent: list[dict[str, Any]]) -> list[str]:
+    """Running forks whose transcript stopped growing (work_silent_forks): host facts, no instruction."""
+    if not silent:
+        return []
+    # The threshold rides on each row (work_silent_forks imports this module).
+    lines = ["응답 없이 멈춘 포크 (호스트가 원장과 포크 전사에서 읽은 사실: running이고 슬롯을 잡았는데 전사가 "
+             "%d분 넘게 늘지 않음):" % min(int(row.get("threshold_minutes") or 0) for row in silent)]
+    for row in silent:
+        rank = ("[" + row["priority"] + "] ") if row.get("priority") else ""
+        since = time.strftime("%m-%d %H:%MZ", time.gmtime(row["since"])) if row.get("since") else "?"
+        lines.append(f"- {rank}lease {row['lease_id']} / 아이템 {row['item_id']} ({row['title']}) / 목표 "
+                     f"{row['root_id']} ({row['root_title']}), 전사 마지막 기록 {since}, {row['minutes']}분째 그대로")
+        lines.append("  마지막 기록: " + str(row.get("last") or "?"))
+        if row.get("question"):
+            lines.append("  lease 증거: " + row["question"].replace("\n", " "))
+        if row.get("progress"):
+            lines.append("  아이템 progress(최신): " + _tail(row["progress"]))
+    return lines
+
+
 def _stalled_lines(stalled: list[dict[str, Any]]) -> list[str]:
     """The stalled-fork section: host facts from the ledger and the board, no instruction."""
+    silent = [row for row in stalled if row.get("kind") == "silent"]
+    stalled = [row for row in stalled if row.get("kind") != "silent"]
     if not stalled:
-        return []
+        return _silent_lines(silent)
     lines = ["오래 멈춘 포크 (호스트가 원장과 보드에서 읽은 사실: %d시간 넘게 대기가 그대로임):" % STALL_HOURS]
     for row in stalled:
         rank = ("[" + row["priority"] + "] ") if row.get("priority") else ""
@@ -336,7 +358,7 @@ def _stalled_lines(stalled: list[dict[str, Any]]) -> list[str]:
         lines.append("  포크가 남긴 말: " + (row["question"].replace("\n", " ") or "(기록 없음)"))
         if row.get("progress"):
             lines.append("  아이템 progress(최신): " + _tail(row["progress"]))
-    return lines
+    return lines + _silent_lines(silent)
 
 
 def _parked_lines(parked: list[dict[str, Any]]) -> list[str]:
@@ -443,6 +465,8 @@ def tick_rows(config: Mapping[str, Any], doc: Mapping[str, Any], state: Mapping[
     ``parked`` (``parked_forks``) and ``stalled`` (``stalled_forks``) count like
     gates: a board whose only stuck work is forks parked on a question, or
     waiting for hours, is still checked (Celly 2026-11-23, Andy 2026-11-24).
+    ``stalled`` also carries running forks whose transcript stopped growing
+    (``work_silent_forks``, kind "silent"; Prody 2026-11-24).
     """
     interval = minutes(config)
     if interval == 0:

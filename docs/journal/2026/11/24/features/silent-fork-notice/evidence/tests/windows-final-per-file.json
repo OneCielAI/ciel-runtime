@@ -1,0 +1,822 @@
+[
+ {
+  "file": "tests/test_advisor_native_standard_flow.py",
+  "code": 0,
+  "summary": "9 passed in 1.62s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_agy_installer.py",
+  "code": 0,
+  "summary": "3 passed in 0.20s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_agy_runtime.py",
+  "code": 0,
+  "summary": "7 passed in 1.49s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_anthropic_responses_bridge.py",
+  "code": 0,
+  "summary": "62 passed, 177 subtests passed in 0.34s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_api_key_rotation.py",
+  "code": 0,
+  "summary": "46 passed, 11 subtests passed in 11.65s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_architecture_contracts.py",
+  "code": 0,
+  "summary": "219 passed, 42 skipped, 740 subtests passed in 89.10s (0:01:29)",
+  "failed": []
+ },
+ {
+  "file": "tests/test_assignment_key_coordinator.py",
+  "code": 0,
+  "summary": "18 passed, 1 skipped in 4.51s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_channel_bridge.py",
+  "code": 0,
+  "summary": "145 passed, 80 skipped, 67 subtests passed in 3.51s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_channel_mcp_tools.py",
+  "code": 0,
+  "summary": "17 passed in 0.25s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_channel_pending_injection.py",
+  "code": 0,
+  "summary": "66 passed, 37 subtests passed in 2.94s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_channel_transcript_repository.py",
+  "code": 0,
+  "summary": "21 passed in 0.82s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_claude_compaction_liveness.py",
+  "code": 0,
+  "summary": "17 passed in 9.23s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_claude_native_provider.py",
+  "code": 0,
+  "summary": "104 passed, 10 subtests passed in 17.81s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_claude_session_socket_launch.py",
+  "code": 0,
+  "summary": "1 passed in 0.32s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_codex_runtime.py",
+  "code": 0,
+  "summary": "65 passed, 12 skipped, 16 subtests passed in 12.18s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_codex_turn_recovery.py",
+  "code": 0,
+  "summary": "48 passed, 6 subtests passed in 1.36s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_compact_stop_liveness.py",
+  "code": 0,
+  "summary": "8 passed in 0.32s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_compaction_launch_contracts.py",
+  "code": 0,
+  "summary": "6 passed in 29.21s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_dangerous_rm_launch.py",
+  "code": 0,
+  "summary": "2 passed in 36.06s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_deepseek_provider.py",
+  "code": 0,
+  "summary": "26 passed in 1.61s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_emitted_tool_call_completeness.py",
+  "code": 0,
+  "summary": "7 passed in 1.38s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_headless_update_checks.py",
+  "code": 0,
+  "summary": "19 passed, 6 subtests passed in 1.56s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_host_result_pages.py",
+  "code": 0,
+  "summary": "7 passed, 5 subtests passed in 0.57s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_install_diagnostics.py",
+  "code": 0,
+  "summary": "7 passed in 1.44s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_install_diagnostics_service.py",
+  "code": 0,
+  "summary": "11 passed, 4 subtests passed in 0.26s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_install_script_paths.py",
+  "code": 0,
+  "summary": "4 passed in 11.75s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_kimi_code_runtime.py",
+  "code": 0,
+  "summary": "12 passed in 3.44s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_kobe_hooks_worker_hotfix.py",
+  "code": 0,
+  "summary": "9 passed, 4 subtests passed in 1.69s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_l3_p0_creator.py",
+  "code": 0,
+  "summary": "4 passed in 1.51s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_l3_wait_creator.py",
+  "code": 0,
+  "summary": "5 passed in 0.36s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_launch_data_path.py",
+  "code": 0,
+  "summary": "51 passed, 46 subtests passed in 5.27s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_launch_phase_trace.py",
+  "code": 0,
+  "summary": "18 passed, 6 subtests passed in 2.49s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_legacy_max_path.py",
+  "code": 0,
+  "summary": "3 passed in 0.38s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_live_api_key_command_redaction.py",
+  "code": 0,
+  "summary": "5 passed in 0.28s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_live_llm_options.py",
+  "code": 0,
+  "summary": "11 passed in 1.39s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_muse_runtime.py",
+  "code": 0,
+  "summary": "43 passed in 1.40s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_npm_launcher_python.py",
+  "code": 0,
+  "summary": "7 passed in 0.82s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_npm_runtime.py",
+  "code": 0,
+  "summary": "9 passed, 6 subtests passed in 0.25s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_package_lifecycle.py",
+  "code": 0,
+  "summary": "9 passed in 0.18s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_provider_model_list_timeout.py",
+  "code": 0,
+  "summary": "17 passed, 4 subtests passed in 21.03s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_provider_model_request_resolution.py",
+  "code": 0,
+  "summary": "5 passed in 0.27s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_provider_model_resolution_equivalence.py",
+  "code": 0,
+  "summary": "3 passed, 4348 subtests passed in 37.98s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_pty_exit_status_race.py",
+  "code": 0,
+  "summary": "7 passed, 13 skipped, 4 subtests passed in 0.71s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_pty_master_writer.py",
+  "code": 0,
+  "summary": "5 passed, 3 skipped in 0.18s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_remote_provision.py",
+  "code": 0,
+  "summary": "11 passed, 7 subtests passed in 3.32s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_review_delivery.py",
+  "code": 0,
+  "summary": "5 passed, 2 subtests passed in 16.98s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_router_debug.py",
+  "code": 1,
+  "summary": "1 failed, 24 passed in 3.27s",
+  "failed": [
+   "FAILED tests/test_router_debug.py::RouterDebugTests::test_router_recognises_its_own_health_payload"
+  ]
+ },
+ {
+  "file": "tests/test_router_io_performance.py",
+  "code": 0,
+  "summary": "9 passed in 0.83s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_runtime_maintenance_assembly.py",
+  "code": 0,
+  "summary": "1 passed in 0.23s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_runtime_maintenance_context.py",
+  "code": 0,
+  "summary": "5 passed in 0.21s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_runtime_session_restart.py",
+  "code": 0,
+  "summary": "70 passed, 5 subtests passed in 2.29s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_runtime_upgrade_service.py",
+  "code": 0,
+  "summary": "5 passed in 0.18s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_session_backup.py",
+  "code": 0,
+  "summary": "56 passed, 11 subtests passed in 7.58s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_settings_repository.py",
+  "code": 0,
+  "summary": "2 passed in 0.22s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_ack_outbox.py",
+  "code": 0,
+  "summary": "9 passed in 0.78s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_actor_failures_hotfix.py",
+  "code": 0,
+  "summary": "17 passed, 7 subtests passed in 9.71s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_background_prompts.py",
+  "code": 0,
+  "summary": "9 passed, 14 subtests passed in 0.17s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_claim_latency.py",
+  "code": 0,
+  "summary": "4 passed in 20.60s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_decision_capacity.py",
+  "code": 0,
+  "summary": "8 passed, 6 subtests passed in 0.26s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_discard_failed.py",
+  "code": 0,
+  "summary": "7 passed in 1.96s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_event_capacity.py",
+  "code": 0,
+  "summary": "16 passed in 0.51s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_fork_answers.py",
+  "code": 0,
+  "summary": "8 passed in 1.42s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_forward.py",
+  "code": 0,
+  "summary": "6 passed in 1.71s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_handoff_flow.py",
+  "code": 0,
+  "summary": "4 passed, 1 skipped in 5.86s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_instruction_view.py",
+  "code": 0,
+  "summary": "6 passed in 0.39s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_intake_mailbox.py",
+  "code": 0,
+  "summary": "9 passed in 5.89s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_intake_mcp.py",
+  "code": 0,
+  "summary": "41 passed, 1 skipped in 16.34s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_intake_mod.py",
+  "code": 0,
+  "summary": "70 passed, 87 subtests passed in 51.44s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_notice_claim.py",
+  "code": 0,
+  "summary": "19 passed, 11 subtests passed in 70.70s (0:01:10)",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_queue_starvation.py",
+  "code": 0,
+  "summary": "15 passed in 1.19s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_real_backend.py",
+  "code": 0,
+  "summary": "8 passed, 3 subtests passed in 19.77s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_reappend_release.py",
+  "code": 0,
+  "summary": "5 passed in 16.27s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_receipt_projection.py",
+  "code": 0,
+  "summary": "11 passed in 7.08s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_relay_notice.py",
+  "code": 0,
+  "summary": "12 passed in 11.78s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_release_notice.py",
+  "code": 0,
+  "summary": "6 passed, 3 skipped in 1.28s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_reply_connector.py",
+  "code": 0,
+  "summary": "11 passed, 17 subtests passed in 0.37s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_reply_outbox.py",
+  "code": 0,
+  "summary": "9 passed, 2 subtests passed in 1.51s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_running_fork_relay.py",
+  "code": 0,
+  "summary": "3 passed in 0.46s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_settings_status.py",
+  "code": 0,
+  "summary": "2 passed, 6 subtests passed in 0.22s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_silent_fork.py",
+  "code": 0,
+  "summary": "10 passed in 1.04s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_stall_watch.py",
+  "code": 0,
+  "summary": "8 passed in 0.87s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_understanding_flow.py",
+  "code": 0,
+  "summary": "9 passed in 1.55s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_wake_protocol.py",
+  "code": 0,
+  "summary": "17 passed, 16 subtests passed in 20.88s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_side_work_decision.py",
+  "code": 0,
+  "summary": "32 passed, 12 skipped in 1.70s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_slash_command_assets.py",
+  "code": 0,
+  "summary": "3 passed in 1.32s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_tool_guard.py",
+  "code": 0,
+  "summary": "23 passed, 11 subtests passed in 4.38s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_tool_side_effect_dedupe.py",
+  "code": 0,
+  "summary": "20 passed, 34 subtests passed in 0.20s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_transcript_corrupt_records.py",
+  "code": 0,
+  "summary": "12 passed in 0.62s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_transient_retry_deadline.py",
+  "code": 0,
+  "summary": "6 passed, 8 subtests passed in 0.38s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_transient_retry_preopen.py",
+  "code": 0,
+  "summary": "10 passed, 4 subtests passed in 0.21s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_transient_retry_preoutput_bound.py",
+  "code": 0,
+  "summary": "13 passed in 7.48s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_transient_retry_timeout.py",
+  "code": 0,
+  "summary": "25 passed, 41 subtests passed in 0.25s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_unattended_restart.py",
+  "code": 0,
+  "summary": "44 passed in 1.05s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_unisolated_test_guard.py",
+  "code": 1,
+  "summary": "1 failed, 7 passed, 8 subtests passed in 8.15s",
+  "failed": [
+   "FAILED tests/test_unisolated_test_guard.py::IsolatedCliAssetTests::test_cli_asset_paths_follow_isolation"
+  ]
+ },
+ {
+  "file": "tests/test_wait_boost_lane.py",
+  "code": 0,
+  "summary": "13 passed in 1.30s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_wait_boost_pytest_bridge.py",
+  "code": 0,
+  "summary": "1 passed in 18.74s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_wait_boost_sidecar.py",
+  "code": 0,
+  "summary": "52 passed in 0.75s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_wait_cleanup_service.py",
+  "code": 0,
+  "summary": "2 passed in 0.29s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_wait_effect_service.py",
+  "code": 0,
+  "summary": "4 passed in 0.14s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_wait_phase_service.py",
+  "code": 0,
+  "summary": "5 passed in 0.39s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_wait_reacquire_history.py",
+  "code": 0,
+  "summary": "4 passed in 0.26s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_wait_reserve_service.py",
+  "code": 0,
+  "summary": "7 passed in 0.34s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_windows_install_script.py",
+  "code": 0,
+  "summary": "4 passed, 6 subtests passed in 0.16s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_approval_workflow.py",
+  "code": 0,
+  "summary": "25 passed, 22 subtests passed in 10.06s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_approval_workflow_mod.py",
+  "code": 0,
+  "summary": "3 passed in 0.41s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_approval_workflow_recheck.py",
+  "code": 0,
+  "summary": "9 passed in 2.11s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_approval_workflow_review.py",
+  "code": 0,
+  "summary": "6 passed, 3 subtests passed in 37.87s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_approval_workflow_surfaces.py",
+  "code": 0,
+  "summary": "8 passed in 1.94s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_ctl_parity.py",
+  "code": 0,
+  "summary": "50 passed in 24.19s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_focus.py",
+  "code": 0,
+  "summary": "9 passed in 0.21s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_fork_api_retry.py",
+  "code": 0,
+  "summary": "4 passed, 11 subtests passed in 0.38s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_gate_check.py",
+  "code": 0,
+  "summary": "25 passed in 6.17s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_gate_parked_forks.py",
+  "code": 0,
+  "summary": "9 passed in 0.67s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_gate_review_ready.py",
+  "code": 0,
+  "summary": "3 passed in 0.14s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_http_controller.py",
+  "code": 0,
+  "summary": "37 passed in 36.37s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_http_side_receipts.py",
+  "code": 0,
+  "summary": "10 passed in 7.62s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_mcp_read_reconnect.py",
+  "code": 0,
+  "summary": "1 passed in 0.26s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_mcp_tools.py",
+  "code": 0,
+  "summary": "32 passed, 50 subtests passed in 1.78s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_mod_write_gate.py",
+  "code": 0,
+  "summary": "147 passed, 33 skipped, 61 subtests passed in 59.83s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_mode_launch.py",
+  "code": 0,
+  "summary": "12 passed, 24 subtests passed in 0.25s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_observatory.py",
+  "code": 0,
+  "summary": "9 passed in 0.36s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_parallel_content_baseline.py",
+  "code": 0,
+  "summary": "23 passed, 23 subtests passed in 79.78s (0:01:19)",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_parallel_finalization.py",
+  "code": 0,
+  "summary": "114 passed, 135 subtests passed in 322.44s (0:05:22)",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_parallel_legacy_reviewer_view.py",
+  "code": 0,
+  "summary": "6 passed in 2.17s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_parallel_model_facing_ids.py",
+  "code": 0,
+  "summary": "5 passed, 5 subtests passed in 9.59s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_parallel_p0_events.py",
+  "code": 0,
+  "summary": "48 passed, 12 subtests passed in 17.73s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_parallel_rework_worktree.py",
+  "code": 0,
+  "summary": "80 passed, 54 subtests passed in 349.64s (0:05:49)",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_parallel_slot_stall.py",
+  "code": 0,
+  "summary": "5 passed in 0.63s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_parallel_workspace_trust.py",
+  "code": 0,
+  "summary": "15 passed in 12.82s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_queue_dispatch_order.py",
+  "code": 0,
+  "summary": "4 passed in 0.29s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_release_hints.py",
+  "code": 0,
+  "summary": "3 passed in 0.33s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_side_intake.py",
+  "code": 0,
+  "summary": "6 passed in 1.25s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_texts.py",
+  "code": 0,
+  "summary": "7 passed, 25 subtests passed in 0.18s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_wait_host_api.py",
+  "code": 0,
+  "summary": "4 passed in 0.16s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_work_wait_product_adapter.py",
+  "code": 0,
+  "summary": "3 passed in 0.26s",
+  "failed": []
+ },
+ {
+  "file": "tests/test_zai_provider.py",
+  "code": 0,
+  "summary": "8 passed, 3 subtests passed in 1.34s",
+  "failed": []
+ }
+]

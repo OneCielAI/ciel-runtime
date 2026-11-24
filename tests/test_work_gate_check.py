@@ -229,17 +229,19 @@ class GateCheckMcpTests(unittest.TestCase):
         self.assertFalse(result['error'], result)
         return json.loads(result['text'])
 
+    def value(self, name, args, host=None):
+        """One host result, reassembled when the router paged it (host_result_pages), as the mod does."""
+        result = self.invoke(name, args, host)
+        self.assertFalse(result['error'], result)
+        body = json.loads(result['text'])
+        if isinstance(body, dict) and 'paged' in body:
+            body = json.loads(''.join(self.value('work_host_page', {'id': body['paged']['id'], 'part': part})['text']
+                                      for part in range(body['paged']['parts'])))
+        return body
+
     def claim(self, owner):
         """One side claim, reassembled when the router paged it (host_result_pages)."""
-        def value(name, args):
-            result = self.invoke(name, args)
-            self.assertFalse(result['error'], result)
-            body = json.loads(result['text'])
-            if isinstance(body, dict) and 'paged' in body:
-                body = json.loads(''.join(value('work_host_page', {'id': body['paged']['id'], 'part': part})['text']
-                                          for part in range(body['paged']['parts'])))
-            return body
-        return value('work_side_claim', {'owner': owner})['claim']
+        return self.value('work_side_claim', {'owner': owner})['claim']
 
     def notice(self, receipt_id):
         result = self.invoke('work_side_wake', {'event_id': receipt_id, 'state': 'notice_prepare',
@@ -433,7 +435,8 @@ class GateCheckMcpTests(unittest.TestCase):
         claimed = self.claim('actor')
         host = {**HOST, 'receipt_id': claimed['receipt_id'], 'generation': claimed['generation']}
         # A retryable failure keeps the round open (the side retries it).
-        retry = json.loads(self.invoke('work_side_fail', {'category': 'turn_error', 'model': 'valid'}, host)['text'])
+        # The failure answer carries the event text, so the router may page it.
+        retry = self.value('work_side_fail', {'category': 'turn_error', 'model': 'valid'}, host)
         self.assertFalse(retry['receipt']['side_failure']['quarantined'])
         self.assertEqual('previous_round_pending', self.check()['reason'])
         # A quarantined row is finished: it never blocks later rounds. (The
@@ -445,7 +448,7 @@ class GateCheckMcpTests(unittest.TestCase):
         again = self.claim('actor2')
         self.assertEqual(first['receipt_id'], again['receipt_id'])
         host = {**HOST, 'receipt_id': again['receipt_id'], 'generation': again['generation']}
-        failed = json.loads(self.invoke('work_side_fail', {'category': 'invalid_answer', 'model': 'main'}, host)['text'])
+        failed = self.value('work_side_fail', {'category': 'invalid_answer', 'model': 'main'}, host)
         self.assertTrue(failed['receipt']['side_failure']['quarantined'])
         record = next(Path(self.root, 'sessions').glob('*/gate-check.json'))
         row = json.loads(record.read_text(encoding='utf-8'))

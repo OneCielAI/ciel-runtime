@@ -1,0 +1,24 @@
+[
+ {
+  "file": "tests/test_side_silent_fork.py",
+  "code": 2,
+  "summary": "1 error in 0.45s",
+  "failed": [
+   "ERROR tests/test_side_silent_fork.py"
+  ]
+ },
+ {
+  "file": "tests/test_side_fork_answers.py",
+  "code": 1,
+  "summary": "1 failed, 7 passed in 1.06s",
+  "failed": [
+   "FAILED tests/test_side_fork_answers.py::SideForkAnswerTests::test_a_silent_running_fork_reaches_main_once_with_its_last_record"
+  ]
+ },
+ {
+  "file": "tests/test_side_background_prompts.py",
+  "code": 1,
+  "summary": "2 failed, 9 passed, 12 subtests passed in 0.28s",
+  "failed": []
+ }
+]

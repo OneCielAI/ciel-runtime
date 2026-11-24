@@ -1,0 +1,12 @@
+# HEAD 2303914 + work_silent_forks.py only (no gate/decision/MCP/mod integration), isolated pytest
+E       AssertionError: '응답 없이 멈춘 포크' not found in 'Ciel 게이트 재확인 (호스트 타이머, 10분마다, 메인이 바쁠 때도 동작; Work 포크가 돌고 있을 수 있음).\n네 … 게이트는 현재 상태 확인에 필요한 것만 읽습니다\n(CI 실행, 승인 메시지, 파일). 스레드 전체나 이력은 읽지 마십시오.\n게이트: 없음\n오래 멈춘 포크 (호스트가 원장과 보드에서 읽은 사실: 12시간 넘게 대기가 그대로임):\n- [P1] lease S1 / 아이템 n2 (run the playwright probe) / 목표 n1 (probe the page), 11-24 05:03Z부터 0.9시간\n  포크가 남긴 말: probing the page'
+E               ciel_runtime_support.work_plan_tree.WorkPlanError: invalid side decision stall_notices
+E               ciel_runtime_support.work_plan_tree.WorkPlanError: invalid side decision stall_notices
+E               ciel_runtime_support.work_plan_tree.WorkPlanError: invalid side decision stall_notices
+E           AssertionError: False is not true : {'interval_minutes': 10, 'queued': False, 'side_intake': True, 'main_idle': True, 'host_due': True, 'reason': 'no_gates'}
+FAILED tests/test_side_silent_fork.py::SilentForkUnitTests::test_the_gate_event_names_the_silent_fork
+FAILED tests/test_side_silent_fork.py::SilentNoticeDecisionTests::test_a_silence_the_router_still_sees_is_recorded_and_reported_once
+FAILED tests/test_side_silent_fork.py::SilentNoticeDecisionTests::test_a_silent_notice_is_refused_when_the_router_cannot_confirm_the_silence
+FAILED tests/test_side_silent_fork.py::SilentNoticeDecisionTests::test_silent_notices_are_validated
+FAILED tests/test_side_silent_fork.py::SilentForkMcpTests::test_a_silent_fork_is_checked_and_main_is_told_once
+5 failed, 5 passed in 0.95s

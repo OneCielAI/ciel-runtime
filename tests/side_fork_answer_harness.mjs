@@ -14,13 +14,19 @@ let claimed = false, noticeClaimed = false
 const answer = {lease_id:'L2',answer:'MAIN DECISION 13:16Z: merge now; no notice needed',source:'n2 progress'}
 const stall = {item_id:'n2',lease_id:'L3',kind:'wait',waiting_on:'production release 0.4.509 deployed',
   checked:'release.json says 0.4.508 (#162759)',needed:'deploy 0.4.509 or decide the order'}
-const stalledCase = scenario === 'stalled' || scenario === 'stalled-idle'
+// A running fork whose transcript stopped growing (user 2026-11-24, Prody n1200).
+const silentStall = {item_id:'n2',lease_id:'L4',kind:'silent',waiting_on:'',
+  checked:'n2 progress unchanged since 10:31Z',needed:'check the fork, resume or stop it'}
+const silentCase = scenario === 'silent'
+const stalledCase = scenario === 'stalled' || scenario === 'stalled-idle' || silentCase
+const stallRow = silentCase ? silentStall : stall
 const decision = stalledCase
-  ? {action:'answer',kind:'status',summary:'n2 유지: still 0.4.508',reply:'stalled',stall_notices:[stall]}
+  ? {action:'answer',kind:'status',summary:'n2 유지: still 0.4.508',reply:'stalled',stall_notices:[stallRow]}
   : {action:'answer',kind:'status',summary:'n2 has MAIN DECISION',reply:'answered L2',
      fork_answers:[answer], ...(scenario === 'refused-ask' ? {ask_main:true} : {})}
 const result = {action:'answer',summary:decision.summary,reply:decision.reply,duplicate:false,handoff:'not_required',
-  ...(stalledCase ? {stall_notices:[stall]} : scenario === 'refused-ask'
+  ...(silentCase ? {stall_notices:[{...silentStall,since:'2026-11-24T10:58:19Z',last:'tool_use:Bash'}]}
+    : stalledCase ? {stall_notices:[stall]} : scenario === 'refused-ask'
     ? {ask_main:true,unanswered_forks:[{lease_id:'L9',reason:'not a parked worker of this conversation'}]}
     : {fork_answers:[{...answer,item_id:'n2'}]})}
 const hostStore = new Map()

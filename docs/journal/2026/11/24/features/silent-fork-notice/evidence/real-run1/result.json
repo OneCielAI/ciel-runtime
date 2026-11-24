@@ -1,0 +1,1176 @@
+{
+  "kind": "silent running-fork notice, real load",
+  "claude_version": "2.1.331 (Claude Code)",
+  "mod_sha256": {
+    "register.js": "e3c6df3325e700441baf87afc19432090dce4793afbc4b59d1ead44aa969891b",
+    "side-intake.js": "0b9aa91a985c1c60d19731af94f786be817687d2f01c222c191910e305f330ec",
+    "texts.generated.js": "98ed24b537c911bd6cf9f705773e44e48d7f4ae9ddc75fb4554af8ec863a2d49"
+  },
+  "python_sha256": {
+    "work_gate_check.py": "1c2ce91a633c629495f5adc87d565d26df2a4334f226193ca61c38edc016fd3d",
+    "work_silent_forks.py": "aad3af9704f0a5021b2594994b15de80c2c568f5bb158d286342a3bcef54fa07",
+    "side_work_decision.py": "64b6fbc1ce371dfa4dcc9b490769cfe014ce1b29a5a0bb3c03fa47eab4b81bcc",
+    "side_intake_mcp.py": "863f0e6dfcee7eedc62c56149942873bcc594c763e29491a0980bd6cca4fe9e9",
+    "work_mcp_tools.py": "6478ea0672558d0e797572c546aedb370c1f5bc31f140a62d93f9aecdbe1c0f0",
+    "work_texts.py": "5f311f7192429f9048c06f1eb4b4ea58d167a8a13c598c1730ca1411b2f26887"
+  },
+  "board": {
+    "goal": "n1",
+    "item": "n2",
+    "lease": "silentf0e3bab379",
+    "agent": "aa905567f97ce4f71",
+    "stopped_at": "2026-11-24T11:34:49Z"
+  },
+  "steps": {
+    "mod_load_line": "hooks module ciel-work@inline loaded (worker, environment 1, tier user); events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,sess",
+    "session_start_settled_ms": 171.3,
+    "stall_resolved_s": 65.8,
+    "main_saw_notice_s": 66.8
+  },
+  "kill": "SUCCESS: The process with PID 91708 (child process of PID 102452) has been terminated.",
+  "mcp_calls": [
+    {
+      "after_s": 4.3,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 5.1,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 6.2,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 6.5,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 7.0,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 8.5,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 10.6,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 12.7,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 14.9,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 17.0,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 19.0,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 20.5,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 21.1,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 23.2,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 23.3,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 25.3,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 27.4,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 29.5,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 31.6,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 33.7,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 35.6,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 35.8,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 37.8,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 39.8,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 39.9,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 41.9,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 44.0,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 46.1,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 48.2,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 50.2,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 50.7,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 52.3,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 54.3,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 56.3,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 56.4,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 58.4,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 60.5,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 62.6,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 62.6,
+      "name": "work_side_texts",
+      "error": false
+    },
+    {
+      "after_s": 62.8,
+      "name": "work_side_gate_check",
+      "error": false,
+      "gate": {
+        "queued": true,
+        "reason": null,
+        "stalled": [
+          "silentf0e3bab379"
+        ],
+        "parked": [],
+        "gates": [],
+        "host_only": null
+      }
+    },
+    {
+      "after_s": 62.9,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 63.0,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 63.0,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 63.1,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 63.1,
+      "name": "work_side_ack",
+      "error": false
+    },
+    {
+      "after_s": 63.5,
+      "name": "work_side_gate_check",
+      "error": false
+    },
+    {
+      "after_s": 63.6,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 63.9,
+      "name": "work_side_gate_check",
+      "error": false
+    },
+    {
+      "after_s": 64.2,
+      "name": "work_side_gate_check",
+      "error": false
+    },
+    {
+      "after_s": 64.5,
+      "name": "work_proposal_status",
+      "error": false
+    },
+    {
+      "after_s": 64.8,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 65.1,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 65.1,
+      "name": "work_side_understanding",
+      "error": false
+    },
+    {
+      "after_s": 65.1,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 65.3,
+      "name": "work_side_texts",
+      "error": false
+    },
+    {
+      "after_s": 65.3,
+      "name": "work_side_resolve",
+      "error": false,
+      "result": {
+        "stall_notices": [
+          {
+            "item_id": "n2",
+            "lease_id": "silentf0e3bab379",
+            "kind": "silent",
+            "waiting_on": "",
+            "checked": "item progress and note record nothing after the probe",
+            "needed": "check the fork, then resume or stop it",
+            "since": "2026-11-24T11:34:49Z",
+            "last": "tool_use:Bash"
+          }
+        ],
+        "unnoticed_stalls": null
+      }
+    },
+    {
+      "after_s": 65.4,
+      "name": "work_live_settings",
+      "error": false
+    },
+    {
+      "after_s": 65.4,
+      "name": "work_side_wake",
+      "error": false
+    },
+    {
+      "after_s": 65.4,
+      "name": "work_side_gate_check",
+      "error": false,
+      "gate": {
+        "queued": true,
+        "reason": null,
+        "stalled": [],
+        "parked": [],
+        "gates": [],
+        "host_only": null
+      }
+    },
+    {
+      "after_s": 65.4,
+      "name": "work_side_reply",
+      "error": false
+    },
+    {
+      "after_s": 65.5,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 65.5,
+      "name": "work_proposal_status",
+      "error": false
+    },
+    {
+      "after_s": 65.5,
+      "name": "work_proposal_status",
+      "error": false
+    },
+    {
+      "after_s": 65.5,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 65.6,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 65.6,
+      "name": "work_side_wake",
+      "error": false
+    },
+    {
+      "after_s": 65.6,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 65.6,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 65.6,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 65.7,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 65.8,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 65.8,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 65.9,
+      "name": "work_side_ack",
+      "error": false
+    },
+    {
+      "after_s": 66.0,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 66.1,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 66.1,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 66.3,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 66.3,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 66.5,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 66.8,
+      "name": "work_side_texts",
+      "error": false
+    },
+    {
+      "after_s": 66.9,
+      "name": "work_side_gate_check",
+      "error": false,
+      "gate": {
+        "queued": false,
+        "reason": "previous_round_pending",
+        "stalled": null,
+        "parked": null,
+        "gates": null,
+        "host_only": null
+      }
+    },
+    {
+      "after_s": 66.9,
+      "name": "work_proposal_status",
+      "error": false
+    },
+    {
+      "after_s": 67.0,
+      "name": "work_proposal_status",
+      "error": false
+    },
+    {
+      "after_s": 67.0,
+      "name": "work_side_understanding",
+      "error": false
+    },
+    {
+      "after_s": 67.1,
+      "name": "work_side_resolve",
+      "error": false,
+      "result": {
+        "stall_notices": null,
+        "unnoticed_stalls": [
+          {
+            "item_id": "n2",
+            "reason": "already_notified"
+          }
+        ]
+      }
+    },
+    {
+      "after_s": 67.1,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 67.2,
+      "name": "work_side_wake",
+      "error": false
+    },
+    {
+      "after_s": 67.3,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 67.3,
+      "name": "work_side_wake",
+      "error": false
+    },
+    {
+      "after_s": 67.6,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 67.8,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 68.0,
+      "name": "work_side_texts",
+      "error": false
+    },
+    {
+      "after_s": 68.1,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 68.1,
+      "name": "work_side_gate_check",
+      "error": false,
+      "gate": {
+        "queued": false,
+        "reason": "no_gates",
+        "stalled": null,
+        "parked": null,
+        "gates": null,
+        "host_only": null
+      }
+    },
+    {
+      "after_s": 68.1,
+      "name": "work_proposal_status",
+      "error": false
+    },
+    {
+      "after_s": 68.2,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 68.2,
+      "name": "work_proposal_status",
+      "error": false
+    },
+    {
+      "after_s": 68.2,
+      "name": "work_side_reply",
+      "error": false
+    },
+    {
+      "after_s": 68.2,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 68.3,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 68.3,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 69.2,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 70.1,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 72.2,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 74.2,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 76.3,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 78.3,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 80.4,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 81.3,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 82.4,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 84.5,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 84.5,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 84.5,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 84.6,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 86.5,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 88.6,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 90.7,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 92.8,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 94.8,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 96.4,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 96.8,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 98.9,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 101.0,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 101.1,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 101.1,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 101.2,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 103.1,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 105.2,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 107.2,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 109.2,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 111.3,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 111.5,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 113.3,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 115.4,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 117.5,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 117.6,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 117.6,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 117.7,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 119.6,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 121.6,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 123.7,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 124.7,
+      "name": "work_side_texts",
+      "error": false
+    },
+    {
+      "after_s": 124.7,
+      "name": "work_side_gate_check",
+      "error": false,
+      "gate": {
+        "queued": false,
+        "reason": "no_gates",
+        "stalled": null,
+        "parked": null,
+        "gates": null,
+        "host_only": null
+      }
+    },
+    {
+      "after_s": 124.8,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 124.9,
+      "name": "work_side_gate_check",
+      "error": false
+    },
+    {
+      "after_s": 124.9,
+      "name": "work_side_gate_check",
+      "error": false
+    },
+    {
+      "after_s": 124.9,
+      "name": "work_proposal_status",
+      "error": false
+    },
+    {
+      "after_s": 125.4,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 125.7,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 126.6,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 127.8,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 129.8,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 131.9,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 134.0,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 134.1,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 134.1,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 134.1,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 136.1,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 138.2,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 140.2,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 141.8,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 142.3,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 144.3,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 146.3,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 148.4,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 150.4,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 150.5,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 150.5,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 150.5,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 152.5,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 154.5,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 156.6,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 156.9,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 158.6,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 160.7,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 162.7,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 164.8,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 166.8,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 166.9,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 166.9,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 166.9,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 168.9,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 170.9,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 172.0,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 172.9,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 175.0,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 177.1,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 179.1,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 181.2,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 183.2,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 183.2,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 183.3,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 183.3,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 185.0,
+      "name": "work_side_texts",
+      "error": false
+    },
+    {
+      "after_s": 185.0,
+      "name": "work_side_gate_check",
+      "error": false,
+      "gate": {
+        "queued": false,
+        "reason": "no_gates",
+        "stalled": null,
+        "parked": null,
+        "gates": null,
+        "host_only": null
+      }
+    },
+    {
+      "after_s": 185.2,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 185.3,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 185.3,
+      "name": "work_side_gate_check",
+      "error": false
+    },
+    {
+      "after_s": 185.4,
+      "name": "work_side_gate_check",
+      "error": false
+    },
+    {
+      "after_s": 185.4,
+      "name": "work_proposal_status",
+      "error": false
+    }
+  ],
+  "gate_event_section": "응답 없이 멈춘 포크 (이벤트의 \\\"응답 없이 멈춘 포크\\\" 목록).\\n- running이고 슬롯을 잡았는데 포크 자신의 전사가 30분 넘게 늘지 않은 포크입니다. 도구 호출이 결과\\n  없이 멈췄거나 모델 응답이 오지 않은 경우입니다. 호스트가 원장과 포크 전사에서 찾았고, 당신이\\n  메인에게 알리는 것이 목적입니다.\\n- 그 아이템과 목표의 progress·note, 메인 대화 기록에서 그 포크가 이미 끝났거나 메인이 이미 조치한\\n  기록이 있는지 확인합니다. 그런 기록이 있으면 알리지 않고 summary에 그 근거를 적습니다.\\n- 그런 기록이 없으면 stall_notices에 넣습니다: [{\\\"item_id\\\": 목록의 아이템, \\\"lease_id\\\": 목록의 lease,\\n  \\\"kind\\\": \\\"silent\\\", \\\"waiting_on\\\": \\\"\\\", \\\"checked\\\": 확인한 것과 결과, \\\"needed\\\": 메인이 할 조치 한 줄(예: 포크\\n  상태 확인 후 재개 또는 중지)}]. 호스트가 그 포크가 여전히 멈춰 있는지 다시 확인하고 메인에게 한 번\\n  알립니다. 같은 멈춤은 다시 알리지 않습니다.\\n- 포크에 메시지를 보내거나 중지하지 마십시오. 그것은 메인의 일입니다.\\n\\n메인 검수 대기 (이벤트에 \\\"메인 검수 대기\\\" 줄로 실린, 검수 준비가 확인된 결과만 해당).\\n- lease 줄의 submitted만으로 검수하라고 알리지 않습니다. 검수 대기 목록과 review pin이 없으면\\n  호스트의 결과 복구·검증이 아직 끝나지 않은 것이므로 메인에게 불가능한 검수를 요구하지 않습니다.\\n- 메인 대화 기록(fork의 물려받은 대화, 또는 main_transcript를 Grep \\\"Ciel side asks main\\\")에서 최근\\n  20분 안에 같은 아이템의 검수 알림이 이미 메인에게 갔으면 다시 알리지 않습니다. 그 뒤로 메인이\\n  검수하지 않았으면 다시 알립니다.\\n- 포크 결과가 메인의 검수를 기다리는데 메인이 검수하지 않고 있다는 뜻입니다. 이 결과들이\\n  검수되어야 뒤 단계가 실행됩니다. 메인에게 알리는 것이 당신의 일입니다.\\n- 결정에 \\\"ask_main\\\": true를 넣고, reply에 검수할 아이템 id를 모두 적어 지금 검수하라고\\n  말합니다. P0 목표의 것을 먼저 적습니다. 해제할 대기가 함께 있으면 같은 결정에 넣습니다.\\n\\n해제.\\n- 충족이",
+  "main_notice": "Ciel side: stalled Work fork (event 0d55b8b122c1). The side re-checked it and the stall still holds:\n- n2 (lease silentf0e3bab379) is running with its slot held, but its transcript has not grown since 2026-11-24T11:34:49Z (last record: tool_use:Bash). Checked: item progress and note record nothing after the probe. Needs: check the fork, then resume or stop it\nDecide or act on what each needs; a person may have to be asked. The side reports each stall once. This grants no execution approval.\n[Ciel host append ref 61fab224997e5be3]\n</system-reminder>\n\nThe ciel-work plugin sent a message:\nCiel side wake 0d55b8b122c1: a host message beginning \"Ciel side: stalled Work fork\" was added to this conversation while you were idle. Durable source: work_side_claim main_wakes event ref 0d55b8b122c1. Read it there and decide or act on what each stalled fork needs. This wake holds no event data, needs no acknowledgment and grants no approval. Wake ref 970dda2c512b.\n\nThis is how Claude Code surfaces a prompt a plugin submits between turns — it starts this turn in the user's place. Address the message above.",
+  "notice_count": 1,
+  "told_note_line": "Side stall notice (event 0d55b8b122c1): lease silentf0e3bab379 silent since 2026-11-24T11:34:49Z — item progress and note record nothing after the probe",
+  "lease_after": {
+    "state": "running",
+    "slot": true
+  },
+  "silent_after": [],
+  "later_gate_checks": [
+    {
+      "queued": true,
+      "reason": null,
+      "stalled": [],
+      "parked": [],
+      "gates": [],
+      "host_only": null
+    },
+    {
+      "queued": false,
+      "reason": "previous_round_pending",
+      "stalled": null,
+      "parked": null,
+      "gates": null,
+      "host_only": null
+    },
+    {
+      "queued": false,
+      "reason": "no_gates",
+      "stalled": null,
+      "parked": null,
+      "gates": null,
+      "host_only": null
+    },
+    {
+      "queued": false,
+      "reason": "no_gates",
+      "stalled": null,
+      "parked": null,
+      "gates": null,
+      "host_only": null
+    },
+    {
+      "queued": false,
+      "reason": "no_gates",
+      "stalled": null,
+      "parked": null,
+      "gates": null,
+      "host_only": null
+    }
+  ],
+  "engine_session_transcript_at_slug": true,
+  "checks": {
+    "mod_loaded": true,
+    "gate_event_named_the_fork": true,
+    "event_text_has_silence_facts": false,
+    "stall_decision_committed": true,
+    "board_records_told_silence": true,
+    "main_got_one_notice": true,
+    "notice_says_silence_checked_and_needed": true,
+    "lease_still_running": true,
+    "not_listed_again": true
+  },
+  "passed": false,
+  "profile_changed": [
+    "~/.claude.json"
+  ],
+  "profile_unchanged": true,
+  "scratch_removed": true
+}

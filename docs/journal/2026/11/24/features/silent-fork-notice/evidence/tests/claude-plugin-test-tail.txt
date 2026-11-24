@@ -1,0 +1,8 @@
+(pass) main hears of its first workflow item once, woken only when idle [480.77ms]
+(pass) a workflow notice appended while main works wakes main once it is idle [538.05ms]
+(pass) a delegated proposal fork is requested on main model with the host prompt, also with parallel on [370.87ms]
+(pass) /work-mode workflow lists stage, owner, proposal and request [157.24ms]
+
+ 94 pass
+ 0 fail
+Ran 94 tests across 3 files. [23.88s]

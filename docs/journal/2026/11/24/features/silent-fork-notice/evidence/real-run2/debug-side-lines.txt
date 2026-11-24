@@ -1,0 +1,9 @@
+2026-11-24T12:50:07.981Z [DEBUG] hooks module ciel-work@inline loaded (worker, environment 1, tier user); events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,session.compact,classic.Stop,session.receive,prompt.submit,command.run,tool.call,session.send,tool.check,session.end,ui.render,ui.message
+2026-11-24T12:50:09.222Z [DEBUG] hooks module ciel-work@inline session.start settled in 938.4ms (worker hop, next() included)
+2026-11-24T12:51:08.569Z [DEBUG] [ciel-work] $.ui.log: Gate re-check queued for 0 blocked/waiting item(s)
+2026-11-24T12:51:10.467Z [INFO] [Stall] agent_completion agentId=ad0af562abb681294 agentType=ciel-work:side-fresh exitPath=completed durationMs=1271 turns=1 finalStopReason=end_turn lastChunkAgeMs=27 lastToolUseId=none lastToolResultSeen=none
+2026-11-24T12:51:11.166Z [DEBUG] [ciel-work] $.ui.log: Gate re-check queued for 0 blocked/waiting item(s)
+2026-11-24T12:51:12.677Z [INFO] [Stall] agent_completion agentId=ae09b7fbf5c0b3fab agentType=ciel-work:side-fresh exitPath=completed durationMs=867 turns=1 finalStopReason=end_turn lastChunkAgeMs=14 lastToolUseId=none lastToolResultSeen=none
+2026-11-24T12:51:13.025Z [DEBUG] [ciel-work] $.ui.log (to debug): Ciel side: asked the side actor for 866220518246 to correct its answer (side answer carries no decision JSON)
+2026-11-24T12:51:13.276Z [INFO] [Stall] agent_completion agentId=ae09b7fbf5c0b3fab agentType=ciel-work:side-fresh exitPath=completed durationMs=291 turns=1 finalStopReason=end_turn lastChunkAgeMs=18 lastToolUseId=none lastToolResultSeen=none
+2026-11-24T12:51:13.860Z [DEBUG] [ciel-work] $.ui.log: Ciel side: original of failed event 866220518246 → main (appended)
