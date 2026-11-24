@@ -2,6 +2,35 @@
 
 ## 2026-11-23
 
+- 2026-11-24 10:12:24–10:12:59Z 틱(직전 09:52Z), 5호스트.
+  - 공통
+    - 운영 세션·라우터 재시작과 상태 파일 변경 없음.
+    - 5호스트 MCP `probe_succeeded`(297–2,395 ms), new_failures 0.
+    - 4886d62·7edfc0c는 파일만 설치(라이브 아님).
+  - Andy
+    - running+slot 1→2, submitted 22→21, 원장 6986→6991
+    - n1166 검수 행 누락(반복)
+    - `runtime_activity_context_usage_failed` PermissionError 1(반복 계열)
+  - Celly
+    - running+slot 5→4, waiting_input 3→4, 원장 8857→8858
+    - 오류 없음. client 연결 끊김과 keepalive 합성은 반복.
+  - KOBE
+    - submitted 0→1, running+slot 2→1, 원장 3293→3298, MCP 2,395 ms
+    - 업스트림 오류 이벤트 1(09:55Z, 게이트웨이 소관)
+    - activity PermissionError 1(반복 계열, KOBE에서도 관측)
+    - 검수 포크 금지 가드 1
+  - Prody
+    - 원장 873→879
+    - 대화
+      - 계획 버전 충돌(가드)
+      - n1276 중복 디스패치 가드
+      - `work_side_handoff: side handoff not found`(메인이 handoff가 필요 없는 알림에 호출. Celly에서도 본 유형)
+  - Betty
+    - running+slot 1→0, 원장 928→932
+    - `unseen_failed` 4건: 7882(09:53Z), 7883·7884(09:55Z), 7885(10:11Z)
+    - 같은 결함이다. 라우터 재시작 전이라 이전 코드가 돌고 있다.
+  - Sarah(.25): SSH가 배너 전에 끊긴다. 미확인.
+
 - 2026-11-24 09:52:31–09:53:02Z 틱(직전 09:32Z), 5호스트.
   - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 MCP `probe_succeeded`(277–2,390 ms), new_failures 0. 4886d62·7edfc0c는 파일만 설치(라이브 아님).
   - Andy
