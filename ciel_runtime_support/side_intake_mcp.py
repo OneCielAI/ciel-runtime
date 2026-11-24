@@ -291,6 +291,20 @@ def _side_model_configured(config):
         return True
 
 
+def _distinct_billing_parent(config, outcome):
+    """Require a known failed model and a distinct, explicit main route."""
+    from .work_fork_models import projection
+    routes = projection(config)
+    main = routes.get('main') or {}
+    side_alias = (routes.get('models') or {}).get('side')
+    side_model = (routes.get('upstream') or {}).get('side')
+    failed = outcome.get('effective_model')
+    return bool(not routes.get('forced_model') and failed and side_model and main.get('upstream')
+                and failed in (side_alias, side_model)
+                and main['upstream'] not in (side_model, side_alias)
+                and main.get('model') not in (side_model, side_alias))
+
+
 def _p0_readback(result):
     """The reply's last line states the P0 the host activated, or why it did not.
 
@@ -368,14 +382,16 @@ def run(name, args, config, state_dir, identity, store):
         return renew(state_dir, identity, host.get('receipt_id'), host.get('generation'),
                      source_bounded=args.get('source_bounded'))
     if name == 'work_side_fail':
-        from .side_request_outcome import take as take_side_outcome
-        outcome = take_side_outcome(state_dir, identity, str(args.get('agent_id') or ''),
-                                    str(host.get('receipt_id') or ''))
-        receipt = fail(state_dir, identity, host.get('receipt_id'), host.get('generation'), {
+        from .side_request_outcome import peek as peek_side_outcome
+        receipt_id = host.get('receipt_id')
+        receipt = fail(state_dir, identity, receipt_id, host.get('generation'), {
             'category': args.get('category'), 'model': args.get('model'),
-            'model_fingerprint': args.get('model_fingerprint'), 'reason': args.get('reason'), 'outcome': outcome,
+            'model_fingerprint': args.get('model_fingerprint'), 'reason': args.get('reason'),
+            'load_outcome': lambda started: peek_side_outcome(
+                state_dir, identity, str(args.get('agent_id') or ''), str(receipt_id or ''), not_before=started),
             'retry_after_seconds': args.get('retry_after_seconds'),
-            'side_model': _side_model_configured(config)})
+            'side_model': _side_model_configured(config),
+            'distinct_parent_model': lambda outcome: _distinct_billing_parent(config, outcome)})
         response = {'receipt': receipt, 'main_fallback_eligible': bool((receipt.get('side_failure') or {}).get('main_fallback_eligible'))}
         if (receipt.get('side_failure') or {}).get('quarantined'):
             # Immediate host delivery; claim/status also offer it for crash recovery.

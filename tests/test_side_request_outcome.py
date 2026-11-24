@@ -2,10 +2,23 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ciel_runtime_support.side_request_outcome import record, take
+from ciel_runtime_support.side_request_outcome import peek, record, take
 
 
 class SideRequestOutcomeTests(unittest.TestCase):
+    def test_peek_is_nondestructive_and_checks_generation_start_and_ttl(self):
+        from unittest.mock import patch
+        clock = 'ciel_runtime_support.side_request_outcome.time.time'
+        with tempfile.TemporaryDirectory() as raw:
+            args = (Path(raw), 'claude:parent', 'agent-1', 'receipt-1')
+            with patch(clock, return_value=10000):
+                record(*args, {'code':'billing_error'})
+            with patch(clock, return_value=10001):
+                self.assertIsNone(peek(*args, not_before=10001))
+                self.assertEqual('billing_error', peek(*args, not_before=9999)['code'])
+                self.assertEqual('billing_error', peek(*args, not_before=9999)['code'])
+            with patch(clock, return_value=13601):
+                self.assertIsNone(peek(*args, not_before=9999))
     def test_record_is_bounded_and_consumed_once(self):
         with tempfile.TemporaryDirectory() as raw:
             root=Path(raw)

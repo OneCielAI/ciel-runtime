@@ -22,6 +22,12 @@ class WorkTextsTests(unittest.TestCase):
             self.assertNotIn(text[:60], source, name)
             self.assertIn("T('" + name + "'", source, name)
 
+    def test_main_waits_for_host_notifications_without_polling(self):
+        main = work_texts.TEXTS["mod_instructions"]
+        for phrase in ("알림을 기다리기 위해", "work_parallel_status", "셸로 반복 조회하지", "턴을 끝냅니다"):
+            self.assertIn(phrase, main)
+        self.assertNotIn("알림을 기다리기 위해", work_texts.TEXTS["mod_fork_rules"])
+
     def test_fork_rules_carry_the_complete_question_wait_contract(self):
         # The contract is its own text, appended only for a router that
         # advertises question_wait; the base rules never name the new fields.
@@ -77,6 +83,9 @@ class WorkTextsTests(unittest.TestCase):
                 "release_hint.lookup",
                 "never an answer, approval, or execution authorization",
                 "Read `/work-mode help`, `work_status`, and `work_parallel_status`",
+                "Do not poll `work_status`, `work_parallel_status`",
+                "run the existing read-only diagnostic",
+                "put deterministic checks in the host",
         ):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, skill)

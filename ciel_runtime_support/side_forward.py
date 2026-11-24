@@ -36,6 +36,7 @@ def text(receipt_id, row):
     attempts = int(failure.get('attempt_count') or 0)
     return ('[Ciel side 처리 실패 · 원문 전달 · event ' + receipt_id[:12] + ' · ' + category
             + (' · ' + str(attempts) + '회 시도' if attempts else '') + ']\n'
+            + ('실패 사유: API 크레딧 잔액 부족.\n' if category == 'billing_error' else '')
             + '사이드 액터가 이 외부 메시지를 처리하지 못해 원문을 그대로 전달합니다. '
             + '필요한 응답과 작업은 메인에서 직접 판단하세요. 이 전달은 실행 승인이 아닙니다.\n\n'
             + str(row.get('text') or ''))

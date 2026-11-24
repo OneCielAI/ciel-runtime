@@ -26,6 +26,16 @@ def record(state_dir, identity, agent_id, receipt_id, outcome):
 
 
 def take(state_dir, identity, agent_id, receipt_id):
+    return _lookup(state_dir, identity, agent_id, receipt_id, consume=True)
+
+
+def peek(state_dir, identity, agent_id, receipt_id, *, not_before):
+    """Read without consuming evidence until the fenced failure is durable."""
+    return _lookup(state_dir, identity, agent_id, receipt_id,
+                   not_before=max(not_before, time.time() - 3600))
+
+
+def _lookup(state_dir, identity, agent_id, receipt_id, *, consume=False, not_before=0):
     candidates = [_path(state_dir, identity, agent_id, receipt_id)] if agent_id else []
     # Agent ids seen by Claude hooks and HTTP headers are not guaranteed to use
     # one spelling across all native hosts. Always fall back to the exact parent
@@ -40,10 +50,14 @@ def take(state_dir, identity, agent_id, receipt_id):
         except FileNotFoundError:
             continue
         if isinstance(value, dict) and value.get('identity') == identity and value.get('receipt_id') == receipt_id:
+            recorded_at = value.get('recorded_at')
+            if not_before and (not isinstance(recorded_at, (int, float)) or recorded_at < not_before):
+                continue
             matches.append((path, value))
     if len(matches) != 1:
         return None
     path, value = matches[0]
-    with exclusive_file_lock(path):
-        path.unlink(missing_ok=True)
+    if consume:
+        with exclusive_file_lock(path):
+            path.unlink(missing_ok=True)
     return value

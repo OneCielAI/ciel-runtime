@@ -140,6 +140,84 @@ class SideMcpTests(unittest.TestCase):
             self.assertTrue(failed['use_parent_model'])
             self.assertGreater(failed['retry_not_before'],failed['failed_at'])
 
+    def test_failure_replay_does_not_count_twice_or_touch_new_generation(self):
+        from unittest.mock import patch
+        with patch('ciel_runtime_support.side_intake_mcp._side_model_configured', return_value=True):
+            event = self._claim()
+            key = event['receipt_id']
+            host = {'token': 'x'*40, 'receipt_id': key, 'generation': event['generation']}
+            args = {'category': 'turn_error'}
+            first = json.loads(self.invoke('work_side_fail', args, host)['text'])
+            again = self.invoke('work_side_fail', args, host)
+            self.assertFalse(again['error'], again)
+            self.assertEqual(first['receipt']['side_failure'], json.loads(again['text'])['receipt']['side_failure'])
+            new = self._claim()
+            self.assertNotEqual(event['generation'], new['generation'])
+            self.assertTrue(self.invoke('work_side_fail', args, host)['error'])
+            self.assertEqual(new['generation'], self.inbox._load(key)['processing']['generation'])
+
+    def test_typed_billing_without_verified_alternate_immediately_offers_forward(self):
+        from ciel_runtime_support.side_request_outcome import record
+        event = self._claim()
+        key = event['receipt_id']
+        host = {'token': 'x'*40, 'receipt_id': key, 'generation': event['generation']}
+        record(self.root, self.identity, 'agent', key,
+               {'status': 402, 'code': 'billing_error', 'message': 'Credit balance too low'})
+        args = {'category': 'turn_error', 'agent_id': 'agent'}
+        first = json.loads(self.invoke('work_side_fail', args, host)['text'])
+        failure = first['receipt']['side_failure']
+        self.assertEqual((1, True, False), (failure['attempt_count'], failure['quarantined'], failure['retryable']))
+        self.assertIn('API 크레딧 잔액 부족', first['main_forward']['text'])
+        self.assertNotIn('Credit balance too low', first['main_forward']['text'])
+        again = json.loads(self.invoke('work_side_fail', args, host)['text'])
+        self.assertEqual(failure, again['receipt']['side_failure'])
+        self.assertEqual(first['main_forward'], again['main_forward'])
+        self.assertIsNone(self._claim())
+
+    def test_typed_billing_evidence_survives_mcp_failure_before_durable_write(self):
+        from unittest.mock import patch
+        from ciel_runtime_support.side_request_outcome import record
+        event = self._claim()
+        key = event['receipt_id']
+        host = {'token': 'x'*40, 'receipt_id': key, 'generation': event['generation']}
+        record(self.root, self.identity, 'agent', key, {'code':'billing_error'})
+        args = {'category':'turn_error', 'agent_id':'agent'}
+        with patch('ciel_runtime_support.side_intake_processing._record_failure', side_effect=OSError('test precommit failure')):
+            with self.assertRaises(OSError):
+                self.invoke('work_side_fail', args, host)
+        data = json.loads(self.invoke('work_side_fail', args, host)['text'])
+        self.assertEqual('billing_error', data['receipt']['side_failure']['category'])
+        self.assertEqual(1, data['receipt']['side_failure']['attempt_count'])
+        self.assertIn('main_forward', data)
+
+    def test_typed_billing_retries_once_on_verified_distinct_main_model(self):
+        from unittest.mock import patch
+        from ciel_runtime_support.side_request_outcome import record
+        model_view = {'models': {'side': 'side-alias'}, 'upstream': {'side': 'side-model'},
+                      'main': {'model': 'main-alias', 'upstream': 'main-model'}}
+        with patch('ciel_runtime_support.work_fork_models.projection', return_value=model_view):
+            event = self._claim()
+            key = event['receipt_id']
+            host = {'token': 'x'*40, 'receipt_id': key, 'generation': event['generation']}
+            record(self.root, self.identity, 'agent', key,
+                   {'code': 'billing_error', 'effective_model': 'side-model'})
+            args = {'category': 'turn_error', 'agent_id': 'agent'}
+            data = json.loads(self.invoke('work_side_fail', args, host)['text'])
+            failure = data['receipt']['side_failure']
+            self.assertEqual((1, False, True), (failure['attempt_count'],failure['quarantined'],failure['use_parent_model']))
+            self.assertEqual(failure['failed_at'], failure['retry_not_before'])
+            self.assertNotIn('main_forward', data)
+            retry = self._claim()
+            self.assertEqual(key, retry['receipt_id'])
+            self.assertTrue(retry['use_parent_model'])
+            self.assertNotEqual(event['generation'], retry['generation'])
+            data = json.loads(self.invoke('work_side_fail', {'category':'billing_error'},
+                                          {**host, 'generation':retry['generation']})['text'])
+            failure = data['receipt']['side_failure']
+            self.assertEqual((2, True, False), (failure['attempt_count'],failure['quarantined'],failure['retryable']))
+            self.assertEqual(key, data['main_forward']['receipt_id'])
+            self.assertIsNone(self._claim())
+
     def test_without_a_side_model_an_api_error_does_not_switch(self):
         from unittest.mock import patch
         with patch('ciel_runtime_support.side_intake_mcp._side_model_configured', return_value=False):

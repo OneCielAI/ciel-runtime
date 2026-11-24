@@ -12,6 +12,23 @@ dispatching, reporting, waiting, or reviewing. Inspect the exact board,
 priority, existing leases, and native-agent evidence. The live board and
 leases are authoritative; this skill does not authorize work.
 
+## Use host events and automated checks
+
+- Do not poll `work_status`, `work_parallel_status`, or the board through a shell
+  just to wait for a fork, gate, review, or release. The host delivers Work
+  events. With no independent work to do, end the turn. Use the first-check
+  tools for a specific operation, not as a monitoring loop.
+- Before auditing Work rules by hand, run the existing read-only diagnostic
+  for the relevant session or item (for example, `ciel-runtimectl work capacity`
+  for slot pressure, `work reviews` for submitted results, or `work audit`
+  for recorded actions, all with `--session S`). Use its output to narrow the
+  investigation; inspect the exact lease, receipt, or approval only where evidence is missing
+  or conflicting. Do not infer a violation from a missing observation.
+- For a recurring audit, put deterministic checks in the host and report a
+  finding when it changes. Keep approval and ambiguous evidence for human or
+  main review. Do not turn a diagnostic finding into approval, release a wait,
+  or mutate live state just to verify a rule.
+
 ## Priorities and slots
 
 - The board stores only `P1`-`P5` canonical priorities. A P0 root is stored as

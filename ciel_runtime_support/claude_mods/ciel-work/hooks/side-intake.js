@@ -46,6 +46,7 @@ async function recoverReply($,identity,event) {
 let lifecycle = 0
 let busy = false
 let maxActive = 2
+const unconfirmedFailures = new Map()
 // Native forks inherit the main session's live model, context, tools and
 // permission mode. This display value deliberately has no allowlist digest.
 const mcpParity = {toolCount:0,serverCount:0,digest:'native-fork-inherited'}
@@ -2091,6 +2092,15 @@ export async function pollSide($, identity) {
     // or native spawn; the claimed-error path below records processing_error.
     if (typeof event.generation !== 'string' || !CLAIM_GENERATION.test(event.generation))
       throw new Error('invalid_claim_generation')
+    // An unconfirmed failure write is not permission to run the model again.
+    const failureKey = identity+':'+event.receipt_id
+    const unconfirmed = unconfirmedFailures.get(failureKey)
+    if (unconfirmed?.fence.generation === event.generation) {
+      claimed = null
+      // A renewed offer is a chance to settle the same write, not replay the actor.
+      return !!(await writeFailure($,identity,unconfirmed,1))
+    }
+    unconfirmedFailures.delete(failureKey)
     // The router hands this host its own claim back when the lease lapsed
     // while the claim call was in flight (Andy 2026-11-23). The actor working
     // on it keeps it with the refreshed lease; no second actor starts.
@@ -2325,16 +2335,43 @@ async function submitReply($,actor,event) {
   display($,actor.identity,{side_inbox_receipts:[update.receipt]})
 }
 async function recordFailure($, actor, event, category, reason = '', extra = {}) {
+  const args = {category, model:actor.model || '', model_fingerprint:actor.modelFingerprint || '', agent_id:actor.id || '',
+    ...(reason ? {reason:line(reason,300)} : {}), ...extra}
+  const fence = {receipt_id:event.receipt_id,generation:event.generation}
+  return await writeFailure($,actor.identity,{args,fence},3)
+}
+async function writeFailure($,identity,intent,maxAttempts) {
+  const {args,fence} = intent
+  const key = identity+':'+fence.receipt_id
+  let value
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      if (await identityOf($) !== identity) return null
+      value = await callRouter($,'work_side_fail',args,fence,identity)
+      if (value?.receipt?.receipt_id !== fence.receipt_id) throw new Error('Missing side failure receipt')
+      unconfirmedFailures.delete(key)
+      break
+    } catch (error) {
+      const message = String(error?.message || error)
+      if (/work_side_fail: (side receipt missing|stale side claim)/.test(message)) {
+        unconfirmedFailures.delete(key)
+        return null
+      }
+      if (attempt === maxAttempts-1) {
+        unconfirmedFailures.set(key,intent)
+        try { $.ui.log('Ciel side: failure record unconfirmed for '+fence.receipt_id.slice(0,12),{to:'debug'}) } catch {}
+        return null
+      }
+      if (TRANSIENT_MCP_ERROR.test(message)) {
+        try { await $.mcp.connect('ciel-runtime-router') } catch { /* next fenced call may still work */ }
+      }
+    }
+  }
   try {
-    const value = await callRouter($,'work_side_fail',{
-      category, model:actor.model || '', model_fingerprint:actor.modelFingerprint || '', agent_id:actor.id || '',
-      ...(reason ? {reason:line(reason,300)} : {}), ...extra
-    },{receipt_id:event.receipt_id,generation:event.generation},actor.identity)
-    if (value.receipt) display($,actor.identity,{side_inbox_receipts:[value.receipt]})
-    // The sixth/terminal failure carries the original-forward offer in this
-    // same host dispatch. Claim/status recovery also offers it after a crash.
+    display($,identity,{side_inbox_receipts:[value.receipt]})
+    // Terminal failures offer the original immediately and on later claims.
     if (value.main_forward?.receipt_id && typeof value.main_forward.text === 'string') {
-      const state = await noticeToMain($,actor.identity,value.main_forward.receipt_id,value.main_forward.text)
+      const state = await noticeToMain($,identity,value.main_forward.receipt_id,value.main_forward.text)
       try { $.ui.log('Ciel side: original of failed event '+value.main_forward.receipt_id.slice(0,12)+' → main ('+state+')') } catch {}
     }
     return value
@@ -2729,6 +2766,17 @@ async function correctLater($,actor,event,reason,asked) {
   await recordFailure($,actor,event,'invalid_answer',reason)
   retire($,actor)
 }
+async function sideTurnError($, actor) {
+  // The native error completion has no error details. The engine appends a
+  // synthetic API error to this actor's own transcript (observed with a local
+  // 400 and 402 stub); never classify the event text or a normal answer.
+  try {
+    const last = (await $.session.messages({agentId:actor.id,last:1})).at(-1)
+    if (last?.role === 'assistant' && /^API Error: (?:400|402) Credit balance too low[.!]?$/i.test(last.text))
+      return 'billing_error'
+  } catch { /* no native diagnostic: keep the ordinary turn error policy */ }
+  return 'turn_error'
+}
 export async function completeSide($,e) {
   const actor = actors.get(e.agentId)
   if (!actor) return false
@@ -2757,7 +2805,7 @@ export async function completeSide($,e) {
     // A turn that completed may already have ACKed or replied through MCP;
     // replaying it duplicates those posts (observed 2026-11-07: three extra
     // ACK/reply pairs). Only a turn that errored is retried.
-    await recordFailure($,actor,event,e.reason === 'error' ? 'turn_error'
+    await recordFailure($,actor,event,e.reason === 'error' ? await sideTurnError($,actor)
       : e.reason === 'answer' ? 'invalid_answer' : e.reason || 'invalid_answer', reason)
   }
   actor.resolved = false

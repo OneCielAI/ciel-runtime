@@ -22,6 +22,23 @@ class SideModTests(unittest.TestCase):
                                 check=True,timeout=60)
         return json.loads(done.stdout)
 
+    def test_side_failure_retries_only_the_same_mcp_write(self):
+        for mode in ('before', 'after'):
+            with self.subTest(mode=mode):
+                row = self.run_harness('side_intake_harness.mjs', mode)
+                self.assertEqual((2,1,1), (row['failCalls'],row['writes'],row['spawns']))
+                first, second = row['failures']
+                self.assertEqual(first,second)
+                self.assertEqual('billing_error',first['category'])
+                self.assertEqual('1'*32,first['_host']['generation'])
+
+    def test_exhausted_failure_write_does_not_spawn_the_same_generation(self):
+        row = self.run_harness('side_intake_harness.mjs', 'exhausted')
+        self.assertEqual((4,0,1), (row['failCalls'],row['writes'],row['spawns']))
+        recovered = self.run_harness('side_intake_harness.mjs', 'recovered')
+        self.assertEqual((4,1,1), (recovered['failCalls'],recovered['writes'],recovered['spawns']))
+        self.assertTrue(all(call == recovered['failures'][0] for call in recovered['failures']))
+
     def test_a_claim_with_a_saved_proposal_commits_it_without_a_fork(self):
         # Plan 2026-11-17: after a restart the model does not run again and the
         # understanding already sent is not sent again.

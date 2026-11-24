@@ -184,8 +184,9 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
                     'receipt_id': key, 'text': current['text'], 'event_key': current['event_key'],
                     'generation': generation, 'lease_until': stamp + lease_seconds,
                     'source_priority': source_priority(current['text']),
-                    'use_parent_model': bool(failure.get('use_parent_model')
-                                             and failure.get('model_fingerprint') == model_fingerprint),
+                    'use_parent_model': bool(failure.get('use_parent_model') and (
+                        failure.get('category') == 'billing_error'
+                        or failure.get('model_fingerprint') == model_fingerprint)),
                     'route': {k: v for k, v in current.get('route', {}).items() if k not in ('reply_token', 'authorization', 'token')}}
     return None
 
@@ -371,7 +372,37 @@ def fail(state_dir, session_id, receipt_id, generation, failure, *, now=None):
     model = str(failure.get('model') or '')[:300]
     reason = str(failure.get('reason') or '')[:300]
     fingerprint = str(failure.get('model_fingerprint') or '')[:128]
-    outcome = failure.get('outcome') if isinstance(failure.get('outcome'), dict) else {}
+    load_outcome = failure.get('load_outcome')
+    inbox = SideIntakeInbox(state_dir, session_id)
+    with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
+        row = inbox._load(receipt_id)
+        if row is None:
+            raise WorkPlanError('side receipt missing')
+        held = row.get('processing') or {}
+        prior = row.get('side_failure') or {}
+        if not held and generation and prior.get('generation') == generation:
+            return inbox._receipt(receipt_id, row, duplicate=True)
+        if not generation or held.get('generation') != generation or row.get('stage') != 'received':
+            raise WorkPlanError('stale side claim')
+        # Like renew, a terminal record may settle a lapsed claim only if no
+        # other claimant took over. Reconcile before consuming any API evidence.
+        outcome = load_outcome(held.get('started_at', stamp)) if callable(load_outcome) else failure.get('outcome')
+        return _record_failure(inbox, receipt_id, generation, row, prior, failure,
+                               category, model, reason, fingerprint, outcome, stamp)
+
+
+def _record_failure(inbox, receipt_id, generation, row, prior, failure,
+                    category, model, reason, fingerprint, outcome, stamp):
+    outcome = outcome if isinstance(outcome, dict) else {}
+    billing = category == 'billing_error' or (category == 'turn_error' and (
+        type(outcome.get('status')) is int and outcome['status'] == 402
+        or outcome.get('code') == 'billing_error'))
+    if billing:
+        category = 'billing_error'
+        # Do not forward or store raw billing error bodies.
+        outcome = {**({'status': outcome['status']} if type(outcome.get('status')) is int else {}),
+                   'code': 'billing_error', 'effective_model': outcome.get('effective_model')}
+        reason = ''
     terminal = str(outcome.get('terminal_reason') or '')[:200]
     code = str(outcome.get('code') or '').lower()
     unavailable = (category in ('model_not_found', 'invalid_model')
@@ -387,61 +418,63 @@ def fail(state_dir, session_id, receipt_id, generation, failure, *, now=None):
     # ordinary source_context failure.
     retry_after = failure.get('retry_after_seconds')
     retry_after = retry_after if type(retry_after) is int and 5 <= retry_after <= 600 else 30
-    inbox = SideIntakeInbox(state_dir, session_id)
-    with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
-        row = verify_claim(inbox, receipt_id, generation, now=stamp)
-        prior = row.get('side_failure') or {}
-        waits = int(prior.get('compaction_waits') or 0)
-        compaction = category == 'main_compaction_pending' and waits < MAIN_COMPACTION_WAITS
-        if category == 'main_compaction_pending' and not compaction:
-            category = 'source_context'
-        attempts = int(prior.get('attempt_count') or 0) + (0 if compaction else 1)
-        delay = retry_after if compaction else min(300, 5 * (2 ** min(attempts - 1, 6)))
-        on_parent = bool(prior.get('use_parent_model'))
-        # The side model failed the request (an API error ended the side fork's
-        # turn, or the model is unavailable): the next attempt runs at once on
-        # main's own model, and stays on it (user requirement 2026-11-16, "모델
-        # 문제로 실패하면 메인과 동일한 모델로 재처리"). Walkie: 154 failures in 3
-        # days, 0 retried on main's model — the switch was never wired after the
-        # side model moved to the ciel-work-gate turn.step. With no side model
-        # configured the fork already runs on main's model; nothing switches.
-        side_model = failure.get('side_model') is True
-        parent_retry = not on_parent and (unavailable or category == 'turn_error' and side_model)
-        # Main's model unavailable too: quarantine instead of looping.
-        hopeless = unavailable and on_parent
-        row['side_failure'] = {
-            'category': category,
-            'model': model,
-            'model_fingerprint': fingerprint,
-            'attempt_count': attempts,
-            'failed_at': stamp,
-            'retry_not_before': stamp if parent_retry else stamp + delay,
-            'quarantined': permanent or hopeless or attempts >= 6,
-            'typed': bool(outcome),
-            'retryable': not permanent,
-            # Why the host refused a completed turn (observed 2026-11-07: a
-            # valid #116841 decision quarantined with no recorded cause).
-            **({'reason': reason} if reason else {}),
-            **({k: outcome[k] for k in ('status','code','terminal_reason','pool_size','attempted',
-                                        'requested_model','effective_model','message') if k in outcome}),
-            # Sticky: once on main's model, later retries of this event stay there.
-            'use_parent_model': parent_retry or on_parent,
-            **({'parent_model_since': stamp} if parent_retry else
-               {'parent_model_since': prior['parent_model_since']} if on_parent and prior.get('parent_model_since') else {}),
-            'main_fallback_eligible': False,
-            'generation': generation,
-            'compaction_waits': waits + (1 if compaction else 0),
-        }
-        row.pop('processing', None)
-        if row['side_failure']['quarantined']:
-            # Terminal: the original goes to main once instead of being
-            # dropped (user requirement 2026-11-16, side_forward.py).
-            from .side_forward import mark
-            mark(inbox, receipt_id, row)
-        inbox._save_file(inbox._event_path('pending', receipt_id), row)
-        if row['side_failure']['quarantined'] and category == 'invalid_answer':
-            inbox.mark_quarantined(receipt_id)
-        return inbox._receipt(receipt_id, row, duplicate=False)
+    waits = int(prior.get('compaction_waits') or 0)
+    compaction = category == 'main_compaction_pending' and waits < MAIN_COMPACTION_WAITS
+    if category == 'main_compaction_pending' and not compaction:
+        category = 'source_context'
+    attempts = int(prior.get('attempt_count') or 0) + (0 if compaction else 1)
+    delay = retry_after if compaction else min(300, 5 * (2 ** min(attempts - 1, 6)))
+    on_parent = bool(prior.get('use_parent_model'))
+    # The side model failed the request (an API error ended the side fork's
+    # turn, or the model is unavailable): the next attempt runs at once on
+    # main's own model, and stays on it (user requirement 2026-11-16, "모델
+    # 문제로 실패하면 메인과 동일한 모델로 재처리"). Walkie: 154 failures in 3
+    # days, 0 retried on main's model — the switch was never wired after the
+    # side model moved to the ciel-work-gate turn.step. With no side model
+    # configured the fork already runs on main's model; nothing switches.
+    side_model = failure.get('side_model') is True
+    parent_retry = not on_parent and (unavailable or category == 'turn_error' and side_model)
+    if billing:
+        # A previous switch already spent the alternative. Once a billing
+        # failure triggered a switch, even an untyped second failure forwards.
+        parent_retry = (not on_parent and attempts < 6
+                        and failure.get('distinct_parent_model', lambda _outcome: False)(outcome))
+    hopeless = (unavailable and on_parent or billing and not parent_retry
+                or on_parent and prior.get('category') == 'billing_error')
+    quarantined = permanent or hopeless or attempts >= 6
+    row['side_failure'] = {
+        'category': category,
+        'model': model,
+        'model_fingerprint': fingerprint,
+        'attempt_count': attempts,
+        'failed_at': stamp,
+        'retry_not_before': stamp if parent_retry else stamp + delay,
+        'quarantined': quarantined,
+        'typed': bool(outcome),
+        'retryable': not permanent and not (hopeless and (billing or prior.get('category') == 'billing_error')),
+        # Why the host refused a completed turn (observed 2026-11-07: a
+        # valid #116841 decision quarantined with no recorded cause).
+        **({'reason': reason} if reason else {}),
+        **({k: outcome[k] for k in ('status','code','terminal_reason','pool_size','attempted',
+                                    'requested_model','effective_model','message') if k in outcome}),
+        # Sticky: once on main's model, later retries of this event stay there.
+        'use_parent_model': parent_retry or on_parent,
+        **({'parent_model_since': stamp} if parent_retry else
+           {'parent_model_since': prior['parent_model_since']} if on_parent and prior.get('parent_model_since') else {}),
+        'main_fallback_eligible': False,
+        'generation': generation,
+        'compaction_waits': waits + (1 if compaction else 0),
+    }
+    row.pop('processing', None)
+    if row['side_failure']['quarantined']:
+        # Terminal: the original goes to main once instead of being
+        # dropped (user requirement 2026-11-16, side_forward.py).
+        from .side_forward import mark
+        mark(inbox, receipt_id, row)
+    inbox._save_file(inbox._event_path('pending', receipt_id), row)
+    if row['side_failure']['quarantined'] and category == 'invalid_answer':
+        inbox.mark_quarantined(receipt_id)
+    return inbox._receipt(receipt_id, row, duplicate=False)
 
 
 def fallback(state_dir, session_id, receipt_id, generation, state, reason='', *, now=None):

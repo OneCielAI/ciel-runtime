@@ -18,6 +18,8 @@ let events=[
   route:{channel:'external:source',sender_id:'sender',source_kind:'external_event'}},
 ]
 const calls=[],spawns=[],timers=[],rewrites=[]
+const failureMode = process.argv[2]
+let failCalls = 0, writes = 0
 // The engine's host-held $.state (version + ifVersion compare-and-set).
 const hostStore=new Map()
 // The engine's agent list: a spawned actor stays listed live until TaskStop
@@ -43,6 +45,14 @@ const $={
      release_hint:{lookup:'missing condition'}}
    ],active_forks:[{item_id:'n21',root_id:'n1',state:'waiting_input',agent_id:'worker'}]}
    value={claim,settings:{...settings},handoff_replies:[],main_wakes:wakes}
+  }
+  if(name==='work_side_fail'){
+   failCalls++
+   if(failureMode==='exhausted' || failureMode==='recovered' && failCalls<=3 || failCalls===1 && failureMode==='before')
+    throw new Error('MCP connection closed')
+   if(!writes) writes++
+   if(failCalls===1 && failureMode==='after') throw new Error('MCP connection closed')
+   value={receipt:{receipt_id:args._host.receipt_id,stage:'received',side_failure:{attempt_count:writes}}}
   }
   if(name==='work_side_renew') value={lease_until:Date.now()/1000+120}
   // Protocol-2 election: one intent, start, then one recorded outcome; later
@@ -74,6 +84,19 @@ const drain=async()=>{while(timers.length) await timers.shift()()}
 const settle=async()=>{for(let stable=0,last='';stable<8;){await new Promise(resolve=>setTimeout(resolve,5));const now=calls.length+':'+submits.length;stable=now===last?stable+1:0;last=now}}
 await startSide($)
 await pollSide($,'claude:parent')
+if (failureMode) {
+ $.session.messages=async ({agentId,last}={}) => agentId==='actor1' && last===1
+  ? [{role:'assistant',text:'API Error: 400 Credit balance too low',toolUses:[]}] : []
+ const original = structuredClone(sideOwns('actor1').current)
+ await completeSide($,{agentId:'actor1',reason:'error',answer:''})
+ if (failureMode==='exhausted' || failureMode==='recovered') {
+  events.push(original)
+  await pollSide($,'claude:parent')
+ }
+ await drain()
+ console.log(JSON.stringify({failCalls,writes,spawns:spawns.length,failures:calls.filter(c=>c.name==='work_side_fail').map(c=>c.args)}))
+ process.exit(0)
+}
 const first=sideOwns('actor1')
 // No side-specific fence: every inherited tool takes main's own path (null).
 const passThrough=[]
