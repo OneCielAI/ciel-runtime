@@ -347,6 +347,26 @@ class WorkMcpToolsTests(unittest.TestCase):
         self.assertEqual((snap["active_root"]["title"], snap["phase"]), ("2. next request", "planning"))
         self.assertEqual([q["title"] for q in snap["queue"]], ["3. later request"])
 
+    def test_a_goal_detail_read_carries_notes_and_progress_without_format_json(self):
+        # Andy 2026-11-23: side actors were told "root_id=<goal> detail=true";
+        # without format=json that read returned the text tree, which has no
+        # note, progress or waiting_on, so main's recorded decisions never
+        # reached the side.
+        doc = self.plan()
+        root = doc["active_root"]
+        leaf = next(n["id"] for n in doc["nodes"] if n["title"] == "one")
+        self.assertFalse(self.call("work_node_update", id=leaf, note="MAIN-DECISION-NOTE",
+                                   progress="MAIN-PROGRESS-LINE", waiting_on="review 7 approval")["error"])
+        before = self.store.read()
+        only = self.call("work_status", root_id=root, detail=True)
+        self.assertFalse(only["error"], only)
+        nodes = {n["id"]: n for n in json.loads(only["text"])["nodes"]}
+        self.assertEqual(("MAIN-DECISION-NOTE", "MAIN-PROGRESS-LINE", "review 7 approval"),
+                         (nodes[leaf]["note"], nodes[leaf]["progress"], nodes[leaf]["waiting_on"]))
+        self.assertEqual(self.store.read(), before)
+        # Without detail the one-goal read stays the bounded text tree.
+        self.assertNotIn("MAIN-DECISION-NOTE", self.call("work_status", root_id=root)["text"])
+
     def test_hybrid_root_detail_scoped_refinement_and_priority_cas(self):
         doc = self.plan()
         root, phase = doc["active_root"], doc["nodes"][1]["id"]

@@ -44,6 +44,32 @@ class SideModTests(unittest.TestCase):
         self.assertEqual(['resume_error'],row['failures'])
         self.assertEqual([],row['resolve'])
 
+    def test_a_lapsed_lease_of_a_working_actor_is_renewed_not_claimed_twice(self):
+        # Andy 2026-11-23: 336 events ran on two side actors; 7d31178bb61e's
+        # first actor was stopped at 23:42:51Z when the pump came back after a
+        # 7-minute gap and the event was claimed again (second actor 23:43:17Z).
+        row=self.run_harness('side_lease_revival_harness.mjs','revived')
+        self.assertEqual(1,row['spawns'])
+        self.assertEqual(1,row['renews'])
+        self.assertEqual([],row['stopped'])
+        self.assertEqual('a'*64,row['current'])
+        # The router refused the renew (the event was claimed elsewhere): the
+        # actor no longer owns it and is stopped, as before.
+        refused=self.run_harness('side_lease_revival_harness.mjs','refused')
+        self.assertEqual(['TaskStop:actor1'],refused['stopped'])
+        self.assertIsNone(refused['current'])
+        # The lease lapsed while the claim call was in flight and the router
+        # handed this host its own claim back: no second actor, nothing stopped,
+        # and the working actor holds the refreshed lease.
+        reoffered=self.run_harness('side_lease_revival_harness.mjs','reoffered')
+        self.assertEqual((1,[],'a'*64,True),
+                         (reoffered['spawns'],reoffered['stopped'],reoffered['current'],reoffered['lease_live']))
+        # The renew got no answer (an MCP timeout is not the router refusing the
+        # claim): the working actor is kept and the re-offered claim is its own.
+        timedout=self.run_harness('side_lease_revival_harness.mjs','timedout')
+        self.assertEqual((1,[],'a'*64,True),
+                         (timedout['spawns'],timedout['stopped'],timedout['current'],timedout['lease_live']))
+
     def test_session_fresh_starts_each_event_empty_with_main_system_prompt(self):
         # User 2026-11-20: a side actor may start from an empty conversation
         # with main's own system prompt and MCP tools instead of a fork.
@@ -64,6 +90,27 @@ class SideModTests(unittest.TestCase):
         self.assertEqual([r['decision']['action'] for r in fork['resolveCalls']],
                          [r['decision']['action'] for r in fresh['resolveCalls']])
         self.assertEqual(['actor1','actor2','actor3'],fresh['stopped'])
+
+    def test_a_side_actor_gets_its_session_mode_transcript_and_the_items_records(self):
+        # Andy 2026-11-23: a fresh actor starts with no conversation, yet its
+        # instruction said it inherited main's, and the workload it got had no
+        # note or progress; items linked through refs were never picked.
+        fresh=self.run_harness('side_fresh_harness.mjs','fresh')['spawns'][0]['prompt']
+        fork=self.run_harness('side_fresh_harness.mjs','fork')['spawns'][0]['prompt']
+        self.assertEqual(('fresh','fork'),(fresh['session_mode'],fork['session_mode']))
+        self.assertEqual('C:/fixture/projects/parent.jsonl',fresh['main_transcript'])
+        referenced={node['id']:node for node in fresh['workload']['referenced']}
+        # Picked through refs: the event's target message 41 is one of n23's refs.
+        self.assertIn('n23',referenced)
+        self.assertNotIn('n24',referenced)
+        self.assertEqual('MAIN DECISION: only 120px is approved; the rest stays held',referenced['n23']['progress'])
+        self.assertTrue(referenced['n23']['note'].endswith('NOTE-TAIL'))
+        self.assertTrue(referenced['n23']['note'].startswith('…'))
+        self.assertLessEqual(len(referenced['n23']['note']),400)
+        self.assertEqual('checked 41',referenced['n23']['evidence'])
+        self.assertEqual(['ticket-77','41'],referenced['n23']['refs'])
+        # Ancestors stay brief.
+        self.assertNotIn('note',referenced['n1'])
 
     def test_each_external_event_uses_one_native_fork_then_stops_it(self):
         row=self.run_harness('side_intake_harness.mjs')
@@ -1078,7 +1125,9 @@ class SideModTests(unittest.TestCase):
         for spawn in row['spawns']:
             instruction=spawn['prompt']['instruction']
             # Prompt-only restriction (no tool fence), stated in every event.
-            self.assertIn('메인의 모델, 컨텍스트, 도구, 권한 모드를 그대로 물려받습니다',instruction)
+            # Andy 2026-11-23: true for a fork only; a fresh actor starts empty.
+            self.assertIn('이 액터는 메인의 모델, 도구, 권한 모드를 씁니다. session_mode가 "fork"이면',instruction)
+            self.assertIn('"fresh"이면 메인의 대화 없이 빈 대화로 시작했습니다',instruction)
             self.assertIn('도구를 막는 장치가 아니라',instruction)
             for rule in ('- 코드, 설정, 그 밖의 파일을 쓰거나 고치거나 만들기',
                          '- Bash, PowerShell 등 셸 명령 실행',

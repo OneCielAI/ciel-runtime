@@ -160,9 +160,16 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
                 inbox.ack_marker(key).unlink(missing_ok=True)
             if _source_holder(inbox, key, current, stamp, by_event=workflow_events) != 'claim':
                 continue
-            generation = uuid.uuid4().hex
+            # The same host reclaiming an event whose lease lapsed under it (its
+            # pump stalled while the actor kept working) gets its own claim back,
+            # so it can see that its actor already holds the event (Andy
+            # 2026-11-23: a new generation started a second actor beside it).
+            held = current.get('processing') or {}
+            previous = held if held.get('owner') == owner and held.get('generation') else {}
+            generation = previous.get('generation') or uuid.uuid4().hex
             current['processing'] = {'owner': owner, 'generation': generation,
-                                     'lease_until': stamp + lease_seconds, 'started_at': stamp}
+                                     'lease_until': stamp + lease_seconds,
+                                     'started_at': previous.get('started_at', stamp)}
             inbox._save_file(inbox._event_path('pending', key), current)
             if key not in urgent_keys:
                 # The next ordinary claim prefers the other lane. A preference
@@ -314,9 +321,16 @@ def verify_claim(inbox, receipt_id, generation, *, now=None):
 
 
 def renew(state_dir, session_id, receipt_id, generation, *, now=None, lease_seconds=120, source_bounded=None):
-    """Extend a live claim. ``source_bounded`` ({"omitted_replies": n}) also
+    """Extend a claim its actor still holds. ``source_bounded`` ({"omitted_replies": n}) also
     records on the receipt that its fork got a bounded source thread, so the
-    side receipt and the SSE pane show it (KOBE hotfix 2026-11-18)."""
+    side receipt and the SSE pane show it (KOBE hotfix 2026-11-18).
+
+    A lapsed lease is revived when no other claim took the event: the
+    generation is still this actor's, the event is still received and not
+    quarantined. Andy 2026-11-23: the host's pump did not run for 5-7 minutes,
+    the 120 s lease lapsed under working actors, and the next pump stopped them
+    and claimed the same events again (336 events ran on two actors). A claim
+    after the lapse writes a new generation, so the older actor is refused."""
     if type(lease_seconds) is not int or not 1 <= lease_seconds <= 3600:
         raise WorkPlanError('invalid side lease duration')
     if source_bounded is not None:
@@ -326,9 +340,15 @@ def renew(state_dir, session_id, receipt_id, generation, *, now=None, lease_seco
     stamp = time.time() if now is None else now
     inbox = SideIntakeInbox(state_dir, session_id)
     with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
-        row = verify_claim(inbox, receipt_id, generation, now=stamp)
+        row = inbox._load(receipt_id)
+        if row is None:
+            raise WorkPlanError('side receipt missing')
+        if (row.get('processing') or {}).get('generation') != generation:
+            raise WorkPlanError('stale side claim')
         if row.get('stage') != 'received':
             raise WorkPlanError('side claim already settled')
+        if (row.get('side_failure') or {}).get('quarantined'):
+            raise WorkPlanError('side claim quarantined')
         until = stamp + lease_seconds
         if source_bounded is not None:
             # A record, not a heartbeat: never shortens the claim's lease.

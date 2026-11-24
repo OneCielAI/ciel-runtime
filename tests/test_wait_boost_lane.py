@@ -82,7 +82,11 @@ class ExactReleaseTests(unittest.TestCase):
         self.assertNotIn("unblocked_waits", result)
         self.assertEqual(1, len(result["wait_boost"]))
 
-    def test_blocked_non_leaf_release_is_refused_without_reopening_descendants(self):
+    def test_a_verified_group_wait_is_released_without_touching_descendants(self):
+        # Andy 2026-11-23: the side verified the signal of group waits (n2296,
+        # n1675) and the host refused them as non_leaf_wait; nothing told main,
+        # so their leaves stayed excluded. The side releases the group's own
+        # wait; every descendant (its own waits included) stays byte-identical.
         def gate(doc):
             for node in doc["nodes"]:
                 if node["id"] == self.group:
@@ -90,12 +94,30 @@ class ExactReleaseTests(unittest.TestCase):
         self.store.transaction(gate)
         before = {n["id"]: dict(n) for n in self.store.read()["nodes"]}
         result = self.release(receipt("e3"), self.group, waiting_on="group approval")
-        self.assertEqual([{"id": self.group, "reason": "non_leaf_wait"}], result["unreleased_waits"])
+        self.assertNotIn("unreleased_waits", result)
+        self.assertEqual([{"id": self.group, "waiting_on": "group approval"}], result["released_waits"])
+        self.assertEqual([self.group], result["unblocked_waits"])
+        # The scheduling boost names one runnable leaf; a group gets none.
         self.assertNotIn("wait_boost", result)
         after = {n["id"]: n for n in self.store.read()["nodes"]}
-        # The update note is the decision's own; the wait, status and descendants stay.
-        self.assertEqual(("blocked", "group approval"), (after[self.group]["status"], after[self.group]["waiting_on"]))
+        self.assertEqual(("pending", ""), (after[self.group]["status"], after[self.group]["waiting_on"]))
+        self.assertIn('Side released wait "group approval"', after[self.group]["note"])
         self.assertEqual(before[self.leaf], after[self.leaf])
+        self.assertEqual(WAIT, after[self.leaf]["waiting_on"])
+        self.assertEqual({"created": [], "kept": [], "consuming": [], "invalid": 0},
+                         record_released(self.ledger, SCOPE, receipt("e3"), result))
+
+    def test_a_released_group_lets_its_unwaited_leaves_run(self):
+        _, free = self.store.transaction(lambda d: tree.add_node(d, self.group, "free leaf"))
+        self.store.transaction(lambda d: tree.update_node(d, self.group, waiting_on="group approval"))
+
+        def candidates():
+            doc = self.store.read()
+            return [leaf["id"] for rows in tree._runnable_by_root(doc, tree._index(doc))[1] for leaf in rows]
+        self.assertEqual([], candidates())
+        self.release(receipt("e3b"), self.group, waiting_on="group approval")
+        # The leaf with its own wait stays out; the free leaf is a candidate.
+        self.assertEqual([free], candidates())
 
     def test_stale_text_creates_no_receipt_and_no_sidecar_row(self):
         result = self.release(receipt("e4"), self.leaf, waiting_on="different text")

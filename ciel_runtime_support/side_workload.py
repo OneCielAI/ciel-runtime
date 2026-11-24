@@ -80,6 +80,9 @@ def format_active_forks_lines(active_forks: list[dict[str, Any]]) -> list[str]:
     return lines
 
 
+PROGRESS_TAIL_CHARS = 400
+
+
 def project(document, *, active_forks: list[dict[str, Any]] | None = None):
     nodes = document['nodes']
     roots = [node for node in nodes if node.get('parent_id') is None]
@@ -95,6 +98,12 @@ def project(document, *, active_forks: list[dict[str, Any]] | None = None):
     projected_nodes = []
     for node in nodes:
         entry = {key: node[key] for key in fields if key in node}
+        if node.get('progress') and node.get('status') != 'done':
+            # Main records its decisions in progress (real-engine run
+            # 2026-11-23: it never reached the side actor). The newest part of
+            # an unfinished node's is what the host passes on (side-intake.js
+            # RECORD_TAIL picks no finished node).
+            entry['progress'] = str(node['progress'])[-PROGRESS_TAIL_CHARS:]
         if node.get('id') in fork_by_node:
             entry['active_fork'] = fork_by_node[node['id']]
         projected_nodes.append(entry)

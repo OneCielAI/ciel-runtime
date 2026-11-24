@@ -448,6 +448,7 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
         # node of the same goal whose wait text is still exactly what the actor
         # saw; anything else stays for main. Execution approval is unchanged.
         released, unreleased, unblocked, wait_boosts = [], [], [], []
+        groups: set[str] = set()
         if action == 'update':
             goal = tree._root_of(by_id, item)
             for wait in decision.get('release_waits') or []:
@@ -460,12 +461,14 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
                 elif node.get('waiting_on', '') != wait['waiting_on']:
                     unreleased.append({'id': wait['id'], 'reason': 'wait changed since side observation'
                                        if node.get('waiting_on') else 'no recorded wait'})
-                elif tree._children(doc, node['id']):
-                    # A goal or group wait is main's: releasing it would have to
-                    # reopen or skip descendants, so it stays recorded.
-                    unreleased.append({'id': wait['id'], 'reason': 'non_leaf_wait'})
                 else:
+                    # A goal or group wait is released like a leaf's (Andy
+                    # 2026-11-23: n2296 and n1675 stayed gated after the side
+                    # verified their signal). Only that node changes; its
+                    # descendants keep their own waits and statuses.
                     released.append({'id': node['id'], 'waiting_on': node['waiting_on']})
+                    if tree._children(doc, node['id']):
+                        groups.add(node['id'])
             release_at = time.time()
             for wait in released:
                 line = ('\n\nSide released wait "' + wait['waiting_on'] + '" (event ' + receipt_id[:12] + '): '
@@ -474,6 +477,9 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
                     unblocked.append(wait['id'])
             by_id = {node['id']: node for node in doc['nodes']}
             for wait in released:
+                if wait['id'] in groups:
+                    # The scheduling boost names one runnable leaf.
+                    continue
                 root = by_id[tree._root_of(by_id, wait['id'])]
                 wait_boosts.append({
                     'item_id': wait['id'], 'root_id': root['id'],
@@ -639,6 +645,7 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             result['source_context'] = source_context[:40]
         if released:
             result['released_waits'] = released
+        if wait_boosts:
             # Board-first recovery receipt for the scheduling sidecar (design:
             # Board recovery receipt). It carries digests and ids only.
             result['wait_boost'] = wait_boosts

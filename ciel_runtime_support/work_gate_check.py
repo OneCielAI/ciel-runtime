@@ -164,11 +164,24 @@ def gates(doc: Mapping[str, Any], priority: Callable[[Mapping[str, Any]], str] |
                      "priority": ranks[goal["id"]],
                      "waiting_on": str(node.get("waiting_on") or ""), "blocked": node.get("status") == "blocked",
                      "root_id": goal["id"], "root_title": str(goal.get("title") or "")[:200],
-                     "evidence": str(node.get("evidence") or "")[-400:], "note": str(node.get("note") or "")[-400:]})
+                     "evidence": str(node.get("evidence") or "")[-400:], "note": str(node.get("note") or "")[-400:],
+                     # Main records its decisions in progress (Andy 2026-11-23:
+                     # a fresh actor released n2582 past main's narrowing there).
+                     "progress": str(node.get("progress") or "")[-GATE_RECORD_CHARS:],
+                     "updated_at": float(node.get("updated_at") or 0)})
     active = doc.get("active_root")
     rows.sort(key=lambda row: (_rank(row["priority"]), row["root_id"] != active, order.get(row["root_id"], 0),
                                order.get(row["id"], 0)))
     return rows[:BATCH_GATES * MAX_BATCHES]
+
+
+GATE_RECORD_CHARS = 300
+
+
+def _tail(text: str) -> str:
+    """The newest GATE_RECORD_CHARS of one board record, on one line."""
+    flat = " ".join(str(text).split())
+    return flat if len(flat) <= GATE_RECORD_CHARS else "…" + flat[-(GATE_RECORD_CHARS - 1):]
 
 
 PARKED_QUESTION_CHARS = 800
@@ -292,6 +305,12 @@ def event_text(rows: list[dict[str, Any]], interval: int, part: str = "",
             lines.append("  lease: " + (row["lease"] or "없음 (이 아이템을 맡은 포크가 없었음)"))
         if row["evidence"]:
             lines.append("  마지막 증거: " + row["evidence"].replace("\n", " ")[:300])
+        if row.get("progress"):
+            lines.append("  아이템 progress(최신): " + _tail(row["progress"]))
+        if row.get("note"):
+            lines.append("  아이템 note(최신): " + _tail(row["note"]))
+        if row.get("updated_at"):
+            lines.append("  마지막 갱신: " + time.strftime("%m-%d %H:%MZ", time.gmtime(row["updated_at"])))
         thread = (threads or {}).get(row["id"])
         if thread:
             key = thread["key"]

@@ -904,7 +904,9 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
             ids = {root_id}
             for _ in range(tree.MAX_DEPTH):
                 ids.update(n["id"] for n in doc["nodes"] if n["parent_id"] in ids)
-            if args.get("format") == "json":
+            # detail=true is the documented way to read one goal's notes,
+            # progress and evidence; the text tree carries none of them.
+            if args.get("format") == "json" or args.get("detail") is True:
                 return json.dumps({"enabled": True, "version": doc["version"], "root_id": root_id,
                     "is_active": doc["active_root"] == root_id, "phase": tree.root_phase(doc, root_id),
                     "approval": "ask" if approval_ask else "auto",

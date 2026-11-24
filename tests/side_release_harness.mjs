@@ -8,9 +8,9 @@ let busy = scenario !== 'main-idle' && scenario !== 'main-idle-repolled'
 sideMainBusy(() => busy)
 // Stage 3: register.js resumes a parked worker on its own lease first.
 const resumeCalls = []
-if (scenario === 'fork-parked-resumed' || scenario === 'fork-parked-refused')
+if (scenario === 'fork-parked-resumed' || scenario === 'fork-parked-refused' || scenario === 'group-parked-resumed')
   sideParkedResume(async ids => { resumeCalls.push(ids)
-    return new Map(ids.map(id => [id, scenario === 'fork-parked-resumed' ? true : 'the resume was not delivered: declined'])) })
+    return new Map(ids.map(id => [id, scenario === 'fork-parked-refused' ? 'the resume was not delivered: declined' : true])) })
 const sent = [], appended = [], submitted = [], wakes = [], logs = []
 // The backend grants the notice of one event receipt once (side_notice.py).
 let noticeClaimed = false
@@ -20,8 +20,13 @@ const leases = {
   'fork-parked-resumed': {L2:{id:'L2',item_id:'n2',host_id:'agent-park',state:'waiting_input',slot:false}},
   'fork-parked-refused': {L2:{id:'L2',item_id:'n2',host_id:'agent-park',state:'waiting_input',slot:false}},
   'fork-refuses': {L1:{id:'L1',item_id:'n2',host_id:'agent-gone',state:'running',slot:true}},
+  // A released group wait (Andy 2026-11-23): the forks work on its leaves.
+  'group-parked-resumed': {L3:{id:'L3',item_id:'n3',host_id:'agent-park',state:'waiting_input',slot:false}},
+  'group-running': {L4:{id:'L4',item_id:'n3',host_id:'agent-run',state:'running',slot:true}},
+  'group-leaf-still-waits': {L3:{id:'L3',item_id:'n3',host_id:'agent-park',state:'waiting_input',slot:false}},
 }[scenario] || {}
-const released = [{id:'n3',waiting_on:'approval from Andy via Walkie'}]
+const group = scenario.startsWith('group-')
+const released = group ? [{id:'n2',waiting_on:'group approval'}] : [{id:'n3',waiting_on:'approval from Andy via Walkie'}]
 let claimed = false
 const timers = []
 // The engine's host-held $.state (version + ifVersion compare-and-set).
@@ -37,13 +42,15 @@ const $ = {
     if (name === 'work_side_claim') {
       const claim = claimed ? null : {receipt_id:'e'.repeat(64),generation:'10000000000000000000000000000005',text:'Andy: approved',event_key:'walkie:1',
         lease_until:Date.now()/1000+120,route:{},workload:{version:4,truncated:false,active_root:'n1',queue_order:[],
-          nodes:[{id:'n1',parent_id:null,title:'goal'},{id:'n2',parent_id:'n1',title:'deploy'},{id:'n3',parent_id:'n2',title:'gate',waiting_on:released[0].waiting_on}]}}
+          nodes:group ? [{id:'n1',parent_id:null,title:'goal'},{id:'n2',parent_id:'n1',title:'deploy',waiting_on:'group approval'},
+            {id:'n3',parent_id:'n2',title:'gate',...(scenario === 'group-leaf-still-waits' ? {waiting_on:'its own review'} : {})}]
+          : [{id:'n1',parent_id:null,title:'goal'},{id:'n2',parent_id:'n1',title:'deploy'},{id:'n3',parent_id:'n2',title:'gate',waiting_on:released[0].waiting_on}]}}
       claimed = true
       value = {claim,settings:{model:'inherit',context_mode:'isolated'},handoff_replies:[],main_wakes:[]}
     }
     if (name === 'work_parallel_status') value = {version:1,policy:{},leases}
     if (name === 'work_side_resolve') value = {receipt:{receipt_id:args._host.receipt_id,stage:'processed'},
-      result:{action:'update',item_id:'n3',summary:'Andy approved the deploy',duplicate:false,released_waits:released,handoff:'not_required'}}
+      result:{action:'update',item_id:released[0].id,summary:'Andy approved the deploy',duplicate:false,released_waits:released,handoff:'not_required'}}
     if (name === 'work_side_reply') value = {receipt:{receipt_id:args.receipt_id,stage:'processed'},arguments:null}
     if (name === 'work_side_wake') {
       wakes.push({event_id:args.event_id,state:args.state})
@@ -62,7 +69,7 @@ const $ = {
 }
 await startSide($)
 await pollSide($,'claude:parent')
-await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({understanding:'understood in my own words',decision:{action:'update',kind:'request',item_id:'n3',
+await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({understanding:'understood in my own words',decision:{action:'update',kind:'request',item_id:released[0].id,
   summary:'Andy approved the deploy',reply:'ok',note:'approved',release_waits:released},expected_version:4})})
 // The release notice is delivered after completeSide returns. Wait until it has
 // settled instead of a fixed delay: Linux CI under load read an empty list after
@@ -71,7 +78,7 @@ await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({un
 // recorded appended; the idle case also waits for its wake prompt.
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 const recorded = () => wakes.some(call => call.state === 'notice_appended')
-const settled = () => scenario === 'fork-running' ? sent.length > 0
+const settled = () => (scenario === 'fork-running' || scenario === 'group-running') ? sent.length > 0
   : (scenario === 'main-idle' || scenario === 'main-idle-repolled') ? recorded() && submitted.length > 0
   : recorded()
 for (const end = Date.now() + 5000; Date.now() < end && !settled();) await sleep(5)

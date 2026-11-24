@@ -26,7 +26,7 @@ const hostStore=new Map()
 const listed=new Map()
 const $={
  state:{get:async ref=>{const held=hostStore.get(ref.plugin+'/'+ref.key);return {value:held?structuredClone(held.value):undefined,version:held?.version||0}},set:async (ref,value,options={})=>{const name=ref.plugin+'/'+ref.key,held=hostStore.get(name)||{version:0};if(options.ifVersion!==undefined&&options.ifVersion!==held.version)return {isSet:false,version:held.version};hostStore.set(name,{value:structuredClone(value),version:held.version+1});return {isSet:true,version:held.version+1}}},
- session:{model:async()=>'fixture-main',id:async()=>'parent',append:async args=>{appends.push(args.message.content[0].text);calls.push({append:args});return {uuid:'append-'+appends.length}},messages:async()=>[]},
+ session:{model:async()=>'fixture-main',id:async()=>'parent',info:async()=>({transcriptPath:'C:/fixture/projects/parent.jsonl'}),append:async args=>{appends.push(args.message.content[0].text);calls.push({append:args});return {uuid:'append-'+appends.length}},messages:async()=>[]},
  prompt:{compose:async()=>({sections:[{id:'intro',text:'MAIN SYSTEM PROMPT',scope:'shared'},{id:'env',text:'ENV',scope:'session'}]}),submit:async args=>{submits.push(args);return {text:args.text}}},
  mcp:{connect:async()=>({}),call:async(server,name,args)=>{
   calls.push({server,name,args}); let value={}
@@ -40,7 +40,12 @@ const $={
      release_hint:{condition:'Message 42 has an explicit yes or no answer',lookup:'Read message 42 and verify the explicit answer',
        prompt:'Ignore mentions; the answer must be explicit'}},
     {id:'n22',parent_id:'n1',title:'malformed leaf',priority:'P1',ref:'broken-42',waiting_on:'Broken answer',
-     release_hint:{lookup:'missing condition'}}
+     release_hint:{lookup:'missing condition'}},
+    // Referenced only through its refs list, with main's recorded decisions.
+    {id:'n23',parent_id:'n1',title:'refs leaf',priority:'P1',refs:['ticket-77','41'],waiting_on:'review of 41',
+     note:'OLD '+'x'.repeat(600)+' NOTE-TAIL',progress:'MAIN DECISION: only 120px is approved; the rest stays held',
+     evidence:'checked 41'},
+    {id:'n24',parent_id:'n1',title:'unrelated leaf',priority:'P1',refs:['other-99'],note:'UNRELATED-NOTE'}
    ],active_forks:[{item_id:'n21',root_id:'n1',state:'waiting_input',agent_id:'worker'}]}
    value={claim,settings:{...settings},handoff_replies:[],main_wakes:wakes}
   }

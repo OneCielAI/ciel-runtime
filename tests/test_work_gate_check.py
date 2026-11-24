@@ -88,6 +88,22 @@ class GateCheckUnitTests(unittest.TestCase):
         self.assertEqual("not_required", result["handoff"])
         self.assertEqual("blocked", next(n for n in store.read()["nodes"] if n["id"] == ids["blocked"])["status"])
 
+    def test_each_gate_carries_its_latest_progress_note_and_update_time(self):
+        # Andy 2026-11-23: a fresh side actor has no conversation, and the gate
+        # line carried only the wait and the last evidence. It released n2582
+        # on a narrower approval while main's progress said the rest stayed held.
+        store, ids = self._doc()
+        store.transaction(lambda d: tree.update_node(
+            d, ids['wait'], progress='MAIN: only the 120px comparison is approved; the rest stays held',
+            note='scope note: deploy after review 7'))
+        row = next(row for row in gate.gates(store.read()) if row['id'] == ids['wait'])
+        self.assertIn('rest stays held', row['progress'])
+        self.assertGreater(row['updated_at'], 0)
+        text = gate.event_text([row], 10)
+        self.assertIn('  아이템 progress(최신): MAIN: only the 120px comparison is approved; the rest stays held', text)
+        self.assertIn('  아이템 note(최신): scope note: deploy after review 7', text)
+        self.assertIn('  마지막 갱신: ' + gate.time.strftime('%m-%d %H:%MZ', gate.time.gmtime(row['updated_at'])), text)
+
     def test_gates_list_waits_and_blocks_active_goal_first(self):
         store, ids = self._doc()
         rows = gate.gates(store.read())

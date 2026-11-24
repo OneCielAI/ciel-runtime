@@ -2,6 +2,54 @@
 
 ## 2026-11-23
 
+- 2026-11-24 03:59:06–03:59:27Z 틱(직전 03:34Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음. 4호스트 모두 MCP `probe_succeeded`, new_failures 0.
+  - Andy
+    - running+slot 2→3, waiting_input 5→4, submitted 21, 원장 6862→6864, 보드 v11139, MCP 969 ms
+    - n1166 검수 행 누락이 계속 남아 있다(반복).
+    - 라우터 로그 `runtime_activity_router_failed PermissionError [WinError 5]` 1건(21:52:27 로컬, 03:52:27Z)
+      - 라우터가 자기 `router-activity.json` 하트비트를 `os.replace`로 바꾸다 거부당했다.
+      - 같은 줄이 17:22·19:28·21:52 로컬, 3회 있었다(반복). 실패 1회당 하트비트 쓰기 1번이 빠진다.
+      - 원인(파일을 연 다른 읽기 프로세스와 겹침)은 확인하지 않았다. 결함으로 단정하지 않고 추적한다.
+  - Celly: running+slot 2→6, waiting_input 2, 원장 8601→8623, 보드 v10302, MCP 297 ms. 도구 오류 7건은 보드 버전 충돌 재시도(가드)와 Ripgrep 20초 시간 초과(도구)다.
+  - KOBE: running+slot 2, waiting_input 2, 원장 3185→3196, MCP 653 ms. 포크 오류 0.
+  - Prody: submitted 6, waiting_input 2, 원장 758(변화 없음), MCP 1,386 ms. 오류 3건은 메인이 직접 돌린 스크립트 종료 코드다.
+  - 새로 입증된 제품 결함은 없다.
+
+- 2026-11-24 03:34:22–03:34:42Z 틱(직전 01:33Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음. 4호스트 모두 MCP `probe_succeeded`.
+  - Andy
+    - running+slot 3→2, waiting_input 5, submitted 23→21, 원장 6781→6862, 보드 v11124, MCP 1,016 ms
+    - n1166 검수 행 누락은 계속 남아 있다(반복).
+    - 라우터 로그 `cielairouter_transient_retry` 503 13건(02:14Z부터). 업스트림 재시도 가드다.
+    - 메인 도구 오류 36건은 메인이 직접 돌린 스크립트 오류다(cp1252 인코딩, 타입 오류 등).
+  - Celly
+    - running+slot 7→2, waiting_input 2, submitted 1→0, 원장 8528→8601, 보드 v10274, MCP 234 ms
+    - **새 실패 `decision_refused_stop 532f5bac` 1건**
+      - 메인의 `work_parallel_item_review`(n1236 approve)가 02:00:17Z에 시작했고, 69초 뒤 02:01:26Z에 `The operation timed out.`로 거부됐다.
+      - 원장에서 그 리스는 지금 `done`이다. 결정은 결국 반영됐다.
+      - 클라이언트가 약 60초에 MCP 호출을 포기하는 것과 맞는다. 같은 동작을 실엔진 측정에서도 봤다(아래 side 수정 기록).
+      - 라우터가 그 검수에 60초 넘게 걸린 원인은 확인하지 않았다(미결).
+    - P3 슬롯 한도 가드, 보드 버전 충돌 재시도는 정상 가드다.
+  - KOBE
+    - running+slot 3→2, waiting_input 1→2, 원장 3168→3185, MCP 259 ms
+    - `transport_interrupted` 2건 추가(02:25:07Z n119, n54). 재시도 가드가 예약했다.
+    - P2 슬롯 한도 가드가 있었다.
+  - Prody
+    - submitted 6, waiting_input 2, 원장 728→758, MCP 1,830 ms
+    - **새 실패 `decision_refused_stop 830eff74` 1건**: 02:01:32Z 메인 검수가 `rework instructions`로 거부됐다. 재작업 지시가 없는 rework를 막는 입력 가드다.
+  - 새로 입증된 제품 결함은 없다.
+
+- 2026-11-24 01:33:44–01:34:29Z 틱(직전 00:12Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음. 4호스트 모두 MCP `probe_succeeded`, new_failures 0.
+  - Andy: running+slot 3, waiting_input 2→5, submitted 21→23, 원장 6720→6781, 보드 v11059. n1166 검수 행 누락은 계속 남아 있다(반복).
+  - Celly: running+slot 2→7, waiting_input 8→2, submitted 1, 원장 8417→8528, 보드 v10187. 세 틱 연속 응답했다.
+  - KOBE: running+slot 2→3, waiting_input 1, submitted 1→0, 원장 3142→3168.
+  - Prody: 두 틱 미관측 뒤 이번에는 ssh가 됐다. submitted 6, waiting_input 2, 원장 728.
+  - 포크 `transport_interrupted` API 오류
+    - Celly 01:28:56Z 4건(n1236, n1320, n1409, n1411), KOBE 01:13:42Z 1건(n32), Prody 01:13:59Z 1건(n1258)
+    - 호스트 재시도 가드가 1m×10, 10m×10을 예약했다(정상 가드).
+    - 세 호스트에서 15분 안에 같은 종류가 났다. 공통 원인은 확인하지 않았다(업스트림 쪽 가능성, 미확인).
+  - 그 밖의 포크 오류는 작업 자체·환경 오류다. 예: Celly git 자격 증명 프롬프트 차단, KOBE Walkie QA 조건 누락 400, Prody 경로 없음.
+  - 새로 입증된 제품 결함은 없다.
+
 - 2026-11-24 00:12:22–00:13Z 틱(직전 23:54Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
   - Celly
     - 두 번째 틱 연속으로 응답했다. MCP 359 ms(v10114), `/health` 3회 0.01–0.02초.

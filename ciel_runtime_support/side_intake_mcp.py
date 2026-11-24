@@ -30,7 +30,7 @@ def schemas():
              'attempt_ref': {'type': 'string', 'maxLength': 16,
                              'description': "The receipt's reply_attempt_ref, when it shows one"}},
              'required': ['receipt_id', 'expected_state', 'revision']}},
-        {'name': 'work_side_renew', 'description': 'Host-only heartbeat for one live side actor; never revives an expired generation. '
+        {'name': 'work_side_renew', 'description': 'Host-only heartbeat for one live side actor; revives a lapsed lease only while no other claim took the event.'
                                                    'source_bounded records that the fork got a bounded source thread (older replies left out).',
          'inputSchema': {'type': 'object', 'properties': {'source_bounded': {'type': 'object', 'properties': {
              'omitted_replies': {'type': 'integer', 'minimum': 1}}, 'required': ['omitted_replies']}}}},

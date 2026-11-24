@@ -1,0 +1,44 @@
+ude-debug.txt
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+● high · /effort  
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────❯  
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  ⏸ manual mode on · ? for shortcuts · ← for agents]7501;?▛█▄
+██▘
+▝▝  ▀w:Workunavailable[+][-]work: unavailable  
+▛█ 
+██▀███▛█▄
+████▘
+   ▝▝  ▀     ▛█ 
+█████▀▗▟▛███▛█▄
+ ▜████▘
+ ▝▝   ▝▝ ▐▛▛█ 
+·▜██████·~~   work: plan 0/20/2 ◷ free leaf◷approvalofthereleasegroupfromthe…[+] ▐▛███▛█
+▝▜███▀
+ ▝▝   ▝▝ ●ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing approved Work. Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode, or the agent (work_mode_set)]0;◐ Claude Codew:Work0/2◷freeleaf◷approvalofthereleasegroupfromthe…[+][-]● high · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────❯  
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  ⏸ manual mode on · ? for shortcuts · ← for agents · ↓ to manage                                       work: plan 0/2  
+
+  ● main                                                                                                                ◯ciel-work:side-fresh  Side SSE c8e8d5a9dd08    0s0s · ↑ 20 token]0;◑ Claude Code1]0;◐ Claude Code2↓t mnage]0;◑ Claude Code3]0;◐ Claude Code4]0;◑ Claude Code5]0;◐ Claude Code6]0;◑ Claude Code7]0;◐ Claude Code8]0;◑ Claude Code9]0;◐ Claude Code10]0;◑ Claude Code1]0;◐ Claude Code2]0;◑ Claude Code3]0;◐ Claude Code4]0;◑ Claude Code5]0;◐ Claude Code6]0;◑ Claude Code7]0;◐ Claude Code8]0;◑ Claude Code9]0;◐ Claude Code20]0;◑ Claude Code1]0;◐ Claude Code2]0;◑ Claude Code3]0;◐ Claude Code4]0;◑ Claude Code]0;◐ Claude Code5]0;◑ Claude Code6]0;◐ Claude Code7]0;◑ Claude Code8]0;◐ Claude Code9]0;◑ Claude Code30]0;◐ Claude Code1]0;◑ Claude Code2]0;◐ Claude Code3]0;◑ Claude Code4]0;◐ Claude Code5]0;◑ Claude Code6]0;◐ Claude Code7]0;◑ Claude Code8]0;◐ Claude Code9]0;◑ Claude Code40]0;◐ Claude Code1]0;◑ Claude Code2]0;◐ Claude Code3]0;◑ Claude Code4]0;◐ Claude Code5]0;◑ Claude Code6]0;◐ Claude Code7]0;◑ Claude Code8]0;◐ Claude Code]0;◑ Claude Code9]0;◐ Claude Code50]0;◑ Claude Code1]0;◐ Claude Code2]0;◑ Claude Code3]0;◐ Claude Code4]0;◑ Claude Code5]0;◐ Claude Code6]0;◑ Claude Code7]0;◐ Claude Code8]0;◑ Claude Code9]0;◐ Claude Code1m 0]0;◑ Claude Code1]0;◐ Claude Code2]0;◑ Claude Code3]0;◐ Claude Code4]0;◑ Claude Code5]0;◐ Claude Code6]0;◑ Claude Code7]0;◐ Claude Code8]0;◑ Claude Code9]0;◐ Claude Code1m 10]0;◑ Claude Code1]0;◐ Claude Code2]0;◑ Claude Code]0;◐ Claude Code3]0;◑ Claude Code4]0;◐ Claude Code5]0;◑ Claude Code6]0;◐ Claude Code7]0;◑ Claude Code8]0;◐ Claude Code9]0;◑ Claude Code20]0;◐ Claude Code1]0;◑ Claude Code2]0;◐ Claude Code3]0;◑ Claude Code4]0;◐ Claude Code5]0;◑ Claude Code6]0;◐ Claude Code7]0;◑ Claude Code8]0;◐ Claude Code9]0;◑ Claude Code30]0;◐ Claude Code1]0;◑ Claude Code2]0;◐ Claude Code3]0;◑ Claude Code4]0;◐ Claude Code5]0;◑ Claude Code6]0;◐ Claude Code]0;◑ Claude Code7]0;◐ Claude Code8]0;◑ Claude Code9]0;◐ Claude Code40]0;◑ Claude Code1]0;◐ Claude Code2]0;◑ Claude Code3]0;◐ Claude Code4]0;◑ Claude Code5]0;◐ Claude Code6]0;◑ Claude Code7]0;◐ Claude Code8]0;◑ Claude Code9]0;◐ Claude Code50]0;◑ Claude Code1]0;◐ Claude Code2]0;◑ Claude Code3]0;◐ Claude Code4]0;◑ Claude Code5]0;◐ Claude Code6]0;◑ Claude Code7]0;◐ Claude Code8]0;◑ Claude Code9]0;◐ Claude Code 2m 0]0;◑ Claude Code]0;◐ Claude Code1]0;◑ Claude Code2]0;◐ Claude Code3]0;◑ Claude Code]0;✳ Claude Code◯ stopped · 4                                                                                                                        w: Work0/2◷freeleaf◷approvalofthereleasegroupfromthe…[+][-]
+                                                                                                                        ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────❯  
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────⏸ manual mode on · ? for shortcutswork: plan 0/2]0;◑ Claude Codew:Work0/2◷freeleaf◷approvalofthereleasegroupfromthe…[+][-]────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────❯  
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  ⏸ manual mode on · ? for shortcuts · ↓ to manage                                                      work: plan 0/2  
+
+  ● main                                                                                                                ◯ciel-work:side-fresh  Side SSE c8e8d5a9dd080s0s · ↑ 20 token0s · ↑ 114 0s · ↑ 25]0;✳ Claude Code                                                                                                                        w: Work0/2◷freeleaf◷approvalofthereleasegroupfromthe…[+][-]
+                                                                                                                        ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────❯  
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────⏸manual mode on · /tasks toseesubagents     work: plan 0/2

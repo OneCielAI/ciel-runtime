@@ -83,6 +83,18 @@ class SideReleaseNoticeTests(unittest.TestCase):
         self.assertIn('agent-park (lease L2, item n2) was not resumed automatically: the resume was not delivered', notice)
         self.assertIn('resume with SendMessage', notice)
 
+    def test_a_released_group_wait_reaches_the_forks_of_its_leaves(self):
+        # Andy 2026-11-23: a group wait (n2296) gated five leaves; once the side
+        # may release it, the forks on those leaves are the waiters.
+        parked = self.run_case('group-parked-resumed')
+        self.assertEqual([['L3']], parked['resumeCalls'])
+        running = self.run_case('group-running')
+        self.assertEqual([{'agentId': 'agent-run'}], [item['to'] for item in running['sent']])
+        self.assertIn('n2 ("group approval")', running['sent'][0]['text'])
+        # A leaf with a wait of its own is still waiting: it is not resumed.
+        still = self.run_case('group-leaf-still-waits')
+        self.assertEqual([], still['resumeCalls'])
+
     def test_undeliverable_fork_message_falls_back_to_main(self):
         row = self.run_case('fork-refuses')
         self.assertEqual(1, len(row['sent']))

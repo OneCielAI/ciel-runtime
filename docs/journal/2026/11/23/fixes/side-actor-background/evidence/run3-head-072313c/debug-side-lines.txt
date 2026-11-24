@@ -1,0 +1,12 @@
+2026-11-24T03:45:03.845Z [DEBUG] hooks module ciel-work@inline loaded (worker, environment 1, tier user); events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,session.compact,classic.Stop,session.receive,prompt.submit,command.run,tool.call,session.send,tool.check,session.end,ui.render,ui.message
+2026-11-24T03:45:04.093Z [DEBUG] hooks module ciel-work@inline session.start settled in 153.5ms (worker hop, next() included)
+2026-11-24T03:45:10.961Z [DEBUG] $.agent.register (ciel-work): ciel-work:side-fresh listed
+2026-11-24T03:45:11.372Z [WARN] [claude-code:unrecognized_model] {"model":"fixture-main","query_source":"agent:custom:ciel-work:side-fresh"}
+2026-11-24T03:45:11.411Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-24T03:47:15.173Z [DEBUG] $.tool.call (ciel-work): TaskStop (task_id)
+2026-11-24T03:47:15.182Z [INFO] [Stall] tool_dispatch_start tool=TaskStop toolUseId=toolu_plugin_7ae92d7b64e54a8886904dca25bb1e82 permissionDecisionMs=5
+2026-11-24T03:47:15.190Z [INFO] [Stall] tool_dispatch_end tool=TaskStop toolUseId=toolu_plugin_7ae92d7b64e54a8886904dca25bb1e82 outcome=ok durationMs=8
+2026-11-24T03:47:15.212Z [DEBUG] $.tool.call (ciel-work): TaskStop answered in 39ms, 172 chars
+2026-11-24T03:47:15.229Z [INFO] [Stall] agent_completion agentId=a20473fa79e8117b0 agentType=ciel-work:side-fresh exitPath=cancelled durationMs=124220 turns=0 finalStopReason=none lastChunkAgeMs=9 lastToolUseId=none lastToolResultSeen=none
+2026-11-24T03:49:32.791Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-24T03:49:32.856Z [INFO] [Stall] agent_completion agentId=aa7d02343c53ab0c7 agentType=ciel-work:side-fresh exitPath=completed durationMs=304 turns=1 finalStopReason=end_turn lastChunkAgeMs=7 lastToolUseId=none lastToolResultSeen=none

@@ -559,7 +559,7 @@ class SideDecisionTests(unittest.TestCase):
         finish(self.root, 'claude:test', key, picked['generation'], self.base)
         self.assertFalse(inbox._event_path('pending', key).exists())
 
-    def test_heartbeat_extends_live_claim_but_cannot_revive_expired_actor(self):
+    def test_heartbeat_extends_live_claim_and_never_revives_a_reclaimed_one(self):
         from ciel_runtime_support.side_intake_processing import renew
         inbox = SideIntakeInbox(self.root, 'claude:test')
         inbox.receive('question', 'event')
@@ -569,10 +569,44 @@ class SideDecisionTests(unittest.TestCase):
         self.assertIsNone(claim(self.root, 'claude:test', 'other', now=230))
         with self.assertRaises(tree.WorkPlanError):
             renew(self.root, 'claude:test', event['receipt_id'], 'wrong', now=240)
-        with self.assertRaises(tree.WorkPlanError):
-            renew(self.root, 'claude:test', event['receipt_id'], event['generation'], now=321)
         newer = claim(self.root, 'claude:test', 'other', now=322)
         self.assertNotEqual(event['generation'], newer['generation'])
+        # The first actor's generation lost the event to the newer claim.
+        with self.assertRaises(tree.WorkPlanError):
+            renew(self.root, 'claude:test', event['receipt_id'], event['generation'], now=323)
+
+    def test_an_expired_claim_nobody_took_is_revived_by_its_own_actor(self):
+        # Andy 2026-11-23 23:36-23:42Z: the host's side pump did not run for 7
+        # minutes, the 120 s lease lapsed while the actor was still working, and
+        # the next pump stopped that actor and claimed the event again (a second
+        # actor, the same event). The working actor's heartbeat revives its own
+        # claim when no other claim took the event.
+        from ciel_runtime_support.side_intake_processing import renew
+        inbox = SideIntakeInbox(self.root, 'claude:test')
+        inbox.receive('question', 'event')
+        event = claim(self.root, 'claude:test', 'actor', now=100)
+        revived = renew(self.root, 'claude:test', event['receipt_id'], event['generation'], now=600)
+        self.assertEqual(720, revived['lease_until'])
+        self.assertIsNone(claim(self.root, 'claude:test', 'other', now=601))
+        finish(self.root, 'claude:test', event['receipt_id'], event['generation'], self.base, now=602)
+
+    def test_the_same_host_reclaiming_its_lapsed_event_gets_its_own_claim_back(self):
+        # A claim of the same host that reached the router after the lease
+        # lapsed under it (its pump stalled) re-offered the event under a new
+        # generation, so the host started a second actor beside the working one.
+        # The same owner gets the same generation back; another owner does not.
+        inbox = SideIntakeInbox(self.root, 'claude:test')
+        inbox.receive('question', 'event')
+        event = claim(self.root, 'claude:test', 'side-1', now=100)
+        again = claim(self.root, 'claude:test', 'side-1', now=600)
+        self.assertEqual((event['receipt_id'], event['generation']), (again['receipt_id'], again['generation']))
+        self.assertEqual(720, again['lease_until'])
+        finish(self.root, 'claude:test', event['receipt_id'], event['generation'], self.base, now=601)
+        inbox.receive('second question', 'event-2')
+        first = claim(self.root, 'claude:test', 'side-1', now=700)
+        other = claim(self.root, 'claude:test', 'side-2', now=900)
+        self.assertEqual(first['receipt_id'], other['receipt_id'])
+        self.assertNotEqual(first['generation'], other['generation'])
 
     def test_expired_claim_cannot_commit_after_reclaim(self):
         SideIntakeInbox(self.root, 'claude:test').receive('question', 'event')
