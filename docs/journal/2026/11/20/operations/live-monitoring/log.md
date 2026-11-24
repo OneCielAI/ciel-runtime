@@ -2,6 +2,36 @@
 
 ## 2026-11-23
 
+- 2026-11-24 08:52:19–08:52:58Z 틱(직전 08:40Z).
+  - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 4886d62와 7edfc0c는 파일만 설치된 상태다(라이브 아님).
+  - Andy
+    - running+slot 3→4, submitted 23→22, waiting_input 4→3, 원장 6967→6971
+    - MCP 2,703 ms. 직전 782 ms보다 느리다.
+    - n1166, n2708(반복)
+    - 08:42–08:43Z 업스트림 오류 이벤트 2(게이트웨이 소관)
+    - `runtime_activity_context_usage_failed` PermissionError 1. 라우터 activity 파일 권한 오류 계열이다(반복, 추적 중).
+    - 대화: 계획 버전 충돌 1(가드)
+  - Celly
+    - running+slot 6, waiting_input 3→2, 원장 8829→8832, MCP 297 ms
+    - 늦은 SSE 재시도 16(업스트림)
+    - 08:49:56Z "auto continue could not read the Work status" 안내. Prody에서 보이던 것과 같은 유형이다. 원인은 확인하지 않았다.
+  - KOBE: 미관측
+    - 모니터가 `ssh failed`를 냈다.
+    - 다시 확인했다(08:53–08:55Z): TCP 1004는 열려 있지만 SSH가 배너 교환에서 끊긴다(timeout 1, reset 1). .25와 같은 형태다.
+    - 같은 시각 .12 SSH는 정상이었다.
+    - 이번 틱의 KOBE 상태는 읽지 못했다. 종료로 판단하지 않는다.
+  - Prody
+    - submitted 6→7, running+slot 1→0, 원장 846→854, MCP 2,519 ms
+    - 새 finding: n1272(리스 45445c92, P1)는 submitted이고 완료 영수증도 있는데 검수 행이 없다. native=running 08:52Z.
+      - 지난 틱 KOBE n54와 같은 형태다. n54는 다음 틱에 해소됐다. 다음 틱에 다시 본다.
+    - 대화 오류 3건: n1272 중복 디스패치 가드, walkie 도구 인자 오류, 메인 테스트 실패
+  - Betty
+    - running+slot 0→1, 원장 926→928, MCP 300 ms
+    - `unseen_failed` 7876(08:49:18Z, 20초)과 7874(08:52:05Z, 166초)
+    - 현재 로그의 `unseen_failed` 9건(7871–7876 포함)을 모두 대화 기록과 대조했다. 9건 모두 첨부와 remove가 있어 전달됐다.
+    - 같은 결함이고, 이전 코드가 돌고 있다.
+  - Sarah(.25): SSH가 배너 전에 끊긴다. 미확인.
+
 - 2026-11-24 08:40:17–08:40:45Z 틱(직전 08:20Z), 5호스트.
   - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 모두 MCP `probe_succeeded`. 4886d62와 7edfc0c는 파일만 설치된 상태다(라이브 아님).
   - Andy
