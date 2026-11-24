@@ -8,11 +8,11 @@ const scenario = process.argv[2]
 // forward-idle: the router offers the original of a quarantined event
 // (side_forward.text, passed by the test) to an idle main; no claim.
 const FORWARD_TEXT = process.argv[3] || ''
-let busy = !['relay-idle','forward-idle','complaint-idle'].includes(scenario)
+let busy = !['relay-idle','forward-idle','complaint-idle','relay-parked-complaint'].includes(scenario)
 sideMainBusy(() => busy)
 // Stage 3: register.js resumes a parked worker on its own lease first.
 const resumeCalls = []
-if (scenario === 'relay-parked-resumed' || scenario === 'relay-parked-waiting')
+if (['relay-parked-resumed','relay-parked-waiting','relay-parked-complaint'].includes(scenario))
   sideParkedResume(async ids => { resumeCalls.push(ids)
     return new Map(ids.map(id => [id, scenario === 'relay-parked-resumed' ? true : 'its wait is still recorded on the board'])) })
 const sent = [], appended = [], submitted = [], wakes = [], logs = [], resolved = []
@@ -25,6 +25,7 @@ const leases = {
   'relay-parked': {L2:{id:'L2',item_id:'n2',host_id:'agent-park',state:'waiting_input',slot:false}},
   'relay-parked-resumed': {L2:{id:'L2',item_id:'n2',host_id:'agent-park',state:'waiting_input',slot:false}},
   'relay-parked-waiting': {L2:{id:'L2',item_id:'n2',host_id:'agent-park',state:'waiting_input',slot:false}},
+  'relay-parked-complaint': {L2:{id:'L2',item_id:'n2',host_id:'agent-park',state:'waiting_input',slot:false}},
   'relay-other': {L9:{id:'L9',item_id:'n9',host_id:'agent-other',state:'running',slot:true}},
   'relay-refuses': {L1:{id:'L1',item_id:'n2',host_id:'agent-gone',state:'running',slot:true}},
 }[scenario] || {}
@@ -64,8 +65,8 @@ const $ = {
           relay:args.decision.relay ? {item_id:'n2',...(direct ? {fork_responds:true} : {})} : undefined,
           ...(direct ? {no_reply:true} : {}),
           handoff:'not_required',
-          ...(scenario === 'complaint-idle' ? {ask_main:true,complaint:true} : {})},
-        ...(scenario === 'complaint-idle' ? {main_notice:'Ciel side asks main (complaint · n2 · event eeeeeeeeeeee): Delimiter is still wrong'} : {})}
+          ...(['complaint-idle','relay-parked-complaint'].includes(scenario) ? {ask_main:true,complaint:true} : {})},
+        ...(['complaint-idle','relay-parked-complaint'].includes(scenario) ? {main_notice:'Ciel side asks main (complaint · n2 · event eeeeeeeeeeee): Delimiter is still wrong'} : {})}
     }
     if (name === 'work_side_reply') value = {receipt:{receipt_id:args.receipt_id,stage:'processed'},arguments:null}
     if (name === 'work_side_wake') {
@@ -90,7 +91,7 @@ if (scenario !== 'forward-idle')
   await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({understanding:'understood in my own words',decision:{action:'update',kind:'request',item_id:'n2',
     summary:'Delimiter is a semicolon',reply:'forwarded',note:'CSV delimiter must be ;',relay:!['no-relay','complaint-idle'].includes(scenario),
     ...(isDirect ? {no_reply:true} : {}),
-    ...(scenario === 'complaint-idle' ? {complaint:true} : {})},expected_version:4})})
+    ...(['complaint-idle','relay-parked-complaint'].includes(scenario) ? {complaint:true} : {})},expected_version:4})})
 // The notice and the idle wake run in hooks the harness does not await. A
 // fixed 20 ms wait lost the append on a loaded machine (2 of 5 runs on 3d42d1d).
 const idle = !busy

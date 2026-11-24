@@ -117,6 +117,27 @@ class SideRelayNoticeTests(unittest.TestCase):
         self.assertNotIn('released recorded wait', wake)
         self.assertNotIn('Delimiter', wake)
 
+    def test_relay_with_ask_main_complaint_keeps_parked_worker_and_avoids_notice_race(self):
+        # Andy 2026-11-24 20:21Z (Walkie 160097 / b3c70c902571): ask_main and
+        # relayToItem raced on the same receipt_id, so ask_main won and
+        # relayToItem returned "already", dropping the relay body and parked
+        # worker SendMessage guidance.
+        row = self.run_case('relay-parked-complaint')
+        self.assertEqual(1, len(row['appended']))
+        main = row['appended'][0]
+        self.assertTrue(main.startswith(
+            'Ciel side asks main (complaint · n2 · event eeeeeeeeeeee): Delimiter is still wrong'), main)
+        self.assertIn('Ciel side relay for Work item n2 (csv writer)', main)
+        self.assertIn(MESSAGE, main)
+        self.assertIn('agent-park (lease L2, item n2) was not resumed automatically: its wait is still recorded', main)
+        self.assertIn('resume with SendMessage to that worker only if this matters to it', main)
+        self.assertEqual([('e' * 64, 'notice_prepare'), ('e' * 64, 'notice_appended')],
+                         [(call['event_id'], call['state']) for call in row['wakes']])
+        self.assertEqual(1, len(row['submitted']))
+        self.assertIn('a host message beginning "Ciel side asks main"', row['submitted'][0])
+        self.assertIn('Side relay n2 → main (appended)', row['logs'])
+        self.assertNotIn('Side relay n2 → main (already)', row['logs'])
+
     def test_update_without_relay_tells_nobody(self):
         row = self.run_case('no-relay')
         self.assertFalse(row['resolved'][0].get('relay'))

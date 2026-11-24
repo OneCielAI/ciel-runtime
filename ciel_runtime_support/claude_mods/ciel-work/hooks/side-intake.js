@@ -2669,31 +2669,36 @@ async function commitProposal($,actor,event,proposal,sentVia,usage) {
       forkText = forkText ? forkText+'\n'+text : text
     }
     const asks = value.result?.ask_main === true && !value.result.duplicate
-    const withFork = text => forkText ? text+'\n'+forkText : text
-    const alone = asks ? '' : forkText
+    // The side's own escalation (ask_main): one notice to main, nothing to
+    // acknowledge. A complaint carries the router's durable notice text, so a
+    // claim after a lost result offers the same notice instead of a second
+    // wording. Combine it into the receipt's single host notice instead of
+    // racing relayToItem/notifyReleased on the same receipt_id (Andy 2026-11-24
+    // 160097 / b3c70c902571: ask_main claimed the receipt first and relayToItem
+    // returned "already", dropping the relay text and parked-worker notice).
+    const askText = asks ? (typeof value.main_notice === 'string' && value.main_notice
+      ? value.main_notice
+      : 'Ciel side asks main ('+(value.result.item_id ? value.result.item_id+', ' : '')+'event '
+        +event.receipt_id.slice(0,12)+'): '+line(value.result.summary,300)+' — '+line(value.result.reply,600)) : ''
+    const withExtra = text => [askText, text, forkText].filter(Boolean).join('\n')
+    const aloneExtra = [askText, forkText].filter(Boolean).join('\n')
+    const fallbackNotice = () => {
+      if (aloneExtra) void noticeToMain($,actor.identity,event.receipt_id,aloneExtra).catch(() => {})
+    }
     if (value.result?.relay?.item_id && !value.result.duplicate)
       // One host notice per receipt: a relay also names any wait it released.
-      void relayToItem($,actor.identity,event,value.result,withFork,alone).catch(() => {})
+      void relayToItem($,actor.identity,event,value.result,withExtra,aloneExtra).catch(fallbackNotice)
     else if (value.result?.released_waits?.length && !value.result.duplicate)
-      void notifyReleased($,actor.identity,event,value.result,withFork,alone).catch(() => {})
+      void notifyReleased($,actor.identity,event,value.result,withExtra,aloneExtra).catch(fallbackNotice)
     // Main's turn-end check (user 2026-11-18): the side delivers its result to
     // main. A release already told main through notifyReleased.
     else if (event.route?.turn_end === true && value.result && !value.result.duplicate) {
       const said = line(value.result.reply || value.result.summary,600)
       if (said && !/^["']?(nothing to do|할\s*일\s*없음)["']?\.?$/i.test(said))
-        void noticeToMain($,actor.identity,event.receipt_id,withFork('Ciel side (after your turn): '+said)).catch(() => {})
-      else if (alone) void noticeToMain($,actor.identity,event.receipt_id,alone).catch(() => {})
+        void noticeToMain($,actor.identity,event.receipt_id,withExtra('Ciel side (after your turn): '+said)).catch(() => {})
+      else fallbackNotice()
     }
-    else if (alone) void noticeToMain($,actor.identity,event.receipt_id,alone).catch(() => {})
-    // The side's own escalation (ask_main): one notice to main, nothing to
-    // acknowledge. A workflow handoff already carries it when one was made.
-    // A complaint carries the router's durable notice text, so a claim after a
-    // lost result offers the same notice instead of a second wording.
-    if (asks)
-      void noticeToMain($,actor.identity,event.receipt_id,withFork(typeof value.main_notice === 'string' && value.main_notice
-        ? value.main_notice
-        : 'Ciel side asks main ('+(value.result.item_id ? value.result.item_id+', ' : '')+'event '
-          +event.receipt_id.slice(0,12)+'): '+line(value.result.summary,300)+' — '+line(value.result.reply,600))).catch(() => {})
+    else fallbackNotice()
     $.clock.after(10, async () => { await recoverReply($,actor.identity,event) })
   }
 }
