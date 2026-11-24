@@ -1,0 +1,49 @@
+{
+ "passed": true,
+ "checks": {
+  "claude_2_1_331": true,
+  "input_sent_during_the_tool": true,
+  "model_request_carried_the_input": true,
+  "fixed_completes_it": true
+ },
+ "variants": {
+  "fixed": {
+   "outcome": "completed",
+   "at_s": 33.0,
+   "states": [
+    [
+     0.0,
+     "missing"
+    ],
+    [
+     0.5,
+     "queued"
+    ],
+    [
+     33.0,
+     "completed"
+    ]
+   ]
+  },
+  "before_fix": {
+   "outcome": "completed",
+   "at_s": 33.0,
+   "states": [
+    [
+     0.0,
+     "missing"
+    ],
+    [
+     0.5,
+     "queued"
+    ],
+    [
+     33.0,
+     "completed"
+    ]
+   ]
+  }
+ },
+ "failure": null,
+ "scratch_removed": true
+}

@@ -215,3 +215,34 @@ side 지침(`DEFAULT_SIDE_INSTRUCTION` = `side-intake.js PROMPT`), `gate_actor`,
 - 정적 검사·패키징·모드 검사:
   - `ruff 0.15.22`, `python -m compileall`, `npm run check:docs`, `npm pack --dry-run` 통과.
   - `claude plugin validate` 통과, `claude plugin test` 94 통과 / 0 실패.
+
+# 배포 (2026-11-24)
+
+- 커밋 7edfc0c(코드는 943c3e2와 같고 문서만 더함)를 `feature/priority-models`와 `beta`에 push했다. `git ls-remote`로 두 브랜치 모두 7edfc0c임을 확인했다.
+- Publish to npm 실행 45341421132: publish 잡 성공. beta push라 quality·test 잡은 건너뛰었다(위 정적 검사와 회귀를 배포 전에 직접 돌렸다).
+- npm beta `0.2.51-beta.20261124-063421.7edfc0c`, gitHead 7edfc0c.
+  - 배포 tarball을 받아 변경 파일 12개의 해시를 오버레이 new와 대조했다. 불일치 0.
+- 해시 확인 오버레이 `overlay-943c3e2`(12개 파일, base 3d475f9)를 설치했다. 모든 루트에서 설치 전 base 12/12, 설치 후 new 12/12였다.
+
+  | 대상 | 설치 시각 |
+  |---|---|
+  | 로컬 `ciel-runtime-hotfix5-20261119-210220`, `.local/share/ciel-runtime`, npm 전역 | 06:43:35Z |
+  | Celly(관리자 권한) | 06:44:12Z |
+  | KOBE(ssh) | 06:46:13Z |
+  | Prody(ssh) | 06:46:19Z |
+  | Betty(ssh) | 06:46:24Z |
+
+- 라이브 효과(파일 설치와 구분)
+  - Python 변경(`side_*`, `work_gate_check`, `work_mcp_tools`, `work_texts`, `work_workflow_prompts`)은 라우터가 다시 시작해야 반영된다. 운영 라우터는 이 작업에서 재시작하지 않았다. 그래서 다섯 호스트 모두 아직 라이브가 아니다.
+  - 모드 변경(`side-intake.js`, `texts.generated.js`)은 Claude 세션이 모드를 다시 읽어야 반영된다. 운영 세션도 재시작하지 않았다.
+  - Betty는 side 액터를 쓰지 않는다. 재시작 뒤에도 이번 side 기능은 Betty에서 동작하지 않는다.
+- 배포 시점에 최종 트리의 Windows `test_work_mod_real_backend.py` 재실행은 아직 진행 중이었다. 같은 파일은 py311 최종 트리에서 120/0/4, Windows cf55ed2에서 117/0/3으로 통과했다.
+- Windows 최종 트리 `test_work_mod_real_backend.py` 결과(배포 뒤에 나옴)
+  - 첫 전체 실행(06:31–07:05Z): 116 통과 / 1 실패 / 3 skip.
+    - 실패 테스트: `test_failed_reload_attribution_stops_nothing_and_the_next_pump_retries`
+    - 같은 시간에 원격 조사와 다른 작업이 함께 돌고 있었다.
+    - 실행기가 요약만 남겨 실패 내용은 보존되지 않았다.
+  - 그 테스트 단독 실행: 통과(39.9초).
+  - 전체 재실행(07:08–07:43Z, 출력 전체 보존): 117 통과 / 0 실패 / 3 skip.
+  - 이 시나리오는 register.js의 fork-turn 관찰 경로다. 943c3e2는 register.js를 바꾸지 않았다.
+  - 실패는 재현되지 않았다. 원인은 확인하지 못했다. 같은 실패가 다시 나오면 전체 출력으로 추적한다.

@@ -45,6 +45,9 @@ class ChannelInflightEffects:
     # (message_id, failed wake state) -> "retry" | "failed" | "stale".  Unset
     # keeps the old reading of an API error record as completion.
     turn_failed: Callable[[int, str, float], str] | None = None
+    # send epoch -> whether the CLI queued an input since then and still holds
+    # it without naming it (channel_transcript.queue_holds_unattributed_input).
+    queue_holds_input: Callable[[float], bool] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,7 +107,15 @@ def advance_channel_inflight(
     age_failure_allowed = not snapshot.admission_paused and not (
         snapshot.recovery_protected and state in {"unknown", "missing"}
     )
-    if age_failure_allowed and state == "missing" and snapshot.started_at > 0 and age >= policy.unseen_retry_seconds:
+    unseen = age_failure_allowed and state == "missing" and snapshot.started_at > 0 and age >= policy.unseen_retry_seconds
+    if unseen and effects.queue_holds_input is not None and effects.queue_holds_input(snapshot.started_at):
+        # The CLI recorded a queue entry after this send and still holds it.
+        # Claude Code 2.1.331 names a mid-turn input only when the turn takes
+        # it; failing here marked 31 of 31 such Betty inputs failed although
+        # every one was handed over (2026-11-23/24).
+        unseen = False
+        state = "queued_unattributed"
+    if unseen:
         effects.release_wake(message_id)
         effects.log(
             "WARN",

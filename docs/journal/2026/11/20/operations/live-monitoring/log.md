@@ -2,6 +2,73 @@
 
 ## 2026-11-23
 
+- 2026-11-24 07:37:29–07:38:02Z 틱(직전 06:13Z, 창 약 84분), 5호스트.
+  - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 모두 MCP `probe_succeeded`.
+  - 배포 상태: 7edfc0c(side 수정) 파일은 06:43–06:46Z에 7개 루트에 해시 확인 설치됐다. 라우터와 세션을 재시작하지 않았으므로 라이브 반영은 아직 없다.
+  - Andy
+    - running+slot 1→3, submitted 22→24, waiting_input 4, 원장 6889→6907, 보드 v11226, MCP 1,219 ms
+    - n1166 검수 행 누락(반복), n2708 `awaiting_capacity`(반복)
+    - 새 finding: n2622(리스 f03b64ae)도 `awaiting_capacity`(P3 1/1, 06:45Z부터). 용량 가드다.
+    - 06:13Z 틱의 긴 턴(투영 age 3,739초)은 06:30Z 전후에 끝났다. 06:32Z부터 age가 120초에서 다시 시작했다.
+    - 라우터 로그(창 안): SSE EOF 80, client 연결 끊김(10054) 여러 건, BrokenPipe 1
+    - 대화 오류 22건
+      - 계획 버전 충돌 재시도(가드)
+      - n2561 중복 디스패치 가드
+      - 메인 스크립트의 cp1252 인코딩 오류
+  - Celly
+    - running+slot 5→6, waiting_input 5→4, 원장 8774→8820, 보드 v10459, MCP 1,391 ms
+    - new_failures `revival_refused cbee215c x1`: 끝난 리스의 포크를 되살리는 메시지를 막은 가드다.
+    - 라우터 로그
+      - keepalive TaskList 합성 132
+      - SSE EOF 72
+      - client 연결 끊김(10054) 다수
+      - `runtime_activity_router_failed` PermissionError 4(반복, 추적 중)
+    - 대화 오류 15건
+      - 메인 스크립트 오류
+      - `work_side_handoff: side handoff not found`(메인이 handoff가 필요 없는 알림에 호출)
+      - P3 정원 안내
+  - KOBE
+    - running+slot 2→1, waiting_input 3, submitted 0→1, 원장 3254→3275, MCP 667 ms
+    - 새 finding: n54(리스 653e0f58, P2)는 submitted이고 완료 영수증도 있는데 검수 행이 없다. native=running 07:37Z.
+      - 방금 생긴 상태다. 다음 틱에 다시 본다.
+    - new_failures `revival_refused ac6e2cb3 x1`
+      - 메인이 SendMessage를 보냈고, "unreported 리스, 실행·대기 중이 아님"이라는 이유로 거부됐다.
+      - 가드 동작이다.
+    - 07:12–07:15Z 같은 창에서 연결 오류가 함께 나왔다. 원인은 확인하지 않았다.
+      - SSE 끊김: ConnectionReset 4, URLError(connect timeout) 1
+      - `transcript_delta_delivery_failed`: TimeoutError 7, 10061 거부 4(반복 항목)
+    - 업스트림 오류 이벤트 1건(06:25Z)은 늦은 SSE 재시도 가드가 처리했다.
+  - Prody
+    - running+slot 3→2, submitted 6→7, 원장 800→823, 보드 v7043, MCP 1,297 ms
+    - 대화
+      - 06:20Z "auto continue could not read the Work status" 안내(반복)
+      - 계획 버전 충돌(가드)
+      - 검수 포크 금지 가드
+      - n1270 중복 디스패치 가드(반복)
+  - Betty
+    - running+slot 1→0, submitted 5, waiting_input 1, 원장 910→917, MCP 290 ms
+    - 이번 창에도 Betty 결함(턴 중 소켓 입력을 실패로 기록)이 나왔다.
+      - `unseen_failed` 7868(06:23Z)과 7869(06:49Z)
+      - 7868은 06:23:54Z에 remove absorbed_mid_turn이 기록돼 전달된 것을 확인했다.
+    - 같은 결함이 커서 복구 경로에서도 나왔다.
+      - 06:34:10Z `channel_stdin_proxy_recover_queued_only message_id=7847 cursor=7868 recovered_cursor=7846`
+      - 일괄 판정이 첨부를 먼저 쓰는 인계를 `queued`로 읽은 것이다.
+      - 이번에는 clear floor(7862)로 막혔다. 7863–7865는 `durable_replied`로 건너뛰었고, 재주입은 관측되지 않았다.
+      - 이 경로(`wake_states_from_text`)도 진행 중인 수정 범위다.
+  - Sarah(.25): 06:58–07:32Z 재시도 내내 SSH 배너 전 연결 끊김. 아직 미확인(위 항목).
+  - 진행 중
+    - 채널 수정은 실패 테스트, 실엔진 4구성, Windows 채널 핵심 회귀까지 마쳤다. Linux 재회귀와 Windows 165개 파일 회귀가 남았다.
+    - 7edfc0c Windows `test_work_mod_real_backend` 전체 재실행이 진행 중이다(배포 뒤 1건 실패, 단독 실행은 통과).
+
+- 2026-11-24 06:52–07:32Z: 사용자 요청 ".25 Sarah 샌드박스가 새 베타를 설치했는데 SSE 메시지를 제대로 받지 못하는 것 같다"를 확인하려 했다.
+  - 접근 시도(읽기 전용, 이 PC에서)
+    - `ssh -p 1004 sjglobal@100.64.0.25`: TCP 연결은 되지만 서버가 SSH 배너 전에 연결을 끊는다(`kex_exchange_identification: Connection reset by peer`). 06:5xZ에 6회 실패했고, 06:58–07:32Z 45초 간격 재시도도 모두 실패했다.
+    - 같은 시각 `.12`(Prody·Betty)와 `.14`(KOBE) SSH는 정상이었다. 이 PC 쪽 네트워크 문제는 아니다.
+    - `.25`의 22, 1005, 2022, 2222, 3389, 5985, 9464–9470 포트와 HTTP 13080·8080·80·443은 응답이 없다.
+    - 로컬 AAP 콘솔(localhost:13080)에는 ganti-ai와 Celly만 있고 Sarah는 없다.
+  - Sarah의 설치 버전, side 사용 여부, 라우터 로그를 읽지 못했다. 원인은 확인하지 못했다.
+  - 같은 시간에 Betty에서 입증한 결함(턴 중 소켓 입력을 `unseen_failed`로 기록, 아래 06:13Z 항목)이 Sarah에도 해당하는지는 Sarah 설정을 읽어야 판단할 수 있다.
+
 - 2026-11-24 06:13:46–06:14:17Z 틱(직전 06:01Z), 5호스트. Betty 채널 기록은 06:30Z까지 추가로 읽기 전용 조사했다.
   - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 모두 MCP `probe_succeeded`, new_failures 0.
   - Andy

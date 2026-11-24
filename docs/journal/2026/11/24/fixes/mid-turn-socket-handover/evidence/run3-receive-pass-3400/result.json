@@ -1,0 +1,147 @@
+{
+  "kind": "mid-turn session-socket input, real Claude Code",
+  "claude_version": "2.1.331 (Claude Code)",
+  "base": "7edfc0c",
+  "prompt_chars": 3434,
+  "mods": "receive-mod",
+  "python_sha256": {
+    "channel_transcript.py": "bb7ef3e55977c47deb7a5052d61a26f301e0b20b1023da8a41908275609e5aa6",
+    "channel_inflight.py": "f1fad70da9a2a9d3cd7cd06040c4956343493eb2d2a8304383ca394f8cc89278",
+    "channel_transcript_base.py": "4bf29f3e50add1fecec0d977c063d733b7a9b90102f5d62bd05a9533987be8ec"
+  },
+  "steps": {
+    "tool_use_served": true,
+    "mod_load_line": "hooks module receive-pass@inline loaded (worker, environment 1, tier user); events: session.receive",
+    "socket_sent": true,
+    "sent_after_tool_start_s": 5.3
+  },
+  "kill": "SUCCESS: The process with PID 114400 (child process of PID 104960) has been terminated.",
+  "requests_after_send_s": [
+    {
+      "at": -5.3,
+      "has_input": false,
+      "tool_results": [],
+      "has_tool_result": false,
+      "start": true,
+      "main": true
+    },
+    {
+      "at": 31.5,
+      "has_input": true,
+      "tool_results": [
+        "waited\nShell cwd was reset to <owned>\\workspace"
+      ],
+      "has_tool_result": true,
+      "start": true,
+      "main": true
+    }
+  ],
+  "transcript_shape": [
+    {
+      "record": 26,
+      "kind": "queue-operation",
+      "operation": "enqueue",
+      "has_content": true,
+      "names_input": true,
+      "reason": null,
+      "after_send_s": 0.02
+    },
+    {
+      "record": 28,
+      "kind": "queue-operation",
+      "operation": "remove",
+      "has_content": true,
+      "names_input": true,
+      "reason": "absorbed_mid_turn",
+      "after_send_s": 31.39
+    },
+    {
+      "record": 32,
+      "kind": "attachment queued_command",
+      "names_input": true,
+      "stamped_after_send_s": 0.02
+    },
+    {
+      "record": 39,
+      "kind": "assistant text",
+      "text": "done"
+    }
+  ],
+  "variants": {
+    "fixed": {
+      "outcome": "completed",
+      "at_s": 32.1,
+      "states": [
+        [
+          0.0,
+          "missing"
+        ],
+        [
+          0.5,
+          "queued"
+        ],
+        [
+          31.6,
+          "pending"
+        ],
+        [
+          32.1,
+          "completed"
+        ]
+      ],
+      "logs": [
+        [
+          32.1,
+          "INFO",
+          "channel_fixed_confirmed message_id=901 cursor=901"
+        ]
+      ]
+    },
+    "before_fix": {
+      "outcome": "completed",
+      "at_s": 32.1,
+      "states": [
+        [
+          0.0,
+          "missing"
+        ],
+        [
+          0.5,
+          "queued"
+        ],
+        [
+          31.6,
+          "pending"
+        ],
+        [
+          32.1,
+          "completed"
+        ]
+      ],
+      "logs": [
+        [
+          32.1,
+          "INFO",
+          "channel_before_fix_confirmed message_id=901 cursor=901"
+        ]
+      ]
+    }
+  },
+  "observed_shape": {
+    "contentless_enqueue_after_send": false,
+    "attachment_before_absorbing_remove": false,
+    "before_fix_outcome": "completed"
+  },
+  "checks": {
+    "claude_2_1_331": true,
+    "input_sent_during_the_tool": true,
+    "model_request_carried_the_input": true,
+    "fixed_completes_it": true
+  },
+  "passed": true,
+  "profile_changed": [
+    ".claude.json"
+  ],
+  "profile_unchanged": true,
+  "scratch_removed": true
+}

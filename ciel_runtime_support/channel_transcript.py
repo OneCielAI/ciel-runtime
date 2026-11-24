@@ -8,6 +8,9 @@ from typing import Any, Callable, Iterable, Iterator
 
 from .runtime_input_retry import classify_claude_api_error, encode_failed_state
 
+# The send clock and the CLI's record timestamps come from the same machine;
+# allow this much for the gap between taking the send time and writing.
+_QUEUE_CLOCK_SKEW_SECONDS = 2.0
 
 @dataclass(frozen=True)
 class ChannelWakeTranscriptServices:
@@ -141,6 +144,12 @@ class ChannelWakeStateReader:
             self.prompt_candidates(message, prompt),
             not_before=self.message_not_before(message),
         )
+
+    def queue_holds_input_since(self, since: float) -> bool:
+        """The CLI holds an input it queued at or after ``since`` (unnamed)."""
+
+        _path, text = self._latest_text()
+        return bool(text) and queue_holds_unattributed_input(text, since)
 
     def _latest_text(self) -> tuple[Any, str]:
         path = self._ports.latest_transcript()
@@ -576,9 +585,20 @@ def queued_age_seconds_from_text(
     if claimed:
         prompts.append(claimed)
     latest_queued_at: float | None = None
+    # A content-less enqueue (Claude Code 2.1.331 with ciel-work loaded) names
+    # the input first at its remove; with no other queue evidence, a dropped
+    # input is aged from that remove.
+    removed_at: float | None = None
     for record in _jsonl_records(text):
         record_type = str(record.get("type") or "")
         candidate = ""
+        if record_type == "queue-operation" and record.get("operation") == "remove":
+            raw = record.get("content")
+            if isinstance(raw, str) and raw and services.prompt_references_message_id(raw, message_id, prompts):
+                timestamp = record_timestamp_seconds(record)
+                if timestamp is not None:
+                    removed_at = max(removed_at or 0.0, timestamp)
+            continue
         if record_type == "queue-operation" and record.get("operation") == "enqueue":
             raw = record.get("content")
             candidate = raw if isinstance(raw, str) else ""
@@ -597,6 +617,8 @@ def queued_age_seconds_from_text(
         timestamp = record_timestamp_seconds(record)
         if timestamp is not None:
             latest_queued_at = max(latest_queued_at or 0.0, timestamp)
+    if latest_queued_at is None:
+        latest_queued_at = removed_at
     if latest_queued_at is None:
         return None
     current = services.now() if now is None else float(now)
@@ -628,6 +650,7 @@ def queued_dropped_from_text(
         prompts.append(claimed)
     queued = False
     dropped = False
+    handed_over = False
     for record in _jsonl_records(text):
         record_type = str(record.get("type") or "")
         if record_type == "queue-operation":
@@ -640,8 +663,13 @@ def queued_dropped_from_text(
             if operation == "enqueue" and matches:
                 queued = True
                 dropped = False
+                handed_over = False
             elif operation == "remove" and matches:
-                dropped = True
+                # Claude Code 2.1.331 writes the enqueue without content, so
+                # the remove is the first record naming the input.  A remove
+                # after the hand-over attachment is the hand-over itself.
+                queued = True
+                dropped = not handed_over
             continue
         if record_type == "attachment":
             attachment = record.get("attachment")
@@ -651,10 +679,13 @@ def queued_dropped_from_text(
                     raw, message_id, prompts
                 ):
                     queued = True
-                    # The attachment written after a remove is the hand-off
-                    # into the running turn, not a drop (message 714,
-                    # 2026-09-23, was answered yet released as stale).
+                    # The attachment is the hand-off into the running turn,
+                    # not a drop, whether Claude Code writes it after the
+                    # remove (message 714, 2026-09-23, was answered yet
+                    # released as stale) or before it (2.1.331, Betty
+                    # 2026-11-23/24).
                     dropped = False
+                    handed_over = True
             continue
         actual_user_text = _evidence_user_text(record, not_before)
         if actual_user_text and services.prompt_references_message_id(
@@ -698,6 +729,10 @@ def wake_state_evidence_from_text(
     queued_record: int | None = None
     queue_exit_record: int | None = None
     prompt_metadata: dict[str, str] = {}
+    # A hand-over written before its queue exit (Claude Code 2.1.331 writes the
+    # attachment, then ``remove reason=absorbed_mid_turn``): delivery once the
+    # exit follows.
+    handover: tuple[int, dict[str, str]] | None = None
     failed: WakeStateEvidence | None = None
     for record_index, record in enumerate(_jsonl_records(text), start=1):
         record_type = str(record.get("type") or "")
@@ -733,10 +768,15 @@ def wake_state_evidence_from_text(
                 seen_dequeued = seen_dequeued or record.get("operation") in {"remove", "dequeue"}
                 if record.get("operation") in {"remove", "dequeue"}:
                     queue_exit_record = record_index
+                    if handover is not None:
+                        seen_real_prompt = True
+                        prompt_record, prompt_metadata = handover
+                        handover = None
                 # An enqueue begins a fresh queue observation for this ID.
                 if record.get("operation") == "enqueue":
                     seen_dequeued = False
                     queue_exit_record = None
+                    handover = None
             continue
         if record_type == "attachment":
             attachment = record.get("attachment")
@@ -750,15 +790,18 @@ def wake_state_evidence_from_text(
                     # while treating them as queued failed message 714 as
                     # stale_unconfirmed (2026-09-23).
                     timestamp = record_timestamp_seconds(record)
-                    if seen_dequeued and (not_before is None or (timestamp is not None and timestamp >= not_before)):
-                        seen_real_prompt = True
-                        failed = None
-                        prompt_record = record_index
-                        prompt_metadata = {
+                    if not_before is None or (timestamp is not None and timestamp >= not_before):
+                        metadata = {
                             "record_type": record_type,
                             "session_id": str(record.get("sessionId") or ""),
                             "timestamp": str(record.get("timestamp") or ""),
                         }
+                        if seen_dequeued:
+                            seen_real_prompt = True
+                            failed = None
+                            prompt_record, prompt_metadata = record_index, metadata
+                        else:
+                            handover = (record_index, metadata)
             continue
         record_user_text = _evidence_user_text(record, not_before)
         # Delivery confirmation follows the original (pre-45f4c60) semantics:
@@ -845,17 +888,28 @@ def wake_states_from_text(
     for message_id in wanted:
         queued = dequeued = False
         prompt_record: int | None = None
+        answer_after = 0
+        handover: int | None = None
         for record_index, kind in events[message_id]:
             # Same order rules as wake_state_evidence_from_text: a handed-over
-            # queued command counts as the prompt only after its "remove".
+            # queued command is the prompt once its queue exit is also
+            # recorded, before or after the attachment.
             if kind == "prompt" or (kind == "handed_over" and dequeued):
-                prompt_record = record_index
+                prompt_record = answer_after = record_index
                 break
+            if kind == "handed_over":
+                handover = record_index
+                continue
             if kind in {"enqueue", "remove", "dequeue"}:
                 queued = True
                 dequeued = kind in {"remove", "dequeue"}
+                if kind == "enqueue":
+                    handover = None
+                elif handover is not None:
+                    prompt_record, answer_after = handover, record_index
+                    break
         if prompt_record is not None:
-            answered = bisect_right(assistant_records, prompt_record) < len(assistant_records)
+            answered = bisect_right(assistant_records, answer_after) < len(assistant_records)
             states[message_id] = "completed" if answered else "pending"
         else:
             states[message_id] = "queued" if queued else "missing"
@@ -895,6 +949,46 @@ def queued_command_ids_from_text(
     return ids
 
 
+def queue_holds_unattributed_input(text: str, since: float) -> bool:
+    """Whether the CLI queued an input at or after ``since`` and still holds it.
+
+    Claude Code 2.1.331 writes the ``enqueue`` of a session-socket input that
+    arrives during a turn without ``content``; the input is named only when the
+    turn takes it (hand-over attachment and ``remove``) or when it runs as the
+    next prompt (``dequeue`` then the user record).  Until then no record can
+    name the message, yet the entry proves the CLI received an input.
+
+    Entries are counted, not matched: a content-bearing enqueue (a task
+    notification) owns the exit that repeats its content; any other exit takes
+    one content-less entry.  ``popAll`` empties the queue.
+    """
+
+    held = 0
+    owned_exits: dict[str, int] = {}
+    for record in _jsonl_records(text):
+        if record.get("type") != "queue-operation":
+            continue
+        operation = str(record.get("operation") or "")
+        raw = record.get("content")
+        content = raw if isinstance(raw, str) else ""
+        if operation == "enqueue":
+            if content:
+                owned_exits[content] = owned_exits.get(content, 0) + 1
+                continue
+            timestamp = record_timestamp_seconds(record)
+            if timestamp is not None and timestamp >= since - _QUEUE_CLOCK_SKEW_SECONDS:
+                held += 1
+        elif operation == "popAll":
+            held = 0
+            owned_exits.clear()
+        elif operation in {"dequeue", "remove"}:
+            if content and owned_exits.get(content):
+                owned_exits[content] -= 1
+            elif held:
+                held -= 1
+    return held > 0
+
+
 def _jsonl_records(text: str) -> Iterator[dict[str, Any]]:
     for raw_line in _text_lines(text):
         try:
@@ -915,6 +1009,7 @@ __all__ = [
     "message_content_blocks",
     "record_timestamp_seconds",
     "queued_age_seconds_from_text",
+    "queue_holds_unattributed_input",
     "queued_command_ids_from_text",
     "queued_dropped_from_text",
     "tool_call_id",
