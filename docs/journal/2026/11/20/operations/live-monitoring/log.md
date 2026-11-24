@@ -2,6 +2,31 @@
 
 ## 2026-11-23
 
+- 2026-11-24 14:32:42–14:33:17Z 틱(직전 14:12Z), 5호스트.
+  - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 MCP `probe_succeeded`(218–3,115 ms), new_failures 0. 9a46b96·4886d62·7edfc0c는 파일만 설치(라이브 아님).
+  - Celly
+    - running+slot 1→5, waiting_input 5→4, 원장 8915→8945
+    - 14:24:37Z "auto continue could not read the Work status". Celly 세 번째이고, 전체로는 아홉 번째다(추적, 원인 미확인).
+    - 14:16:45Z `Work item n1468 has an earlier P0 resume whose delivery is not recorded; recovery is required before another resume`. 전달 기록이 없는 P0 재개를 막는 가드다.
+    - 계획 버전 충돌 1(가드), activity PermissionError 1(반복)
+  - Prody
+    - running+slot 2, waiting_input 4, submitted 6, 원장 919 그대로, MCP 3,115 ms
+    - n1200(running, P1): 포크 기록이 215분째 갱신되지 않았다(반복). silent 알림(9a46b96)은 라우터 재시작 전까지 라이브가 아니다.
+    - n1280(running, P3)은 0.4분 전 갱신, n1281(waiting_input, P1)
+    - 대화 오류 6: 외부 API 400·403, 메인이 쓴 스크립트 오류, walkie `client_id` 인자 오류. 제품 경로 아님.
+  - Andy
+    - running+slot 2, submitted 21, waiting_input 7, 원장 7079→7091. n1166(반복).
+    - 계획 버전 충돌 3(가드), `work_side_status` 호스트 전용 거부 1(설계)
+    - 14:27:38Z side 이벤트 7d80cf0e29a8 실패 → 원문 메인 전달(appended, 설계된 경로). 실패 이유는 확인하지 않았다.
+  - KOBE
+    - running+slot 0→1, waiting_input 4, 원장 3323→3331
+    - 14:17:12Z Agent 호출이 Work 병렬 디스패치 가드에 거부됐다(정확한 이름 누락, fork false). 가드 동작이다.
+    - ripgrep 20초 시간 초과 1, activity PermissionError 1·transcript_delta 시간 초과 1(반복)
+  - Betty
+    - running+slot 2, submitted 5, waiting_input 1, 원장 959→961
+    - 늦은 SSE 재시도 2(업스트림), `unseen_failed` 없음, 대화 오류 0
+  - Sarah(.25): SSH가 배너 전에 끊긴다(`kex_exchange_identification: Connection reset by peer`). 미확인.
+
 - 2026-11-24 14:12:30–14:13:02Z 틱(직전 13:52Z), 5호스트.
   - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 MCP `probe_succeeded`(287–2,533 ms), new_failures 0. 9a46b96·4886d62·7edfc0c는 파일만 설치(라이브 아님).
   - Prody
