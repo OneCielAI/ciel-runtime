@@ -127,6 +127,81 @@ side 지침(`DEFAULT_SIDE_INSTRUCTION` = `side-intake.js PROMPT`), `gate_actor`,
   - 실제 자격 증명은 쓰지 않았다.
 - 증거 파일 정리: run1·run2 `result.json`의 `source`에 남은 JSON 이스케이프된 홈 경로를 `<home>`으로 가렸다. 드라이버도 같은 마스킹을 하도록 고쳤다(판정 로직은 그대로다).
 
+## cf55ed2 회귀
+
+- 영향 62개 파일(Windows 격리, 파일마다 격리 프로세스):
+  - 981 통과 / 0 실패 / 50 skip.
+  - `test_work_mod_real_backend`는 단독 117/0/3, 약 25분 걸렸다(15분 제한에 걸렸던 첫 실행은 시간 초과였지 멈춤이 아니었다).
+- py310·py311: 62개 파일 모두 실패 0. `test_work_mod_real_backend` py311 120/0/4.
+
+# 2단계 — 오래 멈춘 포크 알림, 실행 중 포크로의 직접 전달 (사용자 2026-11-24)
+
+## 사용자 요구
+
+- side 액터는 블로커가 있는 상황을 잡아서 메인에게 알린다. 해당 상황은 세 가지다.
+  - 에스컬레이션이 필요하다.
+  - 메인이나 포크가 특별한 노력 없이 기다리기만 한다.
+  - 답 없이 멈췄다.
+- 사용자가 특정 상태를 묻거나 사양 변경을 요청했는데 그 항목을 실행 중인 포크가 있으면, 포크에게 바로 넘겨서 포크가 대신 답하거나 조치하게 한다.
+
+## 관측 (Andy, 읽기 전용, 2026-11-24 04:2xZ)
+
+- 열린 `waiting_input` 리스는 4건이다. 그중 2건은 리스가 36–48시간 됐다.
+  - n2594: 41.6시간, "Production fix for /api/alerts 57014 deployed"
+  - n2577: 48.9시간
+- 대기가 있는 미완료 노드는 156개다. 그중 125개는 24시간 넘게 갱신이 없다.
+- 최근 외부 이벤트 305건(11-22 이후)의 처리 결과:
+  - `relay` 32건
+  - 실행 중 포크가 직접 답한 `fork_responds` 10건
+  - 나머지 206건은 side가 직접 답했다.
+
+## 수정
+
+- 오래 멈춘 포크 목록(`work_gate_check.stalled_forks`)
+  - 이 대화의 포크 중 `waiting_input`인 것을 골라 대기 노드의 `updated_at`을 기준으로 잰다(질문 대기는 리스 생성 시각). 12시간(`STALL_HOURS`) 이상이면 목록에 넣는다.
+  - 대기 노드 note에 같은 대기 문구로 "Side stall notice"가 이미 기록돼 있으면 빼고, 대기 문구가 바뀌면 다시 넣는다.
+  - 게이트 재점검 이벤트에 "오래 멈춘 포크" 절로 실린다. 한 라운드에 최대 6개이고, 나머지는 다음 라운드에 이어서 싣는다.
+  - 다이제스트에 포함되므로, 이 목록만 있는 보드도 점검한다.
+- 결정 필드 `stall_notices`(`side_work_decision`)
+  - side가 대기를 다시 조회해서 여전히 미충족이면 넣는다.
+  - 라우터 검증 조건:
+    - 원장 사전 읽기에서 그 아이템에 parked된 이 대화의 포크인지 확인한다.
+    - 대기 문구가 지금 그대로인지 확인한다.
+    - 이미 알렸으면 `already_notified`로 거부한다.
+  - 통과하면 그 노드 note에 한 줄을 기록한다. 대기마다 한 번만 기록된다.
+  - 필드를 광고하지 않는 옛 라우터에게는 이 필드를 보내지 않는다. `LEGACY_DECISION_FIELDS`를 고정 목록으로 바꿨다. 전에는 `fork_answers`가 새고 있었다.
+- 메인 알림
+  - 관리 텍스트 `mod_stall_notice`로 알린다.
+  - receipt당 한 번 나가는 기존 알림에 함께 실린다.
+  - 메인이 idle이면 깨우기 프롬프트가 이 알림을 가리킨다(`STALL_LEAD`).
+- 지침
+  - `gate_actor`와 `gate_recheck`에 "오래 멈춘 포크" 규칙을 넣었다: 다시 조회하고, 충족이면 해제, 미충족이면 `stall_notices`. 조회하지 않고는 넣지 않는다.
+  - 실행 중 포크로의 직접 전달:
+    - side 지침과 `side_running_fork_relay`에서, 실행 중 포크가 있는 항목의 상태·진행·사양 변경 요청은 `relay` + `no_reply`로 그 포크에게 넘긴다.
+    - "단순한 상태 질문은 전달하지 않는다"는 문구는 지웠다.
+
+## 실엔진이 잡은 결함 두 개 (하네스는 통과했다)
+
+- 실행 4([run4-stall-notice-refused](evidence/run4-stall-notice-refused/result.json)):
+  - 라우터 쪽 네 검사는 모두 통과했다: 이벤트에 포크 표기, 결정 커밋, 보드 기록, 재목록 없음.
+  - 그러나 메인 알림이 0건이었다.
+  - 원인: 라우터의 알림 claim(`side_notice._released_row`)이 `released_waits`, `relay`, `ask_main`, turn_end만 받고 `released-wait receipt required`로 거부했다. 하네스는 claim을 흉내 내서 이걸 가렸다.
+  - 같은 경로에서 `fork_answers`·`unanswered_forks` 단독 알림(전달 실패한 포크 답, 11-23 배포)도 같은 이유로 막혀 있었다.
+  - 수정: 두 결과도 claim할 수 있게 했다. 실패 테스트 `test_a_stall_notice_receipt_can_claim_its_one_notice`를 먼저 작성했고, 두 경우 모두 수정 전 거부였다.
+- 같은 실행에서 깨우기 프롬프트가 "a host message beginning "Ciel side released recorded wait""를 가리켰다.
+  - 그 머리말로 시작하는 메시지는 없다. 11-18에 release 알림이 "Ciel side: released …"로 바뀐 뒤 `RELEASE_LEAD`만 그대로였다.
+  - 그래서 idle 메인은 이미 있는 release 알림도 엉뚱한 문구로 안내받고 있었다.
+  - 실패 테스트(release·stall 둘 다)를 먼저 작성한 뒤 머리말을 고쳤다.
+- 실행 5([run5-stall-notice](evidence/run5-stall-notice/result.json)): `passed: true`, 7/7.
+  - 64.1초에 결정이 커밋됐고 65.1초에 메인 요청에 알림이 들어갔다.
+  - 알림 원문: "Ciel side: stalled Work fork (event …). The side re-checked it and the wait still holds: - n2 (lease …) waits on "production release 0.4.509 deployed". Checked: release.json says 0.4.508 (isolated check). Needs: deploy 0.4.509 or decide the order …".
+- 드라이버 메모: 격리 규칙은 시스템 temp 아래 설정 디렉터리만 받는다(`runtime_paths`). 그래서 드라이버는 `D:/Temp`가 아니라 프로세스가 실제로 고른 `CONFIG_DIR`에 원장을 심는다.
+
+## 문서 링크
+
+- `docs/Module-Map.md`의 removal-waiver 링크가 `/docs/...`로 시작해 `npm run check:docs`가 실패하고 있었다(3d475f9부터).
+- 상대 경로로 고쳤다. beta push는 Publish의 quality 잡을 건너뛰기 때문에 배포 전에 직접 돌려서 찾았다.
+
 ## 회귀 (최종 트리)
 
 결과는 실행 후 아래에 채운다.

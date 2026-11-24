@@ -192,6 +192,49 @@ class SideNoticeClaimTests(unittest.TestCase):
                                                           'owner_nonce': 'A'}, error=True))
             self.assertIsNone(session.stored_notice())
 
+    def test_a_stall_notice_receipt_can_claim_its_one_notice(self):
+        # Real-engine run 2026-11-24: the side's stall notice committed, then
+        # the host's notice claim was refused ("released-wait receipt
+        # required"), so main never heard of the stalled fork.
+        from unittest.mock import Mock, patch
+        with tempfile.TemporaryDirectory() as raw:
+            session = Session(raw, release=False)
+            store = session_work_plan_store(session.root, session.identity)
+            _, waiting = store.transaction(lambda d: tree.add_node(d, None, 'deploy', waiting_on='release 0.4.509'))
+            SideIntakeInbox(session.root, session.identity).receive('gate check', 'stall-check')
+            claim = session.call('work_side_claim', {'owner': 'actor'})['claim']
+            ledger = Mock()
+            ledger.path = session.root / 'work-parallel.json'
+            ledger.read.return_value = {'version': 1, 'leases': {'L1': {
+                'id': 'L1', 'scope': session.identity, 'item_id': waiting, 'state': 'waiting_input',
+                'slot': False, 'host_id': 'agent-L1'}}}
+            with patch('ciel_runtime_support.work_parallel_mcp.ledger', return_value=ledger):
+                result = session.call('work_side_resolve', {'decision': {
+                    'action': 'answer', 'kind': 'status', 'summary': waiting + ' 유지', 'reply': 'stalled',
+                    'stall_notices': [{'item_id': waiting, 'lease_id': 'L1', 'kind': 'wait',
+                                       'waiting_on': 'release 0.4.509', 'checked': 'still 0.4.508',
+                                       'needed': 'deploy decision'}]},
+                    'expected_version': store.read()['version']},
+                    {'receipt_id': claim['receipt_id'], 'generation': claim['generation']})['result']
+            self.assertEqual(['L1'], [row['lease_id'] for row in result['stall_notices']])
+            granted = session.call('work_side_wake', {'event_id': claim['receipt_id'], 'state': 'notice_prepare',
+                                                      'owner_nonce': 'A'})
+            self.assertEqual('claimed', granted['state'])
+            # The same gate refused the notice of a fork answer the host could not
+            # deliver (side-intake.js sends it alone when nothing else tells main).
+            SideIntakeInbox(session.root, session.identity).receive('gate check 2', 'answer-check')
+            claim = session.call('work_side_claim', {'owner': 'actor'})['claim']
+            with patch('ciel_runtime_support.work_parallel_mcp.ledger', return_value=ledger):
+                result = session.call('work_side_resolve', {'decision': {
+                    'action': 'answer', 'kind': 'status', 'summary': 'answered L1', 'reply': 'answered',
+                    'fork_answers': [{'lease_id': 'L1', 'answer': 'MAIN DECISION: deploy', 'source': 'progress'}]},
+                    'expected_version': store.read()['version']},
+                    {'receipt_id': claim['receipt_id'], 'generation': claim['generation']})['result']
+            self.assertEqual(['L1'], [row['lease_id'] for row in result['fork_answers']])
+            granted = session.call('work_side_wake', {'event_id': claim['receipt_id'], 'state': 'notice_prepare',
+                                                      'owner_nonce': 'A'})
+            self.assertEqual('claimed', granted['state'])
+
     def test_the_claim_never_reaches_a_status_or_receipt_projection(self):
         with tempfile.TemporaryDirectory() as raw:
             session = Session(raw, release=True)

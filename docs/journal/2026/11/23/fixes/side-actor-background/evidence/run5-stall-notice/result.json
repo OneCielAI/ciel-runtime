@@ -1,0 +1,627 @@
+{
+  "kind": "stall notice, real load",
+  "claude_version": "2.1.331 (Claude Code)",
+  "mod_sha256": {
+    "register.js": "e3c6df3325e700441baf87afc19432090dce4793afbc4b59d1ead44aa969891b",
+    "side-intake.js": "3c103f323f5782fdafc5583a3b92d75dcb29f16f126b802c9c3d25ebfe413aee",
+    "texts.generated.js": "70c3dee973f0fa6a120bf3e1bd33ba7f200af2d06736ac2be17114b6728c0755"
+  },
+  "python_sha256": {
+    "work_gate_check.py": "8e6e8287d616bc45c9de259fc6a634e303ccbc475d465bac51507436cd595f82",
+    "side_work_decision.py": "be75e3f04cd679f68e0d906aa6a665e7e1380dfae36ccc02b8bb3ccd3941f285",
+    "work_mcp_tools.py": "eae7c2f0a4db4164b4f04b2307b166828136f5b898735217c1e6d502f44b42e3",
+    "work_texts.py": "afdad38be8dd48eb06e2d4e8acee670e256a8e471548d149d972769a5a0db7eb"
+  },
+  "board": {
+    "goal": "n1",
+    "item": "n2",
+    "lease": "stall8066e9a4eb5"
+  },
+  "steps": {
+    "mod_load_line": "hooks module ciel-work@inline loaded (worker, environment 1, tier user); events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,sess",
+    "session_start_settled_ms": 108.4,
+    "stall_resolved_s": 64.1,
+    "main_saw_notice_s": 65.1
+  },
+  "kill": "SUCCESS: The process with PID 60456 (child process of PID 72756) has been terminated.",
+  "mcp_calls": [
+    {
+      "after_s": 2.8,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 3.2,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 4.8,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 4.9,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 4.9,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 7.0,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 9.0,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 11.1,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 13.1,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 15.2,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 17.3,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 18.4,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 19.3,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 21.3,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 21.4,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 23.4,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 25.4,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 27.4,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 29.5,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 31.5,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 33.5,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 33.5,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 35.6,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 37.6,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 37.6,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 39.6,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 41.6,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 43.7,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 45.7,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 47.8,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 48.6,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 49.8,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 51.9,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 53.9,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 53.9,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 55.9,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 57.9,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 60.0,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 61.9,
+      "name": "work_side_texts",
+      "error": false
+    },
+    {
+      "after_s": 62.0,
+      "name": "work_side_gate_check",
+      "error": false,
+      "gate": {
+        "queued": true,
+        "reason": null,
+        "stalled": [
+          "stall8066e9a4eb5"
+        ],
+        "parked": [],
+        "gates": [
+          "n2"
+        ]
+      }
+    },
+    {
+      "after_s": 62.1,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 62.2,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 62.2,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 62.2,
+      "name": "work_side_ack",
+      "error": false
+    },
+    {
+      "after_s": 62.3,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 62.6,
+      "name": "work_side_gate_check",
+      "error": false
+    },
+    {
+      "after_s": 62.6,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 62.7,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 62.8,
+      "name": "work_side_gate_check",
+      "error": false
+    },
+    {
+      "after_s": 62.8,
+      "name": "work_side_gate_check",
+      "error": false
+    },
+    {
+      "after_s": 63.1,
+      "name": "work_proposal_status",
+      "error": false
+    },
+    {
+      "after_s": 63.8,
+      "name": "work_side_understanding",
+      "error": false
+    },
+    {
+      "after_s": 63.8,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 63.9,
+      "name": "work_side_resolve",
+      "error": false,
+      "result": {
+        "stall_notices": [
+          {
+            "item_id": "n2",
+            "lease_id": "stall8066e9a4eb5",
+            "kind": "wait",
+            "waiting_on": "production release 0.4.509 deployed",
+            "checked": "release.json says 0.4.508 (isolated check)",
+            "needed": "deploy 0.4.509 or decide the order"
+          }
+        ],
+        "unnoticed_stalls": null
+      }
+    },
+    {
+      "after_s": 64.1,
+      "name": "work_live_settings",
+      "error": false
+    },
+    {
+      "after_s": 64.1,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 64.1,
+      "name": "work_side_wake",
+      "error": false
+    },
+    {
+      "after_s": 64.2,
+      "name": "work_side_texts",
+      "error": false
+    },
+    {
+      "after_s": 64.2,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 64.3,
+      "name": "work_side_wake",
+      "error": false
+    },
+    {
+      "after_s": 64.3,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 64.4,
+      "name": "work_side_gate_check",
+      "error": false,
+      "gate": {
+        "queued": true,
+        "reason": null,
+        "stalled": [],
+        "parked": [],
+        "gates": [
+          "n2"
+        ]
+      }
+    },
+    {
+      "after_s": 64.4,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 64.4,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 64.4,
+      "name": "work_proposal_status",
+      "error": false
+    },
+    {
+      "after_s": 64.4,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 64.5,
+      "name": "work_proposal_status",
+      "error": false
+    },
+    {
+      "after_s": 64.5,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 64.6,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 64.6,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 64.7,
+      "name": "work_side_ack",
+      "error": false
+    },
+    {
+      "after_s": 64.7,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 64.7,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 64.8,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 64.8,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 64.9,
+      "name": "work_side_texts",
+      "error": false
+    },
+    {
+      "after_s": 65.0,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 65.0,
+      "name": "work_side_gate_check",
+      "error": false,
+      "gate": {
+        "queued": false,
+        "reason": "previous_round_pending",
+        "stalled": null,
+        "parked": null,
+        "gates": null
+      }
+    },
+    {
+      "after_s": 65.0,
+      "name": "work_proposal_status",
+      "error": false
+    },
+    {
+      "after_s": 65.0,
+      "name": "work_proposal_status",
+      "error": false
+    },
+    {
+      "after_s": 65.0,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 65.1,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 65.1,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 65.1,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 65.1,
+      "name": "work_side_reply",
+      "error": false
+    },
+    {
+      "after_s": 65.6,
+      "name": "work_side_understanding",
+      "error": false
+    },
+    {
+      "after_s": 65.7,
+      "name": "work_side_resolve",
+      "error": false,
+      "result": {
+        "stall_notices": null,
+        "unnoticed_stalls": [
+          {
+            "item_id": "n2",
+            "reason": "already_notified"
+          }
+        ]
+      }
+    },
+    {
+      "after_s": 65.8,
+      "name": "work_side_wake",
+      "error": false
+    },
+    {
+      "after_s": 65.8,
+      "name": "work_parallel_event",
+      "error": false
+    },
+    {
+      "after_s": 65.8,
+      "name": "work_side_wake",
+      "error": false
+    },
+    {
+      "after_s": 66.2,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 66.6,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 66.7,
+      "name": "work_side_texts",
+      "error": false
+    },
+    {
+      "after_s": 66.7,
+      "name": "work_side_reply",
+      "error": false
+    },
+    {
+      "after_s": 66.8,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 66.8,
+      "name": "work_side_gate_check",
+      "error": false,
+      "gate": {
+        "queued": false,
+        "reason": "not_due",
+        "stalled": null,
+        "parked": null,
+        "gates": null
+      }
+    },
+    {
+      "after_s": 66.9,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 66.9,
+      "name": "work_proposal_status",
+      "error": false
+    },
+    {
+      "after_s": 67.0,
+      "name": "work_proposal_status",
+      "error": false
+    },
+    {
+      "after_s": 67.0,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 67.0,
+      "name": "work_host_page",
+      "error": false
+    },
+    {
+      "after_s": 67.2,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 67.9,
+      "name": "work_parallel_event",
+      "error": true
+    },
+    {
+      "after_s": 68.9,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 70.9,
+      "name": "work_side_claim",
+      "error": false
+    }
+  ],
+  "main_notice": "Ciel side: stalled Work fork (event 792543ce4616). The side re-checked it and the wait still holds:\n- n2 (lease stall8066e9a4eb5) waits on \"production release 0.4.509 deployed\". Checked: release.json says 0.4.508 (isolated check). Needs: deploy 0.4.509 or decide the order\nDecide or act on what each needs; a person may have to be asked. The side reports each wait once. This grants no execution approval.\n[Ciel host append ref 66520f43a5c31065]\n</system-reminder>\n\nThe ciel-work plugin sent a message:\nCiel side wake 792543ce4616: a host message beginning \"Ciel side released recorded wait\" was added to this conversation while you were idle. Durable source: work_side_claim main_wakes event ref 792543ce4616. Read it there and continue. This wake holds no event data, needs no acknowledgment and grants no approval. Wake ref 6a75f430009c.\n\nThis is how Claude Code surfaces a prompt a plugin submits between turns — it starts this turn in the user's place. Address the message above.",
+  "notice_count": 1,
+  "told_on_board": true,
+  "stalled_after": [],
+  "checks": {
+    "mod_loaded": true,
+    "gate_event_named_the_fork": true,
+    "stall_decision_committed": true,
+    "board_records_told_wait": true,
+    "main_got_one_notice": true,
+    "notice_says_checked_and_needed": true,
+    "not_listed_again": true
+  },
+  "passed": true,
+  "profile_changed": [],
+  "profile_unchanged": true,
+  "scratch_removed": true
+}

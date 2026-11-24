@@ -50,6 +50,11 @@ class SideReleaseNoticeTests(unittest.TestCase):
         self.assertTrue(row['submitted'][0].startswith('Ciel side wake eeeeeeeeeeee:'))
         self.assertNotIn('n3', row['submitted'][0])
         self.assertNotIn('Andy', row['submitted'][0])
+        # The wake names the words the appended notice really begins with (the
+        # notice became "Ciel side: released ..." on 2026-11-18; the wake kept
+        # pointing main at "Ciel side released recorded wait", which no message
+        # carries).
+        self.assertIn('a host message beginning "Ciel side: released"', row['submitted'][0])
         self.assertEqual(['notice_prepare', 'notice_appended'], [call['state'] for call in row['wakes']])
 
     def test_idle_main_repolled_before_turn_start_does_not_queue_duplicate_notice_wake(self):

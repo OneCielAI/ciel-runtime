@@ -1,0 +1,6 @@
+2026-11-24T05:45:22.259Z [DEBUG] hooks module ciel-work@inline loaded (worker, environment 1, tier user); events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,session.compact,classic.Stop,session.receive,prompt.submit,command.run,tool.call,session.send,tool.check,session.end,ui.render,ui.message
+2026-11-24T05:45:22.605Z [DEBUG] hooks module ciel-work@inline session.start settled in 108.4ms (worker hop, next() included)
+2026-11-24T05:46:22.727Z [DEBUG] [ciel-work] $.ui.log: Gate re-check queued for 1 blocked/waiting item(s)
+2026-11-24T05:46:24.133Z [INFO] [Stall] agent_completion agentId=a79f3aea3c2622af5 agentType=ciel-work:side-fresh exitPath=completed durationMs=1100 turns=1 finalStopReason=end_turn lastChunkAgeMs=10 lastToolUseId=none lastToolResultSeen=none
+2026-11-24T05:46:25.048Z [DEBUG] [ciel-work] $.ui.log: Gate re-check queued for 1 blocked/waiting item(s)
+2026-11-24T05:46:26.192Z [INFO] [Stall] agent_completion agentId=a492d1ef557493f25 agentType=ciel-work:side-fresh exitPath=completed durationMs=817 turns=1 finalStopReason=end_turn lastChunkAgeMs=3 lastToolUseId=none lastToolResultSeen=none

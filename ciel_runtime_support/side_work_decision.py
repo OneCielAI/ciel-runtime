@@ -14,13 +14,19 @@ from . import work_plan_tree as tree
 ACTIONS = ('answer', 'clarify', 'update', 'create', 'prioritize', 'advise')
 KINDS = ('status', 'info', 'request', 'clarify')
 FIELDS = {'action', 'kind', 'item_id', 'summary', 'reply', 'note', 'title', 'priority', 'queue_position', 'release_waits', 'time_limit',
-          'relay', 'ask_main', 'no_reply', 'complaint', 'refs', 'fork_answers'}
+          'relay', 'ask_main', 'no_reply', 'complaint', 'refs', 'fork_answers', 'stall_notices'}
 NO_QUEUE = '큐에 등록하지 않았습니다.'
 MAX_RELEASES = 100
 # Answers to forks parked on a question (user 2026-11-23): the side quotes a
 # decision already recorded (board progress, approval, thread reply) and the
 # host resumes that exact fork with it. Each answer names its source.
 MAX_FORK_ANSWERS = 8
+# Stall notices (user 2026-11-24): a fork parked for hours whose wait the side
+# re-checked and found still unmet. Main hears of each wait once.
+MAX_STALL_NOTICES = 8
+MAX_STALL_TEXT = 600
+STALL_KINDS = ('wait', 'question')
+STALL_FIELDS = {'item_id', 'lease_id', 'kind', 'waiting_on', 'checked', 'needed'}
 MAX_FORK_ANSWER_CHARS = 4000
 MAX_FORK_ANSWER_SOURCE_CHARS = 300
 MAX_TIME_LIMIT_TEXT = 1000
@@ -70,6 +76,79 @@ def _release_leaf(doc, node_id, line, now):
     node['updated_at'] = now
     nodes[index] = node
     return unblocked
+
+
+def _stall_row_ok(row):
+    if not isinstance(row, dict) or set(row) != STALL_FIELDS or row.get('kind') not in STALL_KINDS:
+        return False
+    for key in ('item_id', 'lease_id'):
+        if not isinstance(row.get(key), str) or not 0 < len(row[key]) <= 200:
+            return False
+    wait = row.get('waiting_on')
+    if not isinstance(wait, str) or len(wait) > tree.MAX_WAIT_CHARS or (row['kind'] == 'wait' and not wait.strip()):
+        return False
+    return all(isinstance(row.get(key), str) and 0 < len(row[key].strip()) <= MAX_STALL_TEXT
+               for key in ('checked', 'needed'))
+
+
+def _append_note(doc, node_id, line, now):
+    """Append one bounded line to one node's note; no other node, status or phase changes."""
+    nodes = doc['nodes']
+    index = next(i for i, row in enumerate(nodes) if row['id'] == node_id)
+    node = dict(nodes[index])
+    note = node.get('note', '') + line
+    node['note'] = note if len(note) <= tree.MAX_TEXT_CHARS else note[-tree.MAX_TEXT_CHARS:]
+    node['updated_at'] = now
+    nodes[index] = node
+
+
+def _record_stalls(doc, notices, parked_projection, receipt_id):
+    """Record each verified stall on its waiting node once: (noticed, refused).
+
+    Only a fork of this conversation parked on that item (the host's ledger
+    pre-read) is a stall. A wait is told once: its node's note records the
+    notice with the wait text, and work_gate_check.stalled_forks stops listing
+    it until the wait text changes. A question stall records the lease id.
+    """
+    from .work_gate_check import STALL_TOLD
+    rows = ({row['lease_id']: row for row in parked_projection['rows']
+             if type(row) is dict and row.get('state') == 'waiting_input' and row.get('slot') is False}
+            if type(parked_projection) is dict and type(parked_projection.get('rows')) is list else None)
+    by_id = {node['id']: node for node in doc['nodes']}
+    noticed, refused, now = [], [], time.time()
+    for row in notices:
+        if rows is None:
+            refused.append({'item_id': row['item_id'], 'reason': 'the Work ledger was unreadable'})
+            continue
+        lease = rows.get(row['lease_id'])
+        node = by_id.get(row['item_id'])
+        if lease is None or lease.get('item_id') != row['item_id'] or node is None or node['status'] == 'done':
+            refused.append({'item_id': row['item_id'], 'reason': 'not a parked worker of this item'})
+            continue
+        chain, current = [], node
+        while current is not None and len(chain) <= tree.MAX_DEPTH:
+            chain.append(current)
+            current = by_id.get(current.get('parent_id'))
+        if row['kind'] == 'wait':
+            target = next((entry for entry in chain if entry.get('waiting_on') == row['waiting_on']), None)
+            mark = row['waiting_on']
+        else:
+            target, mark = node, 'lease ' + row['lease_id']
+        if target is None:
+            refused.append({'item_id': row['item_id'], 'reason': 'wait changed since side observation'})
+            continue
+        told = str(target.get('note') or '')
+        if STALL_TOLD in told and told.rsplit(STALL_TOLD, 1)[1].find(mark) >= 0:
+            refused.append({'item_id': row['item_id'], 'reason': 'already_notified'})
+            continue
+        checked = row['checked'].strip().splitlines()[0][:300]
+        _append_note(doc, target['id'], NEWLINES + STALL_TOLD + receipt_id[:12] + '): ' + mark + ' — ' + checked, now)
+        by_id = {entry['id']: entry for entry in doc['nodes']}
+        noticed.append({key: row[key] for key in ('item_id', 'lease_id', 'kind', 'waiting_on', 'checked', 'needed')})
+    return noticed, refused
+
+
+NEWLINES = '\n\n'
 
 
 def _parked_lease(parked_projection, item_id, root_id):
@@ -220,6 +299,14 @@ def validate(decision, *, source_has_ids=False):
             raise tree.WorkPlanError('invalid side decision fork_answers')
         if not answers:
             decision.pop('fork_answers', None)
+    stalls = decision.get('stall_notices')
+    if stalls is not None:
+        if (not isinstance(stalls, list) or len(stalls) > MAX_STALL_NOTICES
+                or any(not _stall_row_ok(row) for row in stalls)
+                or len({row['lease_id'] for row in stalls}) != len(stalls)):
+            raise tree.WorkPlanError('invalid side decision stall_notices')
+        if not stalls:
+            decision.pop('stall_notices', None)
     if 'relay' in decision and type(decision['relay']) is not bool:
         raise tree.WorkPlanError('invalid side decision relay')
     for flag in ('ask_main', 'complaint'):
@@ -653,6 +740,12 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             result['unblocked_waits'] = unblocked
         if unreleased:
             result['unreleased_waits'] = unreleased
+        if decision.get('stall_notices'):
+            noticed, unnoticed = _record_stalls(doc, decision['stall_notices'], parked_projection, receipt_id)
+            if noticed:
+                result['stall_notices'] = noticed
+            if unnoticed:
+                result['unnoticed_stalls'] = unnoticed
         if decision.get('fork_answers'):
             # Only a parked worker of this conversation (the host's ledger
             # pre-read) is answered; the host then resumes that exact fork.

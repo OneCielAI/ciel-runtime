@@ -2,6 +2,69 @@
 
 ## 2026-11-23
 
+- 2026-11-24 06:01:40–06:02:16Z 틱(직전 05:01Z). 이번 틱부터 Betty를 더해 5호스트를 본다(사용자 2026-11-24).
+  - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 모두 MCP `probe_succeeded`, new_failures 0.
+  - Betty 추가 내용
+    - .12 샌드박스 u42(`aapw-a26u42`), 베타 `3d475f9`다.
+    - side 액터를 쓰지 않고 SSE를 메인 세션으로 바로 보낸다. 그래서 side 기능(게이트 재확인 포크, 포크 답, 오래 멈춘 포크 알림)은 동작하지 않는다.
+    - 모니터 `run.sh`에 다섯 번째 호스트로 넣었다(router digest `a6276f9b0629`, tz -8).
+  - Andy
+    - running+slot 1, waiting_input 4, submitted 22→23, 원장 6871→6886, 보드 v11188, MCP 1,203 ms
+    - n1166 검수 행 누락이 계속 남아 있다(반복).
+    - 새 finding: n2708(리스 9e9244f0) 검수 행이 `awaiting_capacity`다(05:33Z부터).
+      - 사유: `active slot capacity reached for P3 (1/1); rework waits for admission`
+      - P3 한도 1이 차서 재작업 입장을 기다린다. 용량 가드이고, 결함으로 보지 않는다.
+    - 라우터 로그 `channel_turn_projection_persistent`
+      - age 486→851초(05:03–05:09Z)로 늘었다. 메인 턴 투영이 약 14분 그대로였다.
+      - observe_only 경고다. 원인은 확인하지 않았다.
+  - Celly
+    - running+slot 8→4, waiting_input 3→6, 원장 8667→8759, 보드 v10402, MCP 406 ms
+    - 업스트림 오류
+      - 로컬 게이트웨이 `cielairouter_gateway_failure` http_5xx 8건(05:07Z부터)
+      - `anthropic_sse_upstream_error_event` 9건
+      - 포크 n1431 503(05:17:29Z): 재시도 가드가 1/20을 진행했다
+    - 업스트림 헤더와 오류는 게이트웨이 소관이다.
+    - 05:29:33Z 호스트 정합 단계가 `work_host_page: The operation timed out.`로 실패했다.
+      - 02:01Z 검수 호출 시간 초과에 이은 두 번째 라우터 MCP 시간 초과다(반복).
+      - 라우터가 60초 넘게 걸린 원인은 확인하지 않았다(미결).
+  - KOBE: running+slot 2→1, waiting_input 4, 원장 3233→3249, MCP 387 ms. `transport_interrupted` n120 1건(05:02:37Z)은 재시도 가드가 처리했다.
+  - Prody
+    - submitted 6, waiting_input 2, running+slot 0→2, 원장 771→798, MCP 1,264 ms
+    - **05:38:31Z side 이벤트 3e627cc9bd74 처리 실패. 원문이 메인으로 전달됐다**(설계된 전달 경로, 1회 appended, 1회 already).
+      - 이 이벤트는 게이트 재확인이다. 액터의 답 첫 줄은 "I did not run the live lookups for n1200, n652, n1149, or n1076, so I can't release any wait"였다. 액터가 조회 없이 "변화 없음"을 냈다.
+      - 사용자가 지적한 "side가 조사를 안 한다"의 실측 사례다. 이 동작은 미배포 수정(게이트별 판정 강제, "미조회"는 판정이 아님)이 다루는 대상이다.
+      - 실패 분류는 Prody 워크스페이스 상태 디렉터리 ACL(SYSTEM도 거부)로 읽지 못했다(미확인).
+    - 나머지 오류는 보드 버전 충돌 재시도(가드)와 메인 도구 사용 오류다.
+  - Betty(첫 틱, 직전 05:54Z 단독 조회와 비교)
+    - running+slot 1, submitted 5, 원장 904→907, 보드 v5588, MCP 311 ms
+    - 라우터 로그
+      - `model_list_unavailable` cielairouter: 20초 시간 초과 5건, 503 4건(05:06Z부터)
+      - `work_orphan_released owner=dead` 3건(05:47Z): 주인이 죽은 예약 리스를 회수한 것이다. 설계된 복구다. 그 직전에 세션이나 프로세스가 끝났을 가능성이 있지만 확인하지 않았다.
+  - 새로 입증된 제품 결함은 없다.
+  - 배포 대기 중인 수정(cf55ed2와 2단계)의 Linux 최종 회귀
+    - py310·py311 각 139개 파일, 실패 0
+    - Windows 최종 회귀와 py311 real_backend는 진행 중이다.
+
+- 2026-11-24 05:01:45–05:02:08Z 틱(직전 03:59Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음. 4호스트 모두 MCP `probe_succeeded`.
+  - Andy
+    - running+slot 3→1, waiting_input 4, submitted 21→22, 원장 6864→6871, 보드 v11175, MCP 1,640 ms
+    - n1166 검수 행 누락이 계속 남아 있다(반복).
+    - 메인 도구 오류 13건은 메인이 직접 돌린 스크립트 오류와 Walkie 400·404(작업 입력)다.
+  - Celly
+    - running+slot 6→8, waiting_input 2→3, 원장 8623→8667, 보드 v10363, MCP 281 ms
+    - **새 실패 `revival_refused a12ce92c` 1건(05:01:38Z)**
+      - 메인이 SendMessage로 n1431의 끝난 포크(리스 `unreported`)에 메시지를 보내려 했다. 가드가 막았다. 보냈다면 옛 프롬프트로 포크가 되살아났을 것이다.
+      - 의도된 가드다(`parallelRevivalDeny`).
+    - 라우터 로그 `runtime_activity_router_failed PermissionError` 12건(22:10 로컬부터)
+      - Andy에서 본 것과 같은 하트비트 파일 교체 거부다. 이제 두 호스트에서 반복된다.
+      - 원인은 확인하지 않았다(추적).
+    - 라우터 로그 `transcript_delta_delivery_failed` 51건: TimeoutError 27, WinError 10061 연결 거부 24
+      - 같은 줄이 KOBE에도 48건 있다(23+25).
+      - 전달 대상이 받지 않았다는 뜻이지만, 대상이 무엇인지는 확인하지 않았다(미결).
+  - KOBE: running+slot 2, waiting_input 2→4, 원장 3196→3233, 보드 v862, MCP 453 ms. 포크 오류 7건은 작업 입력 오류와 슬롯 가드다.
+  - Prody: submitted 6, waiting_input 2, 원장 758→771, MCP 2,665 ms. 오류 13건은 Walkie 입력 오류, 보드 버전 충돌 재시도, 중복 디스패치 가드다(정상 가드).
+  - 새로 입증된 제품 결함은 없다.
+
 - 2026-11-24 03:59:06–03:59:27Z 틱(직전 03:34Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음. 4호스트 모두 MCP `probe_succeeded`, new_failures 0.
   - Andy
     - running+slot 2→3, waiting_input 5→4, submitted 21, 원장 6862→6864, 보드 v11139, MCP 969 ms

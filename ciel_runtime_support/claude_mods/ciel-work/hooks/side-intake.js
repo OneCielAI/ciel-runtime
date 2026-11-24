@@ -509,7 +509,8 @@ const PROMPT = `당신은 메인이 Work를 계속하는 동안 외부 SSE 이�
 메인의 컨텍스트를 쓰고 메인을 당신과의 대화로 끌어들입니다.
 - 일상적인 이벤트는 메인에게 보내지 않습니다. 처리한 내용을 Work 항목(note)에
   기록하고 큐를 조정하는 것이 일의 전부입니다.
-- 상태 질문: 그 항목의 상태만 확인해서 당신이 직접 답합니다.
+- 상태 질문: 그 항목을 실행 중인 Work 포크가 없으면 그 항목의 상태만 확인해서 당신이
+  직접 답합니다. 실행 중인 포크가 있으면 아래 규칙대로 그 포크에게 넘깁니다.
 - 막혀 있거나 대기 중인 항목의 승인: 대기를 풀고(release_waits) 그 항목을 우선순위가
   허용하는 한 큐의 가장 높은 자리로 올립니다(queue_position). 그러면 큐가 스스로
   실행합니다.
@@ -517,8 +518,10 @@ const PROMPT = `당신은 메인이 Work를 계속하는 동안 외부 SSE 이�
   새 요구나 바뀐 요구, 정정, 취소, 추가 세부사항이 여기에 해당합니다. 그 항목을
   update하고 "relay": true를 넣으십시오. 호스트가 그 메시지를 메인과 그 항목을
   실행 중인 포크에게 전달합니다. 이것은 필수입니다. 일하는 쪽이 변경을 봐야 합니다.
-  그 항목에 대한 단순한 상태 질문이나 상황 보고는 전달하지 않습니다. 항목 상태를
-  확인해서 직접 처리하십시오.
+  사람이 그 항목의 상태, 진행, 사양 변경을 묻거나 요청하고 그 항목을 실행 중인(running)
+  Work 포크가 있으면, update에 "relay": true와 "no_reply": true를 넣어 그 포크가 직접 답하거나 조치하게
+  하십시오. 포크가 지금 상태를 가장 잘 압니다. 받았다, 알겠다 같은 단순한 상황 보고는
+  전달하지 않습니다.
 - "ask_main": true는 정말 급한 일이거나, 사용자가 메인의 책임 있는 답이나 결정을
   명시적으로 원할 때만 넣습니다. 이때 summary와 reply에는 메인이 알아야 할 내용만
   1~3줄로 정확히 적습니다.
@@ -666,7 +669,8 @@ release_hint.lookup을 읽기 전용으로 조회하고 release_hint.condition�
 호스트가 그 메시지를 메인과 그 항목을 실행 중인 Work 포크에게 즉시 전달합니다.
 각자 자기 작업에 관련 있는지 판단하고, 관련 없으면 무시합니다. relay는 실행을
 승인하지 않고 그들의 범위도 바꾸지 않습니다.
-단순한 상태 질문, 중복, 다른 항목에 관한 소식은 relay하지 마십시오.
+중복, 단순한 상황 보고, 다른 항목에 관한 소식은 relay하지 마십시오. 실행 중인 포크가 있는
+항목의 상태 질문과 사양 변경 요청은 relay합니다.
 
 게이트 재점검 이벤트(event_key gate-check:..., route source_kind gate_check)는
 사람이 아니라 호스트 타이머에서 옵니다. 답할 원본이 없으므로 reply는 짧은 한 줄로
@@ -1359,6 +1363,10 @@ function wakePromptText(entry,conversation) {
       +'Read it there and continue. This wake holds no event data, needs no acknowledgment and grants no approval.'
   // The side's escalation (ask_main, complaints included) is main's to act on.
   if (entry.kind === 'notice' && entry.lead === ASK_MAIN_LEAD) return T('mod_side_ask_main_wake',{id,source})
+  // A fork stuck on a wait (user 2026-11-24) is main's to decide or act on.
+  if (entry.kind === 'notice' && entry.lead === STALL_LEAD)
+    return 'Ciel side wake '+id+': a host message beginning "'+STALL_LEAD+'" was added to this conversation while you were idle. '+source
+      +'Read it there and decide or act on what each stalled fork needs. This wake holds no event data, needs no acknowledgment and grants no approval.'
   const relay = entry.lead === RELAY_LEAD
   return entry.kind === 'notice'
     ? 'Ciel side wake '+id+': a host message beginning "'+(relay ? RELAY_LEAD : RELEASE_LEAD)+'" was added to this conversation while you were idle. '+source
@@ -1410,7 +1418,10 @@ async function wakeMain($,key) {
   } catch { /* Missing identity: the row stays tracked for the next check. */
   } finally { entry.poking = false }
 }
-const RELEASE_LEAD = 'Ciel side released recorded wait'
+// notifyReleased's first words (2026-11-18: "Ciel side: released n3 (...)").
+const RELEASE_LEAD = 'Ciel side: released'
+// mod_stall_notice's first words.
+const STALL_LEAD = 'Ciel side: stalled Work fork'
 const RELAY_LEAD = 'Ciel side relay for Work item'
 const AFTER_TURN_LEAD = 'Ciel side (after your turn):'
 const ASK_MAIN_LEAD = 'Ciel side asks main'
@@ -1422,6 +1433,7 @@ function noticeLead(text) {
     : value.startsWith(FORWARD_LEAD) ? FORWARD_LEAD
     : value.startsWith(AFTER_TURN_LEAD) ? AFTER_TURN_LEAD
     : value.startsWith(ASK_MAIN_LEAD) ? ASK_MAIN_LEAD
+    : value.startsWith(STALL_LEAD) ? STALL_LEAD
     : RELEASE_LEAD
 }
 function trackAppend($,identity,eventId,kind,ref,recordedAt = null,durable = true,lead = null) {
@@ -2519,7 +2531,7 @@ export async function answerParkedForks($,identity,event,result) {
   return {delivered:delivered.map(row => row.lease_id),
     text:lines.length ? T('mod_parked_answer_undelivered',{event:ref,lines:lines.join('\n')}) : ''}
 }
-const DECISION_FIELDS = new Set(['action','kind','item_id','summary','reply','note','title','priority','queue_position','release_waits','time_limit','relay','ask_main','no_reply','complaint','refs','fork_answers'])
+const DECISION_FIELDS = new Set(['action','kind','item_id','summary','reply','note','title','priority','queue_position','release_waits','time_limit','relay','ask_main','no_reply','complaint','refs','fork_answers','stall_notices'])
 // The side turn ends with its decision, but models often wrap it in prose or a
 // ```json fence. Take the last parseable object that carries `decision`.
 export function decisionOf(answer) {
@@ -2572,7 +2584,10 @@ function clampText(value,limit) {
 // from before refs lists none and refuses an unknown field, so a new answer
 // gets only the fields it knew; refs then wait for that router's restart. A
 // saved proposal is the router's own and is committed unchanged.
-const LEGACY_DECISION_FIELDS = new Set([...DECISION_FIELDS].filter(key => key !== 'refs'))
+// Fields added after decision_fields itself (fork_answers 2026-11-23,
+// stall_notices 2026-11-24) are never sent to such a router either.
+const LEGACY_DECISION_FIELDS = new Set(['action','kind','item_id','summary','reply','note','title','priority',
+  'queue_position','release_waits','time_limit','relay','ask_main','no_reply','complaint'])
 export function routerDecision(event,decision) {
   const accepted = Array.isArray(event?.decision_fields) ? new Set(event.decision_fields) : LEGACY_DECISION_FIELDS
   return Object.fromEntries(Object.entries(decision || {}).filter(([key]) => accepted.has(key)))
@@ -2601,6 +2616,17 @@ async function commitProposal($,actor,event,proposal,sentVia,usage) {
     let forkText = ''
     if (!value.result?.duplicate && (value.result?.fork_answers?.length || value.result?.unanswered_forks?.length)) {
       try { forkText = (await answerParkedForks($,actor.identity,event,value.result)).text } catch {}
+    }
+    // Forks stuck on a wait the side found still unmet (user 2026-11-24): the
+    // router recorded each wait as told, so this is main's one notice of it.
+    if (!value.result?.duplicate && value.result?.stall_notices?.length) {
+      const stalls = value.result.stall_notices
+      const lines = stalls.map(row => '- '+row.item_id+' (lease '+row.lease_id+')'
+        +(row.kind === 'wait' ? ' waits on "'+line(row.waiting_on,160)+'"' : ' is parked on a question')
+        +'. Checked: '+line(row.checked,300)+'. Needs: '+line(row.needed,300))
+      const text = T('mod_stall_notice',{plural:stalls.length > 1 ? 's' : '',them:stalls.length > 1 ? 'them' : 'it',
+        event:event.receipt_id.slice(0,12),lines:lines.join('\n')})
+      forkText = forkText ? forkText+'\n'+text : text
     }
     const asks = value.result?.ask_main === true && !value.result.duplicate
     const withFork = text => forkText ? text+'\n'+forkText : text

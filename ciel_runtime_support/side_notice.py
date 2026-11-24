@@ -57,6 +57,11 @@ def _released_row(inbox, receipt_id):
                     # 2026-11-18: the side's own escalation, and its check at
                     # main's turn end, are one host notice to main too.
                     or result.get('ask_main') is True
+                    # 2026-11-24: a fork stuck on a wait the side re-checked,
+                    # and fork answers the host could not deliver (or the
+                    # router refused) reach main through this notice too.
+                    or result.get('stall_notices') or result.get('fork_answers')
+                    or result.get('unanswered_forks')
                     or (row.get('route') or {}).get('turn_end') is True)):
         raise WorkPlanError('released-wait receipt required')
     return row

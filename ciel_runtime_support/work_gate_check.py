@@ -240,11 +240,103 @@ def parked_forks(leases: Mapping[str, Any], scope: str, doc: Mapping[str, Any],
     return rows
 
 
-def digest(rows: list[dict[str, Any]], parked: list[dict[str, Any]] | None = None) -> str:
+# A fork parked this long with nothing on its wait moving is reported to main
+# once per wait (user 2026-11-24: a fork and main both waited for hours on an
+# undeployed release, and only the person's complaint on the thread showed it).
+STALL_HOURS = 12
+STALLED_PER_ROUND = 6
+STALL_TOLD = "Side stall notice (event "
+
+
+def stalled_forks(leases: Mapping[str, Any], scope: str, doc: Mapping[str, Any], *, now: float | None = None,
+                  priority: Callable[[Mapping[str, Any]], str] | None = None,
+                  hours: float = STALL_HOURS) -> list[dict[str, Any]]:
+    """Parked forks of this conversation whose wait has not moved for ``hours``.
+
+    ``kind`` "wait": the item or an ancestor records a wait, unchanged since
+    that node's last update. "question": no recorded wait; the lease has been
+    parked that long (``parked_forks`` lists it too, for an answer). A node
+    whose note already carries a stall notice for its current wait text is not
+    listed again; a new wait text is a new stall.
+    """
+    stamp = time.time() if now is None else now
+    limit = hours * 3600
+    priority_of = priority or (lambda goal: str(goal.get("priority") or ""))
+    by_id = {node["id"]: node for node in doc.get("nodes", [])}
+    ranks: dict[str, str] = {}
+    rows = []
+    for lease in leases.values():
+        if (lease.get("scope") != scope or lease.get("state") != "waiting_input" or lease.get("slot")
+                or not lease.get("host_id")):
+            continue
+        node = by_id.get(lease.get("item_id"))
+        if node is None or node.get("status") == "done":
+            continue
+        chain, current, seen = [], node, set()
+        while current is not None and current["id"] not in seen:
+            seen.add(current["id"])
+            chain.append(current)
+            current = by_id.get(current.get("parent_id")) if current.get("parent_id") else None
+        goal = chain[-1]
+        if goal.get("status") == "done":
+            continue
+        gate = next((entry for entry in chain if str(entry.get("waiting_on") or "").strip()), None)
+        if gate is not None:
+            since = float(gate.get("updated_at") or 0)
+            told = str(gate.get("note") or "")
+            if STALL_TOLD in told and told.rsplit(STALL_TOLD, 1)[1].find(gate["waiting_on"]) >= 0:
+                continue
+        else:
+            since = float(lease.get("created_at") or 0)
+            told = str(node.get("note") or "")
+            if STALL_TOLD in told and told.rsplit(STALL_TOLD, 1)[1].find("lease " + str(lease["id"])) >= 0:
+                continue
+        if not since or stamp - since < limit:
+            continue
+        if goal["id"] not in ranks:
+            try:
+                ranks[goal["id"]] = str(priority_of(goal) or "")
+            except Exception:  # noqa: BLE001 - an unreadable P0 marker keeps the canonical priority
+                ranks[goal["id"]] = str(goal.get("priority") or "")
+        rows.append({"lease_id": str(lease["id"]), "item_id": node["id"], "title": str(node.get("title") or "")[:200],
+                     "root_id": goal["id"], "root_title": str(goal.get("title") or "")[:200],
+                     "priority": ranks[goal["id"]], "kind": "wait" if gate is not None else "question",
+                     "gate_id": gate["id"] if gate is not None else None,
+                     "waiting_on": str(gate["waiting_on"]) if gate is not None else "",
+                     "question": str(lease.get("evidence") or "")[:PARKED_QUESTION_CHARS],
+                     "since": since, "hours": round((stamp - since) / 3600, 1),
+                     "progress": str(node.get("progress") or "")[-PARKED_NOTE_CHARS:]})
+    active = doc.get("active_root")
+    rows.sort(key=lambda row: (_rank(row["priority"]), row["root_id"] != active, row["since"], row["lease_id"]))
+    return rows
+
+
+def digest(rows: list[dict[str, Any]], parked: list[dict[str, Any]] | None = None,
+           stalled: list[dict[str, Any]] | None = None) -> str:
     material = [[row['id'], row['waiting_on'], row['blocked'], row.get('release_hint')] for row in rows]
     if parked:
         material.append(["parked", sorted(row["lease_id"] for row in parked)])
+    if stalled:
+        material.append(["stalled", sorted(row["lease_id"] for row in stalled)])
     return hashlib.sha256(json.dumps(material, separators=(",", ":")).encode()).hexdigest()[:16]
+
+
+def _stalled_lines(stalled: list[dict[str, Any]]) -> list[str]:
+    """The stalled-fork section: host facts from the ledger and the board, no instruction."""
+    if not stalled:
+        return []
+    lines = ["오래 멈춘 포크 (호스트가 원장과 보드에서 읽은 사실: %d시간 넘게 대기가 그대로임):" % STALL_HOURS]
+    for row in stalled:
+        rank = ("[" + row["priority"] + "] ") if row.get("priority") else ""
+        since = time.strftime("%m-%d %H:%MZ", time.gmtime(row["since"])) if row.get("since") else "?"
+        lines.append(f"- {rank}lease {row['lease_id']} / 아이템 {row['item_id']} ({row['title']}) / 목표 "
+                     f"{row['root_id']} ({row['root_title']}), {since}부터 {row['hours']}시간")
+        if row["kind"] == "wait":
+            lines.append("  대기 노드 " + str(row["gate_id"]) + ": " + row["waiting_on"])
+        lines.append("  포크가 남긴 말: " + (row["question"].replace("\n", " ") or "(기록 없음)"))
+        if row.get("progress"):
+            lines.append("  아이템 progress(최신): " + _tail(row["progress"]))
+    return lines
 
 
 def _parked_lines(parked: list[dict[str, Any]]) -> list[str]:
@@ -268,7 +360,8 @@ def _parked_lines(parked: list[dict[str, Any]]) -> list[str]:
 def event_text(rows: list[dict[str, Any]], interval: int, part: str = "",
                threads: Mapping[str, Mapping[str, Any]] | None = None,
                included: list[str] | None = None, rules: str | None = None,
-               parked: list[dict[str, Any]] | None = None) -> str:
+               parked: list[dict[str, Any]] | None = None,
+               stalled: list[dict[str, Any]] | None = None) -> str:
     """The tick's one event. ``rules`` is the managed instruction (prompt
     ``gate_recheck``: REST, web, ctl and menu edit it; it applies from the next
     tick with no restart). ``threads`` maps a gate id to its thread's new
@@ -281,7 +374,7 @@ def event_text(rows: list[dict[str, Any]], interval: int, part: str = "",
         *(rules if isinstance(rules, str) and rules.strip() else prompt_default("gate_recheck")).split("\n"),
         "게이트:" if rows else "게이트: 없음",
     ]
-    tail = _parked_lines(parked or [])
+    tail = _parked_lines(parked or []) + _stalled_lines(stalled or [])
     shown: dict[str, str] = {}
     size = sum(len(line) + 1 for line in lines) + sum(len(line) + 1 for line in tail)
     for row in rows:
@@ -343,21 +436,23 @@ def tick_rows(config: Mapping[str, Any], doc: Mapping[str, Any], state: Mapping[
               *, now: float | None = None,
               priority: Callable[[Mapping[str, Any]], str] | None = None,
               turn_end: bool = False,
-              parked: list[dict[str, Any]] | None = None) -> tuple[list[dict[str, Any]], str, float] | None:
+              parked: list[dict[str, Any]] | None = None,
+              stalled: list[dict[str, Any]] | None = None) -> tuple[list[dict[str, Any]], str, float] | None:
     """(gates, digest, stamp) when a tick is due now, else None.
 
-    ``parked`` (``parked_forks``) counts like gates: a board whose only stuck
-    work is forks parked on a question is still checked (Celly 2026-11-23).
+    ``parked`` (``parked_forks``) and ``stalled`` (``stalled_forks``) count like
+    gates: a board whose only stuck work is forks parked on a question, or
+    waiting for hours, is still checked (Celly 2026-11-23, Andy 2026-11-24).
     """
     interval = minutes(config)
     if interval == 0:
         return None
     rows = gates(doc, priority)
     # At main's turn end the side also looks for other work, gates or not.
-    if not rows and not parked and not turn_end:
+    if not rows and not parked and not stalled and not turn_end:
         return None
     stamp = time.time() if now is None else now
-    current = digest(rows, parked)
+    current = digest(rows, parked, stalled)
     previous = state or {}
     # Main's turn end (user 2026-11-18): the side checks for released blocks,
     # approvals and missed work then, at most once a minute.
@@ -374,13 +469,14 @@ def tick_event(config: Mapping[str, Any], rows: list[dict[str, Any]], current: s
                threads: Mapping[str, Mapping[str, Any]] | None = None, turn_end: bool = False,
                review_pending: list[str] | None = None, rules: str | None = None,
                turn_text: str | None = None, review_text: str | None = None,
-               parked: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    """The one side event of a tick for ``rows`` and the ``parked`` forks."""
+               parked: list[dict[str, Any]] | None = None,
+               stalled: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """The one side event of a tick for ``rows``, the ``parked`` and the ``stalled`` forks."""
     interval = minutes(config)
     slot = int(stamp // (interval * 60))
     fit: list[str] = []
     text = event_text(rows, interval, "%d gate(s)" % len(rows) if len(rows) > 1 else "", threads, included=fit,
-                      rules=rules, parked=parked)
+                      rules=rules, parked=parked, stalled=stalled)
     if review_pending:
         # Results that wait for main's review (user 2026-11-19: the side tells main).
         template = review_text if isinstance(review_text, str) and review_text.strip() else prompt_default("gate_review")
@@ -392,10 +488,11 @@ def tick_event(config: Mapping[str, Any], rows: list[dict[str, Any]], current: s
     # deduplicates, and a same-slot check with newer evidence is its own event.
     body = hashlib.sha256(text.encode()).hexdigest()[:8]
     parked_ids = [row["lease_id"] for row in parked or []]
+    stalled_ids = [row["lease_id"] for row in stalled or []]
     event = {"event_key": f"{EVENT_PREFIX}{current}:{slot}:1:{body}", "text": text, "gates": fit,
-             "parked": parked_ids}
+             "parked": parked_ids, "stalled": stalled_ids}
     return {"event_key": event["event_key"], "text": text, "events": [event], "digest": current, "at": stamp,
-            "gates": event["gates"], "parked": parked_ids, "interval_minutes": interval}
+            "gates": event["gates"], "parked": parked_ids, "stalled": stalled_ids, "interval_minutes": interval}
 
 
 def due(config: Mapping[str, Any], doc: Mapping[str, Any], state: Mapping[str, Any] | None,
@@ -478,8 +575,9 @@ def host_report(config: Mapping[str, Any], last: Mapping[str, Any] | None, repor
     return record, {"recorded": True, "host_round": entry}
 
 
-__all__ = ["DEFAULT_MINUTES", "EVENT_PREFIX", "KEY", "RANGE", "digest", "due", "effective_priority_for", "event_text",
-           "gates", "host_report", "minutes", "parked_forks", "set_minutes", "tick_event", "tick_rows"]
+__all__ = ["DEFAULT_MINUTES", "EVENT_PREFIX", "KEY", "RANGE", "STALL_HOURS", "digest", "due", "effective_priority_for",
+           "event_text", "gates", "host_report", "minutes", "parked_forks", "set_minutes", "stalled_forks",
+           "tick_event", "tick_rows"]
 
 
 def prompt_default(name: str) -> str:

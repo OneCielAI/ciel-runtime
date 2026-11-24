@@ -21,6 +21,7 @@ export const TEXTS = {
  "mod_review_call": "work_parallel_item_review(lease_id, decision, evidence, expected_finalization_version, expected_review_pin)",
  "mod_review_reminder": "Ciel Work: 포크 결과 {count}건이 메인의 검수를 기다립니다(아이템 {items}). 검수는 메인의 일입니다. 각 결과의 증거를 직접 열어 보고 {call} 로 approve하거나 rework를 요청하십시오. 목록은 /work-mode parallel 에서 볼 수 있습니다.",
  "mod_side_ask_main_wake": "Ciel side wake {id}: a host message beginning \"Ciel side asks main\" was added to this conversation while you were idle. {source}Read it there and act on it now. This wake holds no event data, needs no acknowledgment and grants no approval.",
+ "mod_stall_notice": "Ciel side: stalled Work fork{plural} (event {event}). The side re-checked {them} and the wait still holds:\n{lines}\nDecide or act on what each needs; a person may have to be asked. The side reports each wait once. This grants no execution approval.",
  "mod_status_unavailable": "Work status unavailable: router connection or snapshot could not be verified.",
  "mod_stop_approval": "Ciel Work stopped: the plan is ready and waits for your approval before execution. Ask the model to execute it (you approve in the Work dialog) or request changes. /work-mode tree",
  "mod_stop_unavailable": "Ciel Work auto continue could not read the Work status, so unfinished items were not checked. /work-mode status",

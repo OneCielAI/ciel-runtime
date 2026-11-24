@@ -177,7 +177,7 @@ def _parked_projection(store, identity, decision):
     A fork answer (``fork_answers``) is checked against it: only a parked
     worker of this conversation is answered.
     """
-    if not (isinstance(decision, dict) and (decision.get('fork_answers') or (
+    if not (isinstance(decision, dict) and (decision.get('fork_answers') or decision.get('stall_notices') or (
             decision.get('action') == 'update' and decision.get('release_waits')))):
         return None, None
     try:

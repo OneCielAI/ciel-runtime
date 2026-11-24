@@ -60,6 +60,29 @@ class SideBackgroundPromptTests(unittest.TestCase):
                 self.assertIn("범위 전체", text)
                 self.assertIn("범위를 좁히거나", text)
 
+    def test_a_stalled_fork_is_rechecked_and_told_to_main_once(self):
+        # User 2026-11-24: a fork or main only waiting, or stopped without an
+        # answer, is caught and told to main.
+        for name in ("gate_actor", "gate_recheck"):
+            text = INSTRUCTIONS[name]
+            with self.subTest(name=name):
+                self.assertIn("오래 멈춘 포크", text)
+                self.assertIn("stall_notices", text)
+                self.assertIn('"checked"', text)
+                self.assertIn('"needed"', text)
+                self.assertIn("조회하지 않고 넣지 마십시오", text)
+
+    def test_a_status_or_spec_question_on_a_running_item_goes_to_its_fork(self):
+        # User 2026-11-24: a status question or a spec change about an item a
+        # fork is running goes to that fork, which answers or acts on it.
+        text = INSTRUCTIONS["side"]
+        self.assertNotIn("그 항목에 대한 단순한 상태 질문이나 상황 보고는 전달하지 않습니다", text)
+        self.assertIn("상태, 진행, 사양 변경", text)
+        self.assertIn('"no_reply": true를 넣어 그 포크가 직접 답하거나 조치하게', text)
+        relay = DEFAULTS["side_running_fork_relay"]
+        self.assertIn("상태 질문", relay)
+        self.assertIn("사양 변경", relay)
+
     def test_the_side_default_is_still_the_fork_prompt_byte_for_byte(self):
         source = SIDE_JS.read_text(encoding="utf-8").replace("\r\n", "\n")
         self.assertEqual(re.search(r"const PROMPT = `([^`]*)`", source).group(1), DEFAULT_SIDE_INSTRUCTION)

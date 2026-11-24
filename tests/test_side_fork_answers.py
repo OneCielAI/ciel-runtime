@@ -53,6 +53,34 @@ class SideForkAnswerTests(unittest.TestCase):
         self.assertIn('MAIN DECISION 13:16Z: merge now', notice)
         self.assertIn('SendMessage', notice)
 
+    def test_a_router_listing_no_fields_gets_only_the_fields_it_knew(self):
+        # A router from before decision_fields (2026-11-20) refuses an unknown
+        # field; fork_answers and stall_notices came after it.
+        row = self.run_case('fields')
+        self.assertNotIn('fork_answers', row['noFieldsRouter'])
+        self.assertEqual({'action', 'kind', 'summary', 'reply'}, set(row['noFieldsRouter']))
+
+    def test_a_stall_notice_reaches_main_once_with_what_was_checked(self):
+        # User 2026-11-24: a fork that only waits for hours is told to main.
+        row = self.run_case('stalled')
+        self.assertEqual(['production release 0.4.509 deployed'],
+                         [s['waiting_on'] for s in row['resolved'][0]['stall_notices']])
+        self.assertEqual(1, len(row['appended']), row['appended'])
+        notice = row['appended'][0]
+        self.assertIn('Ciel side: stalled Work fork', notice)
+        self.assertIn('n2 (lease L3)', notice)
+        self.assertIn('production release 0.4.509 deployed', notice)
+        self.assertIn('release.json says 0.4.508 (#162759)', notice)
+        self.assertIn('deploy 0.4.509 or decide the order', notice)
+        self.assertIn('no execution approval', notice)
+
+    def test_an_idle_main_is_woken_toward_the_stall_notice(self):
+        row = self.run_case('stalled-idle')
+        self.assertEqual(1, len(row['appended']), row['appended'])
+        self.assertEqual(1, len(row['submitted']), row['submitted'])
+        self.assertIn('a host message beginning "Ciel side: stalled Work fork"', row['submitted'][0])
+        self.assertNotIn('production release', row['submitted'][0])
+
     def test_a_refused_answer_rides_on_the_ask_main_notice(self):
         row = self.run_case('refused-ask')
         self.assertEqual([], row['resumeCalls'])
