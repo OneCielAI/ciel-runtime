@@ -2,6 +2,30 @@
 
 ## 2026-11-23
 
+- 2026-11-24 09:12:23–09:12:54Z 틱(직전 08:52Z), 5호스트.
+  - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 MCP 모두 `probe_succeeded`(281–1,101 ms), new_failures 0. 4886d62·7edfc0c는 파일만 설치(라이브 아님).
+  - Andy
+    - running+slot 4→2, waiting_input 3→5, 원장 6971→6973, MCP 1,079 ms
+    - n1166, n2708(반복)
+    - 대화: 계획 버전 충돌 2(가드)
+  - Celly
+    - running+slot 6→4, waiting_input 2→4, 원장 8832→8834
+    - client 연결 끊김 다수
+    - activity 파일 권한 오류 2(반복)
+  - KOBE: 다시 관측됐다. 08:5xZ의 SSH 배너 실패는 이번에 없었다.
+    - running+slot 1, waiting_input 4, 원장 3284→3291
+    - `transcript_delta_delivery_failed` timeout 4(08:56Z, 반복 항목)
+    - 업스트림 오류 이벤트 2(09:06Z, 09:08Z, 게이트웨이 소관)
+    - 포크 n107 `transport_interrupted`(09:08Z)는 재시도 가드가 예약했다.
+  - Prody
+    - submitted 7→6, running+slot 0→1, 원장 854→860
+    - 지난 틱의 n1272 검수 행 누락 finding은 이번에 없다. 해소됐다.
+  - Betty
+    - 원장 928, MCP 334 ms
+    - `unseen_failed` 7875(08:57:26Z, 320.6초): 같은 결함이고, 이전 코드가 돌고 있다.
+    - 대화 오류 3건: n1782 중복 디스패치 가드, 외부 API 400·403
+  - Sarah(.25): SSH가 배너 전에 끊긴다. 미확인.
+
 - 2026-11-24 08:52:19–08:52:58Z 틱(직전 08:40Z).
   - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 4886d62와 7edfc0c는 파일만 설치된 상태다(라이브 아님).
   - Andy
