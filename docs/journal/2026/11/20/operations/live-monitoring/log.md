@@ -2,6 +2,29 @@
 
 ## 2026-11-23
 
+- 2026-11-24 11:12:27–11:13:14Z 틱(직전 10:53Z), 5호스트.
+  - 공통
+    - 운영 세션·라우터 재시작과 상태 파일 변경 없음.
+    - 5호스트 MCP `probe_succeeded`(237–3,146 ms), new_failures 0, 새 finding 없음.
+    - 4886d62·7edfc0c는 파일만 설치(라이브 아님).
+  - Andy
+    - running+slot 3→2, 원장 7015→7019
+    - n1166(반복)
+    - 계획 버전 충돌 2(가드)
+  - Celly
+    - running+slot 3→2, submitted 0→1, 원장 8871→8874
+    - 10:55–10:56Z 업스트림 오류 이벤트 2, 로컬 게이트웨이 5xx 2(게이트웨이 소관)
+    - 권한 오류 1(반복)
+    - P3 정원 가드 1
+  - KOBE: 원장 3306→3309. P3 정원 가드 1.
+  - Prody
+    - 원장 891이 10:32Z부터 세 틱째 그대로다. running+slot 1, submitted 6.
+    - 보드는 v7074→v7082로 계속 바뀌고 있다.
+    - MCP 3,146 ms
+    - 대화 오류 0
+  - Betty: 원장 934, `unseen_failed` 없음, 대화 오류 0.
+  - Sarah(.25): SSH가 배너 전에 끊긴다. 미확인.
+
 - 2026-11-24 10:53:18–10:53:50Z 틱(직전 10:32Z), 5호스트.
   - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 MCP `probe_succeeded`(253–3,304 ms), new_failures 0. 4886d62·7edfc0c는 파일만 설치(라이브 아님).
   - 추적 항목 "auto continue could not read the Work status"(Andy 10:18Z, Prody 06:20Z, Celly 08:49Z)
