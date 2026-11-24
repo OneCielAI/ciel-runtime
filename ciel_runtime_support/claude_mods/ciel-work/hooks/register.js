@@ -3908,27 +3908,32 @@ async function parallelEnsureExitContract($, state, lease, row, reason = 'native
     parallelProcessForkApiRetries($, state, scope)
     return false
   }
+  let now = Date.now()
+  try { const t = await $.clock.now(); if (typeof t === 'number' && Number.isFinite(t)) now = t } catch { /* Wall time. */ }
   const prior = parallelExitAttempts.get(key) || { attempts: 0, failures: 0, at: 0 }
-  if (prior.attempts > 0 && minWaitMs > 0 && Date.now() - (prior.at || 0) < minWaitMs) return false
-  if (prior.attempts < 2) {
-    const current = { attempts: prior.attempts + 1, failures: prior.failures + 1, at: Date.now() }
+  if (prior.attempts > 0 && minWaitMs > 0 && now - (prior.at || 0) < minWaitMs) return false
+  if (prior.attempts < 1) {
+    const current = { attempts: prior.attempts + 1, failures: prior.failures + 1, at: now }
     parallelExitAttempts.set(key, current)
     if (retry) retry.exitAttempted = true
     try {
       await $.session.send({ to: { agentId: lease.host_id },
         text: 'Your native turn ended without a durable Work exit receipt. Report completion through work_parallel_report with the exact lease_id and worker_token, or report a structured handoff with done, remaining, blockers, workspace and next_step. Lease: ' + lease.id + '; item: ' + lease.item_id + '.' })
     } catch { /* The missing durable receipt, not transport ACK, bounds attempts. */ }
-    if (current.attempts < 2) return false
+    return false
   }
+  // Never call $.session.send on the salvage pass: an async wake lands 1-4 s
+  // after host_salvage/unreported/TaskStop revoke the lease binding and worker
+  // capability, leaving a zombie fork running (Celly 2026-11-24 n1510/n1299).
+  parallelExitAttempts.set(key, { attempts: prior.attempts + 1, failures: prior.failures + 1, at: now })
+  if (retry) retry.exitAttempted = true
   // The current backend may not expose a host-salvage event. Never discard a
   // worker's result merely because that optional event is absent. If a newer
   // backend durably returns a salvage receipt, only then terminate/release it.
-  const attempts = parallelExitAttempts.get(key) || prior
-  if (attempts.failures < 2) return false
   try {
     const salvaged = await parallelEvent($, { event:'host_salvage', lease_id:lease.id,
       reason:String(reason || row?.status || 'native terminal').slice(0, 200) },
-    { proof:'Two exit-contract delivery failures; native status ' + String(row?.status || reason || 'terminal') })
+    { proof:'Exit-contract nudge left no durable receipt; native status ' + String(row?.status || reason || 'terminal') })
     if (!(salvaged?.receipt_digest || salvaged?.contract_receipt || salvaged?.salvaged === true)) return false
     await parallelEvent($, { event:'unreported', lease_id:lease.id },
       { proof:'Durable host salvage receipt ' + (salvaged.receipt_digest || salvaged.contract_receipt || 'recorded') })
@@ -4779,16 +4784,17 @@ async function parallelReconcileAtTurnEnd($, e, s, agents, id, binding) {
     return
   }
   if (terminal && lease?.state === 'running') {
-    await parallelEnsureExitContract($, s, lease, row, e.reason || 'turn.complete')
+    await parallelEnsureExitContract($, s, lease, row, e.reason || 'turn.complete',
+      false, id === e.agentId ? {} : { minWaitMs: ABSENT_EXIT_GRACE_MS })
     return
   }
   if (lease && row) parallelAbsentSince.delete(lease.id)
   if (lease?.state === 'running' && !row && absentForkSettleable(lease)) {
     // A bound fork of this process that vanished from $.agent.list() without
-    // reporting: once absent for the grace, the same two nudges, the second
-    // after another grace, then salvage. A revived fork that ends again
-    // unreported takes the second step; the attempt count is never reset, so
-    // nudge and revival cannot loop.
+    // reporting: once absent for the grace, one nudge, then after another grace
+    // salvage without reviving it. A revived fork that ends again unreported
+    // takes the salvage step; the attempt count is never reset, so nudge and
+    // revival cannot loop.
     if (absentForkDue(lease))
       await parallelEnsureExitContract($, s, lease, null, 'native agent absent', false, { minWaitMs: ABSENT_EXIT_GRACE_MS })
     return

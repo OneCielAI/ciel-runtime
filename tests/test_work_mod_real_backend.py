@@ -1172,13 +1172,14 @@ class WorkModRealBackendTests(unittest.TestCase):
         started = steps["after session.start"]
         self.assertEqual(("running", True), (started["lease"]["state"], started["lease"]["slot"]), started)
         self.assertEqual(([], None, None), (started["rows"], started["review"], started["sidecar"]), started)
-        # Two exit-contract sends, one per native turn end that left no receipt.
+        # One exit-contract nudge after the first native turn end; the second
+        # missing exit salvages directly without sending a second message that
+        # would revive the fork after its capability is revoked (Celly 2026-11-24).
         first, second = steps["after the first native turn end"], steps["after the second native turn end"]
         self.assertEqual((1, 0, 0), (first["sends"], first["salvages"], first["unreported"]), first)
         self.assertEqual("running", first["lease"]["state"], first)
-        # The second send is followed by a durable host salvage receipt, unreported
-        # (slot released) and the native stop.
-        self.assertEqual((2, 1, 1, 1), (second["sends"], second["salvages"], second["unreported"], second["stopped"]), second)
+        # Durable host salvage receipt, unreported (slot released) and native stop.
+        self.assertEqual((1, 1, 1, 1), (second["sends"], second["salvages"], second["unreported"], second["stopped"]), second)
         self.assertEqual(("unreported", False), (second["lease"]["state"], second["lease"]["slot"]), second)
         self.assertEqual("host_salvage", (second["run"]["exit"] or {}).get("kind"), second["run"])
         # Exactly one stranded main row.
@@ -1192,7 +1193,7 @@ class WorkModRealBackendTests(unittest.TestCase):
         # The capability is revoked: the fork's own late report is refused.
         self.assertIn("error", result["lateReport"], result["lateReport"])
         boundary = steps["after a main boundary"]
-        self.assertEqual((2, 1, 1, 1, second["wakes"]), (boundary["sends"], boundary["salvages"], boundary["unreported"],
+        self.assertEqual((1, 1, 1, 1, second["wakes"]), (boundary["sends"], boundary["salvages"], boundary["unreported"],
                                                          boundary["stopped"], boundary["wakes"]), boundary)
         self.assertEqual(second["rows"], boundary["rows"])
         self.assert_stranded_views(result, lease, "no_report", result["brokenPath"])

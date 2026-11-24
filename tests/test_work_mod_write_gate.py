@@ -1496,6 +1496,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         result = self.lifecycle(self.run_scenario("parallel-second-missing-exit-salvages-before-stop"))
         self.assertEqual(["host_salvage", "unreported"],
                          [event for event in result["calls"] if event != "native_observation"], result)
+        self.assertEqual(1, len(result["sent"]), result)
         self.assertEqual({"tool": "TaskStop", "task_id": "agent-old"}, result["tools"][0])
         self.assertEqual("unreported", result["lease"]["state"])
 
@@ -1510,7 +1511,9 @@ class WorkModWriteGateTests(unittest.TestCase):
         # Immediate next boundary waits before salvaging.
         self.assertEqual(1, result["soon"]["sent"], result)
         self.assertNotIn("host_salvage", result["soon"]["calls"], result)
-        # After the grace window with the fork still absent and unreported, salvage releases the slot.
+        # After the grace window with the fork still absent and unreported, salvage releases the slot
+        # without sending a second message that would resurrect a revoked fork.
+        self.assertEqual(1, result["sent"], result)
         self.assertEqual(["host_salvage", "unreported"],
                          [event for event in result["calls"] if event not in ("native_observation", "reconcile")],
                          result)
@@ -1523,8 +1526,28 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(0, result["noticed"]["sent"], result)
         self.assertEqual(1, result["first"]["sent"], result)
         self.assertNotIn("host_salvage", result["first"]["calls"], result)
+        self.assertEqual(1, result["sent"], result)
         self.assertEqual(["host_salvage", "unreported"],
                          [event for event in result["calls"] if event in ("host_salvage", "unreported")], result)
+        self.assertEqual("unreported", result["lease"]["state"])
+        self.assertFalse(result["lease"]["slot"])
+
+    def test_salvage_does_not_revive_fork_and_main_turn_respects_nudge_grace(self):
+        # Celly 2026-11-24 21:02Z (n1510 ae5774b3, n1299 a8b0ad35, n1420 a71f327b)
+        result = self.lifecycle(self.run_scenario("parallel-salvage-does-not-revive-and-main-turn-respects-grace"))
+        self.assertEqual(1, result["afterNudge"]["sent"], result)
+        self.assertNotIn("host_salvage", result["afterNudge"]["calls"], result)
+        self.assertEqual("running", result["afterNudge"]["state"], result)
+        # Main turn completing 2 s after nudge 1 must not bypass the 30 s grace.
+        self.assertEqual(1, result["afterSoonMain"]["sent"], result)
+        self.assertNotIn("host_salvage", result["afterSoonMain"]["calls"], result)
+        self.assertEqual("running", result["afterSoonMain"]["state"], result)
+        self.assertEqual(0, result["afterSoonMain"]["tools"], result)
+        # Salvage after grace must commit host_salvage + unreported + TaskStop without a second send.
+        self.assertEqual(1, result["sent"], result)
+        self.assertEqual(["host_salvage", "unreported"],
+                         [event for event in result["calls"] if event in ("host_salvage", "unreported")], result)
+        self.assertEqual({"tool": "TaskStop", "task_id": "agent-old"}, result["tools"][0])
         self.assertEqual("unreported", result["lease"]["state"])
         self.assertFalse(result["lease"]["slot"])
 
@@ -1555,6 +1578,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         result = self.lifecycle(self.run_scenario("parallel-resumed-question-exit-still-owes-an-exit"))
         self.assertEqual(1, result["first"]["sent"], result)
         self.assertEqual(0, result["first"]["tools"], result)
+        self.assertEqual(1, result["sent"], result)
         self.assertEqual(["host_salvage", "unreported"],
                          [event for event in result["calls"] if event != "native_observation"], result)
         self.assertEqual("unreported", result["lease"]["state"])

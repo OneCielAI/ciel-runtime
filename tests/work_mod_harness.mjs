@@ -973,6 +973,7 @@ const scenarios = {
         claimed = true
         return text({claim:{receipt_id:'mail1',generation:'10000000000000000000000000000009',text:'original request',route:{},workload:{version:5,truncated:false,nodes:[],queue_order:[]}}})
       }
+      if (tool === 'work_side_fail') return text({ receipt: { receipt_id: 'mail1', stage: 'failed' } })
       return text({})
     })
     $.clock.after = (delay, callback) => { timers.push({ delay, callback }); return { cancel() {} } }
@@ -2561,6 +2562,55 @@ const scenarios = {
     later(31000)
     await handlers['turn.complete']($, { reason:'answer' }, next(undefined))
     return { first, calls, tools, sent:state.sent.length, lease:leases.L1 }
+  },
+  // Celly 2026-11-24 21:02Z (n1510 ae5774b3, n1299 a8b0ad35, n1420 a71f327b):
+  // on the salvage call, parallelEnsureExitContract sent a second $.session.send
+  // and immediately fell through to host_salvage + unreported + TaskStop, so the
+  // subagent woke up 1-4 s later with its lease already unreported and capability
+  // revoked. A main turn ending right after nudge 1 also bypassed the 30 s grace.
+  async 'parallel-salvage-does-not-revive-and-main-turn-respects-grace'() {
+    const leases = { L1: { id:'L1', item_id:'n1510', role:'worker', state:'running', host_id:'agent-old', slot:true, plan_version:7 } }
+    const calls = [], tools = [], timers = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:9, active_device:1,
+        policy:{enabled:true,paused:false,priority_limits:{P1:5,P2:3,P3:1,P4:1,P5:1}}, leases,
+        coordination:{runs:[{lease_id:'L1',exit:null}],receipts:[]} })
+      if (tool === 'work_parallel_event') {
+        calls.push(args.event)
+        if (args.event === 'host_salvage') return text({ receipt_digest:'a'.repeat(64), salvaged:true })
+        if (args.event === 'unreported') { leases.L1.state='unreported'; leases.L1.slot=false; return text({state:'unreported'}) }
+        return text({})
+      }
+      return text({})
+    })
+    $.tool.call = async args => { tools.push(args); return {} }
+    $.clock.after = (delay, callback) => { timers.push({ delay, callback }); return { cancel() {} } }
+    state.agents = [{ id:'agent-old', status:'running' }]
+    await handlers['session.start']($, { isInteractive:false }, next(undefined))
+    await handlers['turn.complete']($, { reason:'answer' }, next(undefined))
+    state.sent = []; calls.length = 0; state.agents[0].status = 'failed'
+    const tick = async () => {
+      const t = timers.filter(row => row.delay === 15000).pop()
+      if (!t) return false
+      timers.splice(timers.indexOf(t), 1)
+      await t.callback()
+      for (let i = 0; i < 10; i++) await new Promise(go => setTimeout(go, 5))
+      return true
+    }
+    // 1. Observation sees failed fork -> sends 1 nudge, does not salvage.
+    await tick()
+    const afterNudge = { sent:state.sent.length, calls:[...calls], state:leases.L1.state }
+    calls.length = 0
+    // 2. Unrelated main turn ends 2 s later -> must respect 30 s grace, not salvage yet.
+    later(2000)
+    await handlers['turn.complete']($, { reason:'answer' }, next(undefined))
+    const afterSoonMain = { sent:state.sent.length, calls:[...calls], state:leases.L1.state, tools:tools.length }
+    calls.length = 0
+    // 3. After 30 s grace with fork still failed -> salvages WITHOUT a second send.
+    later(31000)
+    await tick()
+    return { afterNudge, afterSoonMain, sent:state.sent.length, calls, tools, lease:leases.L1 }
   },
   // Andy n2531 2026-11-21: a P0 fork resumed after restart ran under ciel-work's
   // own write gate while its goal n1936 was planning. ciel-work denied Write

@@ -1875,3 +1875,55 @@ test('fork transient API error exhausts at 20/20 and hands off to exit contract'
   expect(sends.filter(x => x.text.includes('[ciel-runtime 포크 재시도')).length).toBe(20)
   expect(s.logs.some(l => l.includes('exhausted (20/20)'))).toBe(true)
 })
+
+// Celly 2026-11-24 21:02Z (n1510 ae5774b3, n1299 a8b0ad35, n1420 a71f327b):
+// the salvage pass sent a second exit-contract message right before host_salvage
+// + unreported + TaskStop, reviving already-revoked forks as zombies for 8-9 min.
+test('exit-contract salvage never sends a second message that revives a revoked fork', { timeoutMs: 30000 }, async ($, on) => {
+  const s = hints(on); const clock = mock.clock(on)
+  const sends: Array<{ to?: string; text?: string }> = []
+  const events: string[] = []
+  on('session.send', (_, e) => { sends.push(e); return { isDelivered: true } })
+  s.gateReply = () => ({ interval_minutes: 999, queued: false, reason: 'no_gates' })
+  let leaseState = 'running'
+  s.agents = [{ id: 'fork-salv-1', type: 'fork', status: 'running', name: 'work-auto-s1' }]
+  s.parallelStatus = () => ({
+    version: 5, active_device: 1, policy: { enabled: false, max_active: 5, p1_reserved: 1 },
+    leases: {
+      'lease-salv-1': {
+        id: 'lease-salv-1', scope: 'claude:session-a', item_id: 'n1510', priority: 'P1',
+        state: leaseState, host_id: 'fork-salv-1', slot: leaseState === 'running', owner_process: 'own',
+        agent_name: 'work-auto-s1',
+      },
+    },
+    coordination: { runs: [], receipts: [] },
+    fork_api_errors: {},
+  })
+  s.parallelEvent = args => {
+    events.push(String(args.event || ''))
+    if (args.event === 'host_salvage') return { salvaged: true, receipt_digest: 'e'.repeat(64) }
+    if (args.event === 'unreported') { leaseState = 'unreported'; return { state: 'unreported' } }
+    return { recorded: true }
+  }
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  // Let deferred sessionStartHost hydrate parallelBound and arm native observation.
+  await clock.advance(1)
+  s.agents = [{ id: 'fork-salv-1', type: 'fork', status: 'failed', name: 'work-auto-s1' }]
+  // First observation tick sends 1 exit-contract nudge and keeps lease running.
+  await clock.advance(16000)
+  expect(sends.filter(x => x.to === 'fork-salv-1').length).toBe(1)
+  expect(events.includes('host_salvage')).toBe(false)
+  expect(leaseState).toBe('running')
+  // Inside the 30 s grace window, a second tick still holds salvage.
+  await clock.advance(16000)
+  expect(events.includes('host_salvage')).toBe(false)
+  expect(sends.filter(x => x.to === 'fork-salv-1').length).toBe(1)
+  // Wait past the 30 s grace: salvage commits host_salvage + unreported + TaskStop
+  // with NO second send to fork-salv-1.
+  await clock.advance(20000)
+  expect(events.filter(e => e === 'host_salvage').length).toBe(1)
+  expect(events.filter(e => e === 'unreported').length).toBe(1)
+  expect(leaseState).toBe('unreported')
+  expect(sends.filter(x => x.to === 'fork-salv-1').length).toBe(1)
+  expect(s.tools.some(e => e.tool === 'TaskStop' && e.task_id === 'fork-salv-1')).toBe(true)
+})
