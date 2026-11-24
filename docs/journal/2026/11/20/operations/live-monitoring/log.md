@@ -2,6 +2,42 @@
 
 ## 2026-11-23
 
+- 2026-11-24 08:20:46–08:21:22Z 틱(직전 07:37Z), 5호스트.
+  - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. new_failures 0.
+  - 배포: 채널 수정 4886d62를 npm beta `0.2.51-beta.20261124-080748.4886d62`로 냈다. 7개 루트에 해시 확인 설치했다(08:08–08:20Z, 파일만, 라이브 아님). 자세한 내용은 [mid-turn-socket-handover](../../../24/fixes/mid-turn-socket-handover/record.md).
+  - Andy
+    - running+slot 3, submitted 24, waiting_input 4, 원장 6907→6957, 보드 v11251, MCP 1,484 ms
+    - n1166(반복), n2708 `awaiting_capacity`(반복). n2622는 정원 대기에서 빠졌다.
+    - `work_workspace_failed code=workspace_prepare_retained`(반복 유형, 추적 중)
+      - n2694: 07:46–07:47Z. channel file lock busy 1건, `git worktree add` 시간 초과(248초, 58초)
+      - n2732: 07:52Z. `git worktree add` 시간 초과(116초)
+    - 07:44–07:45Z `transcript_delta_delivery_failed`: 10061 3, timeout 2(반복 항목)
+    - 08:11–08:14Z 업스트림 일시 오류: `cielairouter_transient_retry`(transport_disconnect, 503) 여러 건. 같은 시각 Celly·KOBE에도 있다. 업스트림은 게이트웨이 소관이다.
+    - `runtime_activity_router_failed` PermissionError 3(반복, 추적 중)
+  - Celly
+    - running+slot 6→5, waiting_input 4, 원장 8820→8827, MCP 313 ms
+    - 08:11–08:14Z 로컬 게이트웨이(127.0.0.1:20128) 5xx와 transient retry 여러 건(게이트웨이 소관)
+    - activity 파일 권한 오류 6(반복)
+    - 대화 오류 3건: 메인의 배포 스크립트 종료 코드 2건, P3 정원 안내
+  - KOBE
+    - running+slot 1→0, waiting_input 3→4, submitted 1, 원장 3275→3284, MCP 535 ms
+    - n54 검수 행 누락 finding은 이번에 없다. 해소됐다.
+    - 07:53–07:56Z SSE 재연결 실패: BrokenPipe 1, connect URLError 5
+    - 08:13–08:14Z 503 재시도 여러 건(게이트웨이 소관)
+  - Prody
+    - running+slot 2→1, submitted 7→6, 원장 823→839
+    - **MCP `probe_failed` TimeoutError(4초)**
+      - 08:21:09Z 모니터 probe다.
+      - 08:2xZ에 같은 요청을 60초 제한으로 다시 3회 보냈다. 3회 모두 성공했다(1,809 / 817 / 1,777 ms, 보드 v7051).
+      - `/health`는 200, 320 ms였다.
+      - 한 번의 4초 초과로 기록한다. 원인은 확인하지 않았다.
+      - 라우터 로그 마지막 기록은 08:05:56Z였다. 응답을 쓰는 중 클라이언트가 끊은 `ConnectionAbortedError` traceback이 있다.
+  - Betty
+    - running+slot 0→1, 원장 917→925, MCP 502 ms
+    - `unseen_failed` 7873(07:41Z) 1건. 같은 결함이고, 수정은 설치됐지만 라우터 재시작 전이라 이전 코드가 돌고 있다.
+    - 대화 오류 4건: 400 응답, 메인 스크립트 오류, n1781 중복 디스패치 가드
+  - Sarah(.25): 08:37Z에도 SSH가 배너 전에 끊긴다. 미확인.
+
 - 2026-11-24 07:37:29–07:38:02Z 틱(직전 06:13Z, 창 약 84분), 5호스트.
   - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 모두 MCP `probe_succeeded`.
   - 배포 상태: 7edfc0c(side 수정) 파일은 06:43–06:46Z에 7개 루트에 해시 확인 설치됐다. 라우터와 세션을 재시작하지 않았으므로 라이브 반영은 아직 없다.

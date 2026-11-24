@@ -89,3 +89,29 @@ timestamp: 2026-11-24T07:35:00Z
   - Linux 기존 컨테이너(unittest 실행기): `ciel-runtime-test-py310`, `ciel-runtime-test-py311` 각 165개 파일 실패 0.
   - Windows 채널 핵심 22개 파일 한 번에 실행: 736 통과 / 0 실패 / 122 skip.
   - `ruff 0.15.22`, `compileall`, `npm run check:docs`, `npm pack --dry-run` 통과.
+
+## 배포 (2026-11-24)
+
+- 커밋 4886d62를 `feature/priority-models`와 `beta`에 push했다. `git ls-remote`로 두 브랜치 모두 4886d62임을 확인했다.
+- Publish to npm 실행 45351132124
+  - 1차 시도
+    - `npm publish` 단계는 성공했다(`0.2.51-beta.20261124-075049.4886d62`).
+    - 그러나 검증 단계가 15분 동안 `ETARGET`(레지스트리 미반영)으로 재시도하다 실패했다.
+    - 워크플로가 beta 태그를 7edfc0c로 되돌렸다.
+  - 실패한 잡만 재실행(attempt 2): 성공. beta = `0.2.51-beta.20261124-080748.4886d62`, gitHead 4886d62.
+  - beta tarball의 변경 파일 3개 해시가 오버레이 new와 같다. 1차 버전의 tarball도 같았다.
+- 해시 확인 오버레이 `overlay-4886d62`(3개 파일, base 7edfc0c)를 설치했다. 모든 루트에서 설치 전 base 3/3, 설치 후 new 3/3이었다.
+
+  | 대상 | 설치 시각 |
+  |---|---|
+  | 로컬 hotfix5, `.local/share/ciel-runtime`, npm 전역 | 08:08:23Z |
+  | Celly(관리자 권한) | 08:08:32Z |
+  | KOBE | 08:08:56Z |
+  | Prody | 08:09:20Z |
+  | Betty | 08:20:20Z |
+
+  - Betty는 08:09–08:13Z 첫 적용 호출이 아무것도 출력하지 않고 끝났다. 재점검에서 base 3/3이라 다시 적용했고, 그 결과 new 3/3이었다.
+- 라이브 효과(파일 설치와 구분)
+  - 세 파일 모두 라우터 프로세스가 읽는 Python이다. 운영 라우터는 이 작업에서 재시작하지 않았으므로 어느 호스트에서도 아직 라이브가 아니다.
+  - 이 수정이 겨냥한 Betty에서도 08:21Z 틱까지 `unseen_failed` 7873(07:41Z)이 나왔다. 이전 코드가 돌고 있다는 뜻이다.
+
