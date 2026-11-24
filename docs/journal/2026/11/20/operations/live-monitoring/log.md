@@ -2,6 +2,24 @@
 
 ## 2026-11-23
 
+- 2026-11-24 09:52:31–09:53:02Z 틱(직전 09:32Z), 5호스트.
+  - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 MCP `probe_succeeded`(277–2,390 ms), new_failures 0. 4886d62·7edfc0c는 파일만 설치(라이브 아님).
+  - Andy
+    - running+slot 2→1, reserved+slot 1, waiting_input 6, 원장 6977→6986
+    - n2708 `awaiting_capacity`가 해소됐다. n1166 검수 행 누락은 남아 있다(반복).
+  - Celly
+    - running+slot 6→5, waiting_input 2→3, 원장 8838→8857
+    - 지난 틱의 n1452·n1461 "포크 부재" finding은 이번에 없다.
+    - `transcript_delta_delivery_failed` timeout 1(09:40Z, 반복 항목)
+  - KOBE: running+slot 1→2, waiting_input 4→3, 원장 3291→3293. P3 정원 가드 1.
+  - Prody
+    - 원장 862→873, MCP 2,390 ms
+    - 대화: 계획 버전 충돌 2, n1275 중복 디스패치 가드(가드), 외부 API 400, 메인 스크립트 종료 코드
+  - Betty
+    - `unseen_failed` 7877(09:36Z), 7878(09:38Z), 7881(09:51Z)
+    - 같은 결함이다. 라우터 재시작 전이라 이전 코드가 돌고 있다.
+  - Sarah(.25): SSH가 배너 전에 끊긴다. 미확인.
+
 - 2026-11-24 09:32:27–09:33:58Z 틱(직전 09:12Z).
   - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. new_failures 0. 4886d62·7edfc0c는 파일만 설치(라이브 아님).
   - Andy
