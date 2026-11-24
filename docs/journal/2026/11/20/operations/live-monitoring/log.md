@@ -2,6 +2,31 @@
 
 ## 2026-11-23
 
+- 2026-11-24 14:12:30–14:13:02Z 틱(직전 13:52Z), 5호스트.
+  - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 MCP `probe_succeeded`(287–2,533 ms), new_failures 0. 9a46b96·4886d62·7edfc0c는 파일만 설치(라이브 아님).
+  - Prody
+    - running+slot 2, waiting_input 3→4, 원장 913→919
+    - n1200(running, P1): 포크 기록이 195분째 갱신되지 않았다(반복).
+    - 13:59:02Z "auto continue could not read the Work status". Prody 세 번째이고, 전체로는 여덟 번째다(추적).
+  - KOBE: 13:54:29–35Z(로컬 05:54) 압축 경로 기록이다. 압축 컨트롤러의 설계된 실패 열림 경로다.
+    - 문맥 압박으로 자동 압축 요청이 큐에 들어갔다.
+    - 터미널 입력 제출이 4회 시도 뒤에도 확인되지 않았다(`channel_input_submit_unconfirmed`, `receipt_unmatched`).
+    - `compact_failed_admission_released` 후 요청이 미뤄졌다.
+    - 13:54:37Z에 압축 단계(`admission_paused phase=compacting`)로 들어갔다.
+    - 제출이 확인되지 않은 원인은 확인하지 않았다.
+  - Celly
+    - running+slot 1→4, waiting_input 6→5, 원장 8899→8915
+    - 14:10:06Z side 이벤트 6fd60803a035가 실패했고, 원문이 메인으로 전달됐다(appended, 설계된 경로).
+    - 실패 이유는 확인하지 않았다.
+  - Andy
+    - running 2→0, submitted 21→22, 원장 7062→7079. n1166(반복).
+    - 대화: 계획 버전 충돌 3(가드), `n2552 is not a goal`, walkie 인자 오류
+  - Betty
+    - running+slot 3→2, submitted 5→6, 원장 957→959
+    - 늦은 SSE 재시도 10(업스트림)
+    - `unseen_failed` 없음
+  - Sarah(.25): SSH가 배너 전에 끊긴다. 미확인.
+
 - 2026-11-24 13:52:36–13:53:12Z 틱(직전 13:41Z, 창 약 11분), 5호스트.
   - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 MCP `probe_succeeded`(513–2,031 ms), new_failures 0. 9a46b96·4886d62·7edfc0c는 파일만 설치(라이브 아님).
   - Prody
