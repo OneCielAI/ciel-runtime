@@ -2,6 +2,35 @@
 
 ## 2026-11-23
 
+- 2026-11-24 09:32:27–09:33:58Z 틱(직전 09:12Z).
+  - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. new_failures 0. 4886d62·7edfc0c는 파일만 설치(라이브 아님).
+  - Andy
+    - running+slot 2, waiting_input 5→6, 원장 6973→6977, MCP 891 ms
+    - n1166, n2708(반복)
+    - 대화: P3 정원 안내, 계획 버전 충돌(가드)
+  - Celly
+    - running+slot 4→6, waiting_input 4→2, 원장 8834→8838, MCP 266 ms
+    - 새 finding 2건: 슬롯은 잡혀 있는데 native 관찰에 포크가 없다.
+      - n1452(리스 ff4d503a, P2): 09:10Z부터
+      - n1461(리스 07b6a215, P2): 08:54Z부터
+      - 확인(읽기 전용, 09:36Z): 원장 host_id의 포크 대화 기록이 계속 쓰이고 있다.
+        - n1452의 a8e9eac04d1e33f1c: 09:36:53Z
+        - n1461의 a08caf72ceea0f15a: 09:35:59Z
+      - n1461은 그 사이 submitted가 됐다.
+      - 포크는 살아 있다. native 관찰 목록에 빠진 것으로 기록한다. 왜 빠졌는지는 확인하지 않았다.
+    - 새 로그 `secure_json_read_failed purpose=sse_gate_status` 2(09:31Z). 같은 라우터 인스턴스 디렉터리의 PermissionError 계열 activity/context_usage 실패도 3건 있다(반복, 추적 중).
+  - KOBE
+    - running+slot 1, waiting_input 4, 원장 3291, MCP 377 ms
+    - P3 정원 가드 안내 2(n125 등)
+  - Prody
+    - running+slot 1→2, 원장 860→862, MCP 2,171 ms
+    - 계획 버전 충돌 1(가드)
+  - Betty
+    - 모니터 일괄 실행에서는 `ssh failed`였다. 09:33:58Z 단독 재조회는 정상이었다.
+      - running+slot 1, submitted 5, waiting_input 2, 원장 928, MCP 346 ms
+      - 대화 오류 0
+  - Sarah(.25): SSH가 배너 전에 끊긴다. 미확인.
+
 - 2026-11-24 09:12:23–09:12:54Z 틱(직전 08:52Z), 5호스트.
   - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 MCP 모두 `probe_succeeded`(281–1,101 ms), new_failures 0. 4886d62·7edfc0c는 파일만 설치(라이브 아님).
   - Andy
