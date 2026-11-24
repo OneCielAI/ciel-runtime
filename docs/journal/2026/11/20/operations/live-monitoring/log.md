@@ -2,6 +2,29 @@
 
 ## 2026-11-23
 
+- 2026-11-24 10:32:28–10:33:42Z 틱(직전 10:12Z).
+  - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. new_failures 0. 4886d62·7edfc0c는 파일만 설치(라이브 아님).
+  - Andy
+    - running+slot 2→1, 원장 6991→6996, MCP 1,328 ms
+    - n1166(반복)
+    - **10:18Z "auto continue could not read the Work status" 안내.** Prody(06:20Z)와 Celly(08:49Z)에 이어 세 번째 호스트다.
+      - 반복 항목으로 추적한다. 실패한 읽기의 원인은 아직 확인하지 않았다.
+    - 대화: `work_side_status` host 전용 거부, `work_side_handoff` 불필요 호출(메인 도구 사용, 가드)
+  - Celly
+    - running+slot 4→3, 원장 8858→8865, MCP 344 ms
+    - activity 권한 오류 1(반복)
+    - `work_retention_skipped` 1
+  - KOBE
+    - 일괄 실행은 `ssh failed`였다. 10:33:42Z 단독 재조회는 정상이었다.
+      - waiting_input 3, running·submitted 0, 원장 3298→3304, MCP 474 ms, 대화 오류 0
+  - Prody: running+slot 1, 원장 879→891, MCP 1,443 ms, 대화 오류 0
+  - Betty
+    - 원장 932→934
+    - `unseen_failed` 7886·7887(10:13Z), 7888(10:20Z)
+    - 같은 결함이다. 라우터 재시작 전이라 이전 코드가 돌고 있다.
+    - 대화 오류 3건: gh 미인증, 메인 스크립트 오류
+  - Sarah(.25): SSH가 배너 전에 끊긴다. 미확인.
+
 - 2026-11-24 10:12:24–10:12:59Z 틱(직전 09:52Z), 5호스트.
   - 공통
     - 운영 세션·라우터 재시작과 상태 파일 변경 없음.
