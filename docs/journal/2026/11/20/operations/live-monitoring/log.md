@@ -2,6 +2,26 @@
 
 ## 2026-11-23
 
+- 2026-11-24 00:12:22–00:13Z 틱(직전 23:54Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
+  - Celly
+    - 두 번째 틱 연속으로 응답했다. MCP 359 ms(v10114), `/health` 3회 0.01–0.02초.
+    - 17:54–18:13 로컬 라우터 로그에 20초 이상 공백이 없다. `listener_reachable_health_busy`는 2건이다.
+    - 리스: running+slot 3→2, waiting_input 8, 원장 8394→8417.
+    - 포크 오류 8건은 모두 가드이거나 작업 자체 오류다.
+      - 보고 형식 가드 3건과 completion evidence 2,000자 초과 2건(2192·3256자)
+      - 포크 게이트의 worktree 밖 Write 거부 1건
+      - PowerShell 인자 오류 1건
+      - walkie `send_message` file_ids 4개 초과 1건
+  - Andy
+    - running+slot 3, waiting_input 1→2, submitted 22→21, 원장 6704→6720. MCP 1,140 ms. 포크 오류 0.
+    - 23:54Z에 추가됐던 n2678 검수 행 누락은 사라졌다(집계 지연이었다). n1166은 계속 남아 있다.
+  - KOBE: running+slot 4→2, submitted 1, waiting_input 1, 원장 3132→3142. MCP 206 ms. 포크 오류 3건
+    - pytest 실패 1건(작업 자체)
+    - git author identity 미설정 1건(작업 환경)
+    - 포크 `work_parallel_status` 신원 가드 1건(반복)
+  - Prody: ssh가 `Device SSH authorization revoked or expired`로 거부돼 이번 틱은 미관측이다. 23:20Z 틱에 이어 두 번째다.
+  - 새로 입증된 제품 결함은 없다.
+
 - 23:54:44–23:56Z 틱(직전 23:34Z). 운영 세션·라우터 재시작과 상태 파일 변경 없음.
   - **Celly: 이번 틱에는 응답했다.** 이것만으로 프리즈가 끝났다고 판단하지 않는다.
     - MCP 프로브 성공(266 ms, v10091). `/health` 3회 0.01–0.03초.
