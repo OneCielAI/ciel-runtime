@@ -148,7 +148,10 @@ class GateCheckUnitTests(unittest.TestCase):
             raise OSError('ledger unreadable')
         self.assertEqual([p1_wait, a_wait, p0_wait], [row['id'] for row in gate.gates(store.read(), broken)])
 
-    def test_due_now_then_after_interval_or_change_only(self):
+    def test_due_now_then_strictly_after_interval(self):
+        # User 2026-11-24: side-fresh gate re-check runs at most once per
+        # configured interval (default 10 min); neither a changed gate digest
+        # nor a main turn end bypasses the interval.
         store, ids = self._doc()
         config = {'work_gate_check': {'minutes': 5}}
         first = gate.due(config, store.read(), None, now=1000.0)
@@ -158,12 +161,19 @@ class GateCheckUnitTests(unittest.TestCase):
         self.assertIn('release_waits', first['text'])
         state = {'at': first['at'], 'digest': first['digest']}
         self.assertIsNone(gate.due(config, store.read(), state, now=1000.0 + 299))
-        later = gate.due(config, store.read(), state, now=1000.0 + 300)
-        self.assertNotEqual(first['event_key'], later['event_key'])
-        # A changed gate set is checked at once, inside the interval.
+        # A changed gate set inside the interval still waits for the interval.
         store.transaction(lambda d: tree.update_node(d, ids['wait'], waiting_on='CI run 43 green'))
-        changed = gate.due(config, store.read(), state, now=1000.0 + 10)
-        self.assertNotEqual(first['digest'], changed['digest'])
+        self.assertIsNone(gate.due(config, store.read(), state, now=1000.0 + 10))
+        self.assertIsNone(gate.tick_rows(config, store.read(), state, now=1000.0 + 120, turn_end=True))
+        later = gate.due(config, store.read(), state, now=1000.0 + 300)
+        self.assertIsNotNone(later)
+        self.assertNotEqual(first['digest'], later['digest'])
+        self.assertNotEqual(first['event_key'], later['event_key'])
+        # Default 10-minute interval also holds turn_end=True until 600 s elapse.
+        ten_first = gate.due({}, store.read(), None, now=2000.0)
+        ten_state = {'at': ten_first['at'], 'digest': ten_first['digest']}
+        self.assertIsNone(gate.tick_rows({}, store.read(), ten_state, now=2000.0 + 599, turn_end=True))
+        self.assertIsNotNone(gate.tick_rows({}, store.read(), ten_state, now=2000.0 + 600, turn_end=True))
         self.assertIsNone(gate.due({'work_gate_check': {'minutes': 0}}, store.read(), None, now=1.0))
         self.assertIsNone(gate.due(config, {'nodes': []}, None, now=1.0))
 

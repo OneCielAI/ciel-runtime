@@ -57,7 +57,9 @@ class CompanyPromptReloader:
     state_dir: Path
     log: Log
     clock: Callable[[], float] = time.time
+    restart_active: Callable[[], bool] | None = None
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+    _deferred_sha8: str = field(default="", init=False, repr=False)
 
     def observe(self, raw_event: str) -> dict[str, Any] | None:
         """Queue one restart when the event announces a company prompt this workspace does not hold."""
@@ -80,12 +82,24 @@ class CompanyPromptReloader:
             )
             return None
         if held_sha8 == announced["sha8"]:
+            self._deferred_sha8 = ""
             return None
         with self._lock:
             now = self.clock()
             state = self._read()
             if state.get("sha8") == announced["sha8"] and now - float(state.get("requested_at") or 0.0) < RETRY_SECONDS:
                 return None
+            if self.restart_active is not None and self.restart_active():
+                if self._deferred_sha8 != announced["sha8"]:
+                    self._deferred_sha8 = announced["sha8"]
+                    self.log(
+                        "INFO",
+                        f"company_prompt_reload_deferred announced=v{announced['version'] or '?'}:{announced['sha8']} "
+                        f"held=v{held.get('company_prompt_version') or '?'}:{held_sha8 or '-'} "
+                        "reason=restart_in_progress",
+                    )
+                return None
+            self._deferred_sha8 = ""
             reason = (
                 f"company prompt v{announced['version'] or '?'} {announced['sha8']} announced; "
                 f"held v{held.get('company_prompt_version') or '?'} {held_sha8 or '-'}"
@@ -140,11 +154,16 @@ def start_router_listener(
     workspace: Path,
     queue_restart: Callable[[str], dict[str, Any]],
     log: Log,
+    *,
+    restart_active: Callable[[], bool] | None = None,
 ) -> None:
     """Watch admitted external events for a new company prompt (router process only)."""
 
     stop_router_listener()
-    reloader = CompanyPromptReloader(load_config, lambda: held_company_prompt(state_dir, workspace), queue_restart, state_dir, log)
+    reloader = CompanyPromptReloader(
+        load_config, lambda: held_company_prompt(state_dir, workspace),
+        queue_restart, state_dir, log, restart_active=restart_active,
+    )
     _LISTENER.append(reloader)
     runtime_input_gateway.EXTERNAL_EVENT_LISTENERS.append(reloader)
 

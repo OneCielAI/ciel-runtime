@@ -478,10 +478,10 @@ def tick_rows(config: Mapping[str, Any], doc: Mapping[str, Any], state: Mapping[
     stamp = time.time() if now is None else now
     current = digest(rows, parked, stalled)
     previous = state or {}
-    # Main's turn end (user 2026-11-18): the side checks for released blocks,
-    # approvals and missed work then, at most once a minute.
-    window = TURN_END_MIN_SECONDS if turn_end else interval * 60
-    if previous.get("digest") == current and stamp - float(previous.get("at") or 0) < window:
+    # User 2026-11-24: enforce the configured interval (default 10 min) strictly
+    # so neither a gate-set edit nor a main turn end (classic.Stop) fires extra
+    # side-fresh gate-check actors inside the interval.
+    if stamp - float(previous.get("at") or 0) < interval * 60:
         return None
     return rows, current, stamp
 
@@ -524,8 +524,8 @@ def due(config: Mapping[str, Any], doc: Mapping[str, Any], state: Mapping[str, A
         priority: Callable[[Mapping[str, Any]], str] | None = None) -> dict[str, Any] | None:
     """The gate-check event to queue now, or None.
 
-    ``state`` is the last record ({"at", "digest"}). A changed gate set is due at
-    once; an unchanged one is due when the interval has passed. Neither main's
+    ``state`` is the last record ({"at", "digest"}). Due only once the
+    configured interval has passed since the last check. Neither main's
     busy turn (KOBE hotfix 2026-11-18) nor running Work forks (Stage 3,
     2026-11-17) defer it; the router keeps one round at a time.
     """

@@ -1,0 +1,52 @@
+============================= test session starts =============================
+platform win32 -- Python 3.11.6, pytest-9.1.1, pluggy-1.6.0 -- C:\Program Files\Python311\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel
+plugins: anyio-4.12.1
+collecting ... collected 67 items / 62 deselected / 5 selected
+
+tests/test_restart_takeover.py::RestartTakeoverTests::test_snapshot_all_keeps_explicit_state_excludes_even_with_many_nested_worktrees FAILED [ 20%]
+tests/test_restart_takeover.py::RestartTakeoverTests::test_snapshot_all_prioritizes_session_worktree_and_respects_time_budget FAILED [ 40%]
+tests/test_company_prompt_reload.py::ReloaderTests::test_restart_in_progress_checks_pending_request_and_live_restart_hold FAILED [ 60%]
+tests/test_company_prompt_reload.py::ReloaderTests::test_restart_in_progress_defers_duplicate_company_prompt_restart_past_retry_window FAILED [ 80%]
+tests/test_work_parallel_mcp.py::WorkParallelMCPTests::test_reserve_raises_work_parallel_error_if_lease_disappears_before_return FAILED [100%]
+
+================================== FAILURES ===================================
+_ RestartTakeoverTests.test_snapshot_all_keeps_explicit_state_excludes_even_with_many_nested_worktrees _
+tests\test_restart_takeover.py:154: in test_snapshot_all_keeps_explicit_state_excludes_even_with_many_nested_worktrees
+    modified, untracked, size = rt._status(
+E   TypeError: _status() got an unexpected keyword argument 'explicit_excludes'
+_ RestartTakeoverTests.test_snapshot_all_prioritizes_session_worktree_and_respects_time_budget _
+tests\test_restart_takeover.py:131: in test_snapshot_all_prioritizes_session_worktree_and_respects_time_budget
+    with patch.object(rt, "MAX_TOTAL_SECONDS", 30.0), \
+C:\Program Files\Python311\Lib\unittest\mock.py:1443: in __enter__
+    original, local = self.get_original()
+                      ^^^^^^^^^^^^^^^^^^^
+C:\Program Files\Python311\Lib\unittest\mock.py:1416: in get_original
+    raise AttributeError(
+E   AttributeError: <module 'ciel_runtime_support.restart_takeover' from 'C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\ciel_runtime_support\\restart_takeover.py'> does not have the attribute 'MAX_TOTAL_SECONDS'
+_ ReloaderTests.test_restart_in_progress_checks_pending_request_and_live_restart_hold _
+tests\test_company_prompt_reload.py:179: in test_restart_in_progress_checks_pending_request_and_live_restart_hold
+    self.assertFalse(svc.restart_in_progress())
+                     ^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'RuntimeSessionRestartService' object has no attribute 'restart_in_progress'
+_ ReloaderTests.test_restart_in_progress_defers_duplicate_company_prompt_restart_past_retry_window _
+tests\test_company_prompt_reload.py:147: in test_restart_in_progress_defers_duplicate_company_prompt_restart_past_retry_window
+    reloader = CompanyPromptReloader(
+E   TypeError: CompanyPromptReloader.__init__() got an unexpected keyword argument 'restart_active'
+_ WorkParallelMCPTests.test_reserve_raises_work_parallel_error_if_lease_disappears_before_return _
+tests\test_work_parallel_mcp.py:439: in test_reserve_raises_work_parallel_error_if_lease_disappears_before_return
+    run("event", {"fork": True, "dispatch_name": "auto-race"}, event="reserve_next")
+tests\test_work_parallel_mcp.py:83: in run
+    m.run("work_parallel_" + name, args, Board(), SCOPE, config, None)
+ciel_runtime_support\work_parallel_mcp.py:4300: in run
+    lease = store.read()["leases"][assignment["lease_id"]]
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: '3ebdc4d82c09425f889c7799e0e3774f'
+=========================== short test summary info ===========================
+FAILED tests/test_restart_takeover.py::RestartTakeoverTests::test_snapshot_all_keeps_explicit_state_excludes_even_with_many_nested_worktrees
+FAILED tests/test_restart_takeover.py::RestartTakeoverTests::test_snapshot_all_prioritizes_session_worktree_and_respects_time_budget
+FAILED tests/test_company_prompt_reload.py::ReloaderTests::test_restart_in_progress_checks_pending_request_and_live_restart_hold
+FAILED tests/test_company_prompt_reload.py::ReloaderTests::test_restart_in_progress_defers_duplicate_company_prompt_restart_past_retry_window
+FAILED tests/test_work_parallel_mcp.py::WorkParallelMCPTests::test_reserve_raises_work_parallel_error_if_lease_disappears_before_return
+====================== 5 failed, 62 deselected in 2.60s =======================

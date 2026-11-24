@@ -4297,7 +4297,9 @@ def run(name, args, board_store, identity, config, save_config, log=None):
                 from .work_parallel_p0_outcomes import refusal_code
                 _p0_note_refusal(store, p0_board, identity, p0_next, refusal_code(message), message)
             raise
-        lease = store.read()["leases"][assignment["lease_id"]]
+        lease = store.read()["leases"].get(assignment["lease_id"])
+        if lease is None:
+            raise WorkParallelError("reserved lease is no longer open; retry dispatch")
         intent = p0_state(store).approval_intent(
             lease["id"], scope=identity, item_id=lease["item_id"])
         if p0_only:

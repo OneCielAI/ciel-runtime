@@ -36,6 +36,10 @@ REF_PREFIX = "refs/ciel/restart/"
 KEEP_RESTARTS = 10
 MANIFEST = "restart-takeover.json"
 GIT_TIMEOUT = 120
+# Stop scanning additional worktrees once this total wall-clock budget elapses
+# so a repository with hundreds of old worktrees cannot stall a CLI restart
+# past the replay window (Andy 2026-11-24: 1,219 worktrees stalled 5.7 min).
+MAX_TOTAL_SECONDS = 30.0
 # A worktree whose untracked set is this large is recorded, not snapshotted:
 # hashing it would stall the relaunch and grow the object store.
 MAX_UNTRACKED_FILES = 5000
@@ -72,7 +76,14 @@ def _find_root(folder: Path) -> Path | None:
 
 
 def _git(cwd: Path, *args: str, trust=(), env: Mapping[str, str] | None = None) -> str:
-    command = ["git", *_trust(trust), "-C", str(cwd), *args]
+    # Each subprocess opens one exact worktree (plus its primary repo root if
+    # distinct). Passing all registered roots to every call exceeds the Windows
+    # process command-line limit when hundreds of worktrees exist.
+    trust_list = list(trust)
+    exact = [root for root in trust_list if _same(str(root), str(cwd))]
+    if trust_list and not any(_same(str(trust_list[0]), str(item)) for item in exact):
+        exact.insert(0, trust_list[0])
+    command = ["git", *_trust(exact), "-C", str(cwd), *args]
     merged = {**os.environ, **(env or {}), "GIT_TERMINAL_PROMPT": "0"}
     done = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace",
                           timeout=GIT_TIMEOUT, env=merged)
@@ -107,7 +118,15 @@ def slug(path: str) -> str:
     return name + "-" + hashlib.sha256(path.replace("\\", "/").lower().encode()).hexdigest()[:8]
 
 
-def _excludes(path: Path, nested: list[Path]) -> list[str]:
+def _resolve_once(path: Path) -> Path:
+    try:
+        return path.resolve()
+    except OSError:
+        return path
+
+
+def _excludes(path: Path, nested: list[Path], *, resolved_path: Path | None = None,
+              resolved_nested: list[Path] | None = None) -> list[str]:
     """Pathspecs that leave out what is not this worktree's own work.
 
     ``nested`` holds other worktrees living inside this one (.claude/worktrees/*)
@@ -115,21 +134,55 @@ def _excludes(path: Path, nested: list[Path]) -> list[str]:
     home folder as the repository, so ``.claude`` (transcripts), ``.claude.json``
     and ``.codex`` are untracked, unignored files there (Celly 2026-11-17).
     """
-    specs = ["--", "."]
-    for inner in nested:
-        try:
-            relative = inner.resolve().relative_to(path.resolve())
-        except ValueError:
+    base = _resolve_once(path) if resolved_path is None else resolved_path
+    base_norm = os.path.normcase(os.path.normpath(str(base)))
+    prefix = base_norm if base_norm.endswith(os.sep) else base_norm + os.sep
+    candidates = [_resolve_once(inner) for inner in nested] if resolved_nested is None else resolved_nested
+    rels: list[str] = []
+    for inner in candidates:
+        inner_norm = os.path.normcase(os.path.normpath(str(inner)))
+        if not inner_norm.startswith(prefix):
             continue
-        specs.append(":(exclude)" + relative.as_posix())
-    return specs
+        rel = str(inner)[len(str(base)):].lstrip("\\/").replace("\\", "/")
+        if rel:
+            rels.append(rel)
+    # Drop redundant descendants when an ancestor directory is already excluded.
+    rels.sort(key=lambda item: (item.count("/"), item.lower()))
+    kept: list[str] = []
+    kept_prefixes: list[str] = []
+    for rel in rels:
+        key = rel.lower() if os.name == "nt" else rel
+        if any(key == p[:-1] or key.startswith(p) for p in kept_prefixes):
+            continue
+        kept.append(rel)
+        kept_prefixes.append(key + "/")
+    return ["--", ".", *(":(exclude)" + rel for rel in kept)]
 
 
-def _status(path: Path, trust, nested: list[Path] = ()) -> tuple[int, int, int]:
+def _status(path: Path, trust, nested: list[Path] = (), *, explicit_excludes: list[Path] | tuple[Path, ...] = (),
+            resolved_path: Path | None = None, resolved_nested: list[Path] | None = None,
+            resolved_explicit: list[Path] | None = None) -> tuple[int, int, int]:
     """(modified, untracked, untracked bytes) outside the excluded folders."""
-    out = _git(path, "status", "--porcelain=v1", "-z", "--untracked-files=all", *_excludes(path, list(nested)),
-               trust=trust)
-    entries = [entry for entry in out.split("\0") if entry]
+    specs = _excludes(path, list(nested), resolved_path=resolved_path, resolved_nested=resolved_nested)
+    args = ("status", "--porcelain=v1", "-z", "--untracked-files=all")
+    if os.name == "nt" and len(subprocess.list2cmdline(specs)) > 24_000:
+        # status has no --pathspec-from-file. Keep explicit state excludes on
+        # the CLI so git never walks ~/.claude, disable rename pairing so each
+        # record carries one path, and filter remaining nested paths in Python.
+        cli_specs = _excludes(path, list(explicit_excludes), resolved_path=resolved_path,
+                              resolved_nested=resolved_explicit) if (explicit_excludes or resolved_explicit) else []
+        if len(cli_specs) > 2 and len(subprocess.list2cmdline(cli_specs)) <= 24_000:
+            out = _git(path, *args, "--no-renames", *cli_specs, trust=trust)
+        else:
+            out = _git(path, *args, "--no-renames", trust=trust)
+        excluded = {os.path.normcase(os.path.normpath(spec.removeprefix(":(exclude)")))
+                    for spec in specs[2:]}
+        entries = [entry for entry in out.split("\0") if entry and not any(
+            os.path.normcase(str(candidate)) in excluded
+            for candidate in (Path(entry[3:]), *Path(entry[3:]).parents))]
+    else:
+        out = _git(path, *args, *specs, trust=trust)
+        entries = [entry for entry in out.split("\0") if entry]
     untracked_paths = [entry[3:] for entry in entries if entry.startswith("??")]
     # A rename record carries its source path as the next entry.
     modified = sum(1 for entry in entries if len(entry) > 3 and entry[:2] != "??" and entry[2] == " ")
@@ -142,7 +195,8 @@ def _status(path: Path, trust, nested: list[Path] = ()) -> tuple[int, int, int]:
     return modified, len(untracked_paths), size
 
 
-def snapshot_worktree(path: Path, head: str | None, ref: str, message: str, trust, nested: list[Path] = ()) -> str:
+def snapshot_worktree(path: Path, head: str | None, ref: str, message: str, trust, nested: list[Path] = (), *,
+                      resolved_path: Path | None = None, resolved_nested: list[Path] | None = None) -> str:
     """Store the worktree's current files at ``ref`` without touching its index or branch."""
     handle, index = tempfile.mkstemp(prefix="ciel-restart-index-")
     os.close(handle)
@@ -151,7 +205,15 @@ def snapshot_worktree(path: Path, head: str | None, ref: str, message: str, trus
     try:
         if head:
             _git(path, "read-tree", head, trust=trust, env=env)
-        _git(path, "add", "-A", *_excludes(path, list(nested)), trust=trust, env=env)
+        specs = _excludes(path, list(nested), resolved_path=resolved_path, resolved_nested=resolved_nested)
+        if os.name == "nt" and len(subprocess.list2cmdline(specs)) > 24_000:
+            with tempfile.TemporaryDirectory(prefix="ciel-restart-pathspec-") as directory:
+                pathspec = Path(directory) / "paths"
+                pathspec.write_bytes(("\0".join(specs[1:]) + "\0").encode("utf-8"))
+                _git(path, "add", "-A", f"--pathspec-from-file={pathspec}", "--pathspec-file-nul",
+                     trust=trust, env=env)
+        else:
+            _git(path, "add", "-A", *specs, trust=trust, env=env)
         tree = _git(path, "write-tree", trust=trust, env=env).strip()
         parents = ["-p", head] if head else []
         commit = _git(path, "commit-tree", tree, *parents, "-m", message, trust=trust, env=env).strip()
@@ -227,41 +289,89 @@ def snapshot_all(launch_folder: Path, request_id: str, *, claude_config: Path | 
         manifest["error"] = type(error).__name__ + ": " + str(error)[:300]
         _write(state_dir, manifest)
         return manifest
-    trust = trust + [Path(row["path"]) for row in rows]
+    primary = Path(rows[0]["path"]) if rows else repo
+    resolved_rows = [_resolve_once(Path(row["path"])) for row in rows]
+    explicit_list = [Path(item) for item in exclude if item]
+    resolved_explicit = [_resolve_once(item) for item in explicit_list]
+    cwd = manifest["session_cwd"]
+    session_wt_index: int | None = None
+    if cwd:
+        cwd_norm = os.path.normcase(os.path.normpath(cwd))
+        holding = [
+            (len(row["path"]), index, row["path"])
+            for index, row in enumerate(rows)
+            if _same(cwd, row["path"])
+            or cwd_norm.startswith(os.path.normcase(os.path.normpath(row["path"])) + os.sep)
+        ]
+        if holding:
+            holding.sort(reverse=True)
+            session_wt_index = holding[0][1]
+            manifest["session_worktree"] = holding[0][2]
+        else:
+            manifest["session_worktree"] = None
+
+    def _mtime(index: int) -> float:
+        wt_path = Path(rows[index]["path"])
+        for probe in (wt_path / ".git", wt_path):
+            try:
+                return probe.stat().st_mtime
+            except OSError:
+                continue
+        return 0.0
+
+    # Snapshot the session's own worktree first, then the main checkout, then
+    # the most recently touched worktrees, preserving manifest row order.
+    ordered_indices: list[int] = []
+    if session_wt_index is not None:
+        ordered_indices.append(session_wt_index)
+    if rows and 0 not in ordered_indices:
+        ordered_indices.append(0)
+    rest = [index for index in range(len(rows)) if index not in ordered_indices]
+    rest.sort(key=_mtime, reverse=True)
+    ordered_indices.extend(rest)
+
     stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(manifest["at"]))
-    for row in rows:
+    started = time.monotonic()
+    entries: list[dict[str, Any] | None] = [None] * len(rows)
+    for position, index in enumerate(ordered_indices):
+        row = rows[index]
         entry = {"path": row["path"], "branch": row.get("branch"), "head": row.get("head"),
                  "modified": 0, "untracked": 0, "snapshot_ref": None, "snapshot_commit": None}
         path = Path(row["path"])
         if row.get("bare") or not path.is_dir():
             entry["skipped"] = "bare" if row.get("bare") else "missing"
-            manifest["worktrees"].append(entry)
+            entries[index] = entry
             continue
-        nested = [Path(other["path"]) for other in rows if other is not row and not _same(other["path"], row["path"])]
-        nested += [Path(item) for item in exclude if item]
+        if position > 0 and MAX_TOTAL_SECONDS > 0 and time.monotonic() - started >= MAX_TOTAL_SECONDS:
+            entry["skipped"] = f"time budget reached ({int(MAX_TOTAL_SECONDS)}s)"
+            entries[index] = entry
+            continue
+        wt_trust = [primary, path] if not _same(str(primary), str(path)) else [path]
+        if not any(_same(str(repo), str(item)) for item in wt_trust):
+            wt_trust.insert(0, repo)
+        resolved_others = [resolved_rows[other_i] for other_i, other in enumerate(rows)
+                           if other_i != index and not _same(other["path"], row["path"])]
+        resolved_all_nested = resolved_others + resolved_explicit
         try:
-            entry["modified"], entry["untracked"], size = _status(path, trust, nested)
+            entry["modified"], entry["untracked"], size = _status(
+                path, wt_trust, explicit_excludes=explicit_list,
+                resolved_path=resolved_rows[index], resolved_nested=resolved_all_nested,
+                resolved_explicit=resolved_explicit)
             if entry["untracked"] > MAX_UNTRACKED_FILES or size > MAX_UNTRACKED_BYTES:
                 entry["skipped"] = f"too large to snapshot ({entry['untracked']} untracked files, {size} bytes)"
             elif entry["modified"] or entry["untracked"]:
                 ref = REF_PREFIX + request_id + "/" + slug(row["path"])
                 entry["snapshot_commit"] = snapshot_worktree(
-                    path, row.get("head"), ref, f"ciel-runtime restart snapshot {stamp} ({row['path']})", trust,
-                    nested)
+                    path, row.get("head"), ref, f"ciel-runtime restart snapshot {stamp} ({row['path']})", wt_trust,
+                    resolved_path=resolved_rows[index], resolved_nested=resolved_all_nested)
                 entry["snapshot_ref"] = ref
         except (OSError, subprocess.SubprocessError, TakeoverError) as error:
             entry["error"] = type(error).__name__ + ": " + str(error)[:300]
-        manifest["worktrees"].append(entry)
-    cwd = manifest["session_cwd"]
-    if cwd:
-        holding = [entry for entry in manifest["worktrees"]
-                   if _same(cwd, entry["path"]) or os.path.normcase(os.path.normpath(cwd)).startswith(
-                       os.path.normcase(os.path.normpath(entry["path"])) + os.sep)]
-        # The deepest matching worktree is the one the session was working in.
-        holding.sort(key=lambda entry: len(entry["path"]), reverse=True)
-        manifest["session_worktree"] = holding[0]["path"] if holding else None
+        entries[index] = entry
+    manifest["worktrees"] = [entry for entry in entries if entry is not None]
     try:
-        manifest["pruned_refs"] = _prune(repo, trust, KEEP_RESTARTS)
+        prune_trust = [repo, primary] if not _same(str(repo), str(primary)) else [repo]
+        manifest["pruned_refs"] = _prune(repo, prune_trust, KEEP_RESTARTS)
     except (OSError, subprocess.SubprocessError, TakeoverError) as error:
         manifest["prune_error"] = str(error)[:200]
     _write(state_dir, manifest)

@@ -139,6 +139,56 @@ class ReloaderTests(unittest.TestCase):
         self.reloader.observe(_event())
         self.assertEqual(2, len(self.queued))  # the endpoint still served v7: try again after the window
 
+    def test_restart_in_progress_defers_duplicate_company_prompt_restart_past_retry_window(self):
+        # Andy 2026-11-24: a long turn + restart takeover crossed the 30-min retry
+        # window while the first company-prompt restart was still holding; queueing
+        # a second restart killed the freshly relaunched session and expired 8 SSE inputs.
+        active = [False]
+        reloader = CompanyPromptReloader(
+            lambda: self.config, lambda: self.held,
+            lambda reason: self.queued.append(reason) or {"ok": True, "queued": True},
+            self.state, lambda level, text: self.logs.append(f"{level} {text}"),
+            clock=lambda: self.now, restart_active=lambda: active[0],
+        )
+        reloader.observe(_event())
+        self.assertEqual(1, len(self.queued))
+        active[0] = True
+        self.now += 2000
+        reloader.observe(_event())
+        reloader.observe(_event())
+        self.assertEqual(1, len(self.queued))
+        self.assertEqual(1, sum("company_prompt_reload_deferred" in line for line in self.logs))
+        active[0] = False
+        self.now += 1
+        reloader.observe(_event())
+        self.assertEqual(2, len(self.queued))
+
+    def test_restart_in_progress_checks_pending_request_and_live_restart_hold(self):
+        from ciel_runtime_support import restart_hold
+        from ciel_runtime_support.runtime_session_restart import (
+            RuntimeSessionRestartService,
+            RuntimeSessionRestartServicePorts,
+        )
+
+        inst = self.state / "inst"
+        inst.mkdir()
+        live_pids = {4242}
+        svc = RuntimeSessionRestartService(RuntimeSessionRestartServicePorts(
+            inst, self.state, lambda pid: pid in live_pids, lambda *_a: None, lambda p: "d",
+        ))
+        self.assertFalse(svc.restart_in_progress())
+        # Pending request file in the slot -> in progress.
+        req = svc.repository().queue(source="company-prompt", reason="v30", wait_turn=True)
+        self.assertTrue(svc.restart_in_progress())
+        svc.repository().clear(req.id)
+        self.assertFalse(svc.restart_in_progress())
+        # Claimed restart with live launcher hold -> in progress.
+        restart_hold.begin(inst, 4242, req.id)
+        self.assertTrue(svc.restart_in_progress())
+        # Dead launcher pid does not wedge future reloads.
+        live_pids.clear()
+        self.assertFalse(svc.restart_in_progress())
+
     def test_unknown_held_prompt_never_restarts_on_an_announcement(self):
         self.held = {}
         self.reloader.observe(_event())

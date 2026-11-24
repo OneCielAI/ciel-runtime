@@ -1,0 +1,73 @@
+============================= test session starts =============================
+platform win32 -- Python 3.11.6, pytest-9.1.1, pluggy-1.6.0 -- C:\Program Files\Python311\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel
+plugins: anyio-4.12.1
+collecting ... collected 184 items / 180 deselected / 4 selected
+
+tests/test_work_mod_write_gate.py::WorkModWriteGateTests::test_external_resume_before_reacquire_is_not_recorded_as_a_failure 
+tests/test_work_mod_write_gate.py::WorkModWriteGateTests::test_external_resume_before_reacquire_is_not_recorded_as_a_failure PASSED [ 25%]
+tests/test_work_mod_write_gate.py::WorkModWriteGateTests::test_genuine_reacquire_refusal_while_still_parked_is_still_recorded PASSED [ 50%]
+tests/test_work_mod_write_gate.py::WorkModWriteGateTests::test_side_answer_for_an_already_running_worker_is_not_marked_delivered FAILED [ 75%]
+tests/test_work_mod_write_gate.py::WorkModWriteGateTests::test_stale_pump_does_not_reacquire_or_fail_a_concurrently_resumed_p0_worker FAILED [100%]
+
+================================== FAILURES ===================================
+_ WorkModWriteGateTests.test_external_resume_before_reacquire_is_not_recorded_as_a_failure (mode='external-p0') _
+
+self = <test_work_mod_write_gate.WorkModWriteGateTests testMethod=test_external_resume_before_reacquire_is_not_recorded_as_a_failure>
+
+    def test_external_resume_before_reacquire_is_not_recorded_as_a_failure(self):
+        for mode in ("external-p0", "external-regular"):
+            with self.subTest(mode=mode):
+                result = self.run_scenario("parallel-pump-stale-parked-resume", mode)
+                first = result["afterFirst"]
+>               self.assertFalse(any("outcome=no slot" in line for line in first["logs"]), first["logs"])
+E               AssertionError: True is not false : ['Work: parked lease L1 clear_now=true seen=true cleared=true owner=undefined outcome=no slot: Parallel read failed: P0 reacquire exact waiting lease']
+
+tests\test_work_mod_write_gate.py:1685: AssertionError
+_ WorkModWriteGateTests.test_external_resume_before_reacquire_is_not_recorded_as_a_failure (mode='external-regular') _
+
+self = <test_work_mod_write_gate.WorkModWriteGateTests testMethod=test_external_resume_before_reacquire_is_not_recorded_as_a_failure>
+
+    def test_external_resume_before_reacquire_is_not_recorded_as_a_failure(self):
+        for mode in ("external-p0", "external-regular"):
+            with self.subTest(mode=mode):
+                result = self.run_scenario("parallel-pump-stale-parked-resume", mode)
+                first = result["afterFirst"]
+>               self.assertFalse(any("outcome=no slot" in line for line in first["logs"]), first["logs"])
+E               AssertionError: True is not false : ['Work: parked lease L1 clear_now=true seen=true cleared=true owner=undefined outcome=no slot: Parallel read failed: not a slot-released wait']
+
+tests\test_work_mod_write_gate.py:1685: AssertionError
+_ WorkModWriteGateTests.test_side_answer_for_an_already_running_worker_is_not_marked_delivered _
+
+self = <test_work_mod_write_gate.WorkModWriteGateTests testMethod=test_side_answer_for_an_already_running_worker_is_not_marked_delivered>
+
+    def test_side_answer_for_an_already_running_worker_is_not_marked_delivered(self):
+        result = self.run_scenario("parallel-pump-stale-parked-resume", "answer-already-running")
+        self.assertEqual([], result["answered"]["delivered"])
+        self.assertIn("MAIN DECISION: use v2", result["answered"]["text"])
+>       self.assertNotIn("parked-resume", result["shown"])
+E       AssertionError: 'parked-resume' unexpectedly found in 'Ciel Work parallel\nFORKS: evidence unavailable · main is coordinator, never a fork · side actors are separate\nDEVICE: slots 1/8 · per priority P1 0/3 · P2 0/2 · P3 0/1 · P4 0/1 · P5 0/1\nPolicy: enabled · ledger v12 · launches/min 4 · max rework ?\nFORK GATE: ciel-work-gate 1 answered at 2026-11-24T15:24:19.368Z\nHOSTS: router predates B2 ownership; cross-process protection inactive\nLEGACY LEASES (1)\n  n2 → work-p0-a · P1 worker · lease running · native not observed · slot held\nPending native Agent dispatch: 0\nRecent parallel failures in this session:\n  2026-11-24T15:24:19.366Z · host-attach · launcher pid unavailable (CIEL_RUNTIME_WORK_LAUNCHER_PID)\n  2026-11-24T15:24:19.368Z · auto-fill:session.start · $.session.repo is not a function\n  2026-11-24T15:24:19.413Z · parked-resume · lease L1: Parallel read failed: not a slot-released wait\nSettings: ciel-runtime menu → LLM options → Work 병렬 실행. Policy changes do not terminate existing workers.'
+
+tests\test_work_mod_write_gate.py:1699: AssertionError
+_ WorkModWriteGateTests.test_stale_pump_does_not_reacquire_or_fail_a_concurrently_resumed_p0_worker _
+
+self = <test_work_mod_write_gate.WorkModWriteGateTests testMethod=test_stale_pump_does_not_reacquire_or_fail_a_concurrently_resumed_p0_worker>
+
+    def test_stale_pump_does_not_reacquire_or_fail_a_concurrently_resumed_p0_worker(self):
+        # Andy 2026-11-24 (4f4236f85cb, n2594): side release resumed the parked
+        # P0 worker while the pump held a pre-resume snapshot; the stale pump
+        # must not fire a duplicate reacquire, log a false failure, or throttle
+        # a later legitimate resume.
+        result = self.run_scenario("parallel-pump-stale-parked-resume", "concurrent-p0")
+        first = result["afterFirst"]
+>       self.assertEqual(1, first["reacquireCount"], first)
+E       AssertionError: 1 != 2 : {'reacquireCount': 2, 'logs': ['Work: resumed parked worker agent-a on n2', 'Side released wait → parked worker agent-a resumed by the Work host', 'Work: parked lease L1 clear_now=true seen=true cleared=true owner=undefined outcome=no slot: Parallel read failed: P0 reacquire exact waiting lease'], 'shown': 'Ciel Work parallel\nFORKS: evidence unavailable · main is coordinator, never a fork · side actors are separate\nDEVICE: slots 1/8 · per priority P1 0/3 · P2 0/2 · P3 0/1 · P4 0/1 · P5 0/1\nPolicy: enabled · ledger v17 · launches/min 4 · max rework ?\nFORK GATE: ciel-work-gate 1 answered at 2026-11-24T15:24:19.583Z\nHOSTS: router predates B2 ownership; cross-process protection inactive\nLEGACY LEASES (1)\n  n2 → work-p0-a · P1 worker · lease running · native not observed · slot held\nPending native Agent dispatch: 0\nRecent parallel failures in this session:\n  2026-11-24T15:24:19.524Z · host-attach · launcher pid unavailable (CIEL_RUNTIME_WORK_LAUNCHER_PID)\n  2026-11-24T15:24:19.526Z · auto-fill:session.start · $.session.repo is not a function\n  2026-11-24T15:24:19.583Z · parked-resume · lease L1: Parallel read failed: P0 reacquire exact waiting lease\n  2026-11-24T15:24:19.584Z · auto-fill:turn.complete · $.session.repo is not a function\nSettings: ciel-runtime menu → LLM options → Work 병렬 실행. Policy changes do not terminate existing workers.', 'l1': {'state': 'running', 'slot': True}}
+
+tests\test_work_mod_write_gate.py:1673: AssertionError
+=========================== short test summary info ===========================
+SUBFAILED(mode='external-p0') tests/test_work_mod_write_gate.py::WorkModWriteGateTests::test_external_resume_before_reacquire_is_not_recorded_as_a_failure
+SUBFAILED(mode='external-regular') tests/test_work_mod_write_gate.py::WorkModWriteGateTests::test_external_resume_before_reacquire_is_not_recorded_as_a_failure
+FAILED tests/test_work_mod_write_gate.py::WorkModWriteGateTests::test_side_answer_for_an_already_running_worker_is_not_marked_delivered
+FAILED tests/test_work_mod_write_gate.py::WorkModWriteGateTests::test_stale_pump_does_not_reacquire_or_fail_a_concurrently_resumed_p0_worker
+================= 4 failed, 2 passed, 180 deselected in 1.70s =================

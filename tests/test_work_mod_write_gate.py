@@ -1663,6 +1663,41 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual({"state": "running", "slot": True}, result["l1"])
         self.assertEqual([], result["notices"])
 
+    def test_stale_pump_does_not_reacquire_or_fail_a_concurrently_resumed_p0_worker(self):
+        # Andy 2026-11-24 (4f4236f85cb, n2594): side release resumed the parked
+        # P0 worker while the pump held a pre-resume snapshot; the stale pump
+        # must not fire a duplicate reacquire, log a false failure, or throttle
+        # a later legitimate resume.
+        result = self.run_scenario("parallel-pump-stale-parked-resume", "concurrent-p0")
+        first = result["afterFirst"]
+        self.assertEqual(1, first["reacquireCount"], first)
+        self.assertFalse(any("outcome=no slot" in line for line in first["logs"]), first["logs"])
+        self.assertNotIn("parked-resume", first["shown"])
+        self.assertEqual({"state": "running", "slot": True}, first["l1"])
+        self.assertEqual(2, result["afterRepark"]["reacquireCount"], result["afterRepark"])
+        self.assertEqual({"state": "running", "slot": True}, result["afterRepark"]["l1"])
+
+    def test_external_resume_before_reacquire_is_not_recorded_as_a_failure(self):
+        for mode in ("external-p0", "external-regular"):
+            with self.subTest(mode=mode):
+                result = self.run_scenario("parallel-pump-stale-parked-resume", mode)
+                first = result["afterFirst"]
+                self.assertFalse(any("outcome=no slot" in line for line in first["logs"]), first["logs"])
+                self.assertNotIn("parked-resume", first["shown"])
+                self.assertEqual({"state": "running", "slot": True}, result["afterRepark"]["l1"])
+
+    def test_genuine_reacquire_refusal_while_still_parked_is_still_recorded(self):
+        result = self.run_scenario("parallel-pump-stale-parked-resume", "still-waiting-error")
+        first = result["afterFirst"]
+        self.assertTrue(any("P0 reacquire exact waiting lease" in line for line in first["logs"]), first["logs"])
+        self.assertIn("parked-resume", first["shown"])
+
+    def test_side_answer_for_an_already_running_worker_is_not_marked_delivered(self):
+        result = self.run_scenario("parallel-pump-stale-parked-resume", "answer-already-running")
+        self.assertEqual([], result["answered"]["delivered"])
+        self.assertIn("MAIN DECISION: use v2", result["answered"]["text"])
+        self.assertNotIn("parked-resume", result["shown"])
+
     @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_pause_after_no_progress_still_instructs_discovery(self):
         result = self.run_scenario("stop-pause-discovery")

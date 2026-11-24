@@ -1,7 +1,7 @@
 // Drives the packaged ciel-work register.js with a scripted host: no Claude Code,
 // no router. Each scenario prints one JSON line describing the gate decisions.
 import { register } from './register.js'
-import { pollSide, sidePromptSubmit, sidePromptPending, answerParkedForks } from './side-intake.js'
+import { pollSide, completeSide, sidePromptSubmit, sidePromptPending, answerParkedForks } from './side-intake.js'
 import { createHash } from 'node:crypto'
 import { copyFileSync, mkdirSync } from 'node:fs'
 // One side pump pass through the same module instance register.js uses.
@@ -2184,6 +2184,123 @@ const scenarios = {
     return { beforeAnswer, events:calls.map(c => c.event + ':' + (c.lease_id || '')), answered,
       resumeEvidence:calls.find(c => c.event === 'resume')?.evidence || '',
       sent:(state.sent || []).map(s => ({ to:s.to?.agentId, text:s.text })), l3:{ state:leases.L3.state, slot:leases.L3.slot } }
+  },
+  // Andy 2026-11-24 (4f4236f85cb, n2594): parallelPump held a pre-resume state
+  // snapshot while parallelResumeReleased concurrently resumed the parked P0
+  // worker to running (clearing parkedResumeInFlight). The stale pump then
+  // fired a duplicate reacquire -> "P0 reacquire exact waiting lease" -> false
+  // parked-resume failure, 5-minute throttle, and false console notice.
+  async 'parallel-pump-stale-parked-resume'() {
+    const mode = process.argv[3] || 'concurrent-p0'
+    const leases = {
+      L1: { id:'L1', item_id:'n2', role:'worker', state:'waiting_input', host_id:'agent-a', agent_name:'work-p0-a',
+        slot:false, plan_version:7, priority:'P1', wait_clear_now:false, wait_seen:true, wait_cleared:false } }
+    const calls = []
+    let sideClaimed = false, reacquireCount = 0, flippedExternal = false
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:9 + calls.length, active_device:leases.L1.slot ? 1 : 0,
+        policy:{ enabled:true, paused:false, priority_limits:{P1:3,P2:2,P3:1,P4:1,P5:1}, launches_per_minute:4 },
+        leases:structuredClone(leases) })
+      if (tool === 'work_side_claim') {
+        const claim = mode === 'concurrent-p0' && !sideClaimed ? {
+          receipt_id:'c'.repeat(64), generation:'10000000000000000000000000000009', text:'Daniel: approved',
+          event_key:'walkie:9', lease_until:Date.now()/1000 + 120, route:{},
+          workload:{ version:4, truncated:false, active_root:'n1', queue_order:[],
+            nodes:[{ id:'n1', parent_id:null, title:'goal' }, { id:'n2', parent_id:'n1', title:'item', waiting_on:'Daniel approval' }] }
+        } : null
+        sideClaimed = true
+        return text({ claim, settings:{ model:'inherit', context_mode:'isolated' }, handoff_replies:[], main_wakes:[] })
+      }
+      if (tool === 'work_side_resolve') return text({
+        receipt:{ receipt_id:args._host.receipt_id, stage:'processed' },
+        result:{ action:'update', item_id:'n2', summary:'approved', duplicate:false,
+          released_waits:[{ id:'n2', waiting_on:'Daniel approval' }], handoff:'not_required' } })
+      if (tool === 'work_side_reply') return text({ receipt:{ receipt_id:args.receipt_id, stage:'processed' }, arguments:null })
+      if (tool === 'work_side_wake') return text({ protocol:2, state:args.state === 'notice_prepare' ? 'claimed' : 'appended', attempt_id:'n-1' })
+      if (tool === 'work_parallel_event') {
+        calls.push(args)
+        if (args.event === 'reacquire') {
+          reacquireCount++
+          if (mode === 'external-p0' && !flippedExternal) {
+            flippedExternal = true; leases.L1.state = 'running'; leases.L1.slot = true
+            return { isError:true, ...text('P0 reacquire exact waiting lease') }
+          }
+          if (mode === 'external-regular' && !flippedExternal) {
+            flippedExternal = true; leases.L1.state = 'running'; leases.L1.slot = true
+            return { isError:true, ...text('not a slot-released wait') }
+          }
+          if (mode === 'still-waiting-error')
+            return { isError:true, ...text('P0 reacquire exact waiting lease') }
+          if (mode === 'answer-already-running') {
+            leases.L1.state = 'running'; leases.L1.slot = true
+            return { isError:true, ...text('not a slot-released wait') }
+          }
+          if (leases.L1.state !== 'waiting_input' || leases.L1.slot)
+            return { isError:true, ...text('P0 reacquire exact waiting lease') }
+          leases.L1.slot = true
+          return text({ lease_id:args.lease_id, slot_reacquired:true, state:'slot_acquired', recovery_required:false,
+            parent_intent_id:'1'.repeat(32), send_id:'2'.repeat(32), child_generation:reacquireCount, send_receipt:'3'.repeat(64) })
+        }
+        if (args.event === 'p0_reacquire_complete') return text({ state:'delivered', slot_rolled_back:false })
+        if (args.event === 'resume') { leases.L1.state = 'running'; return text({ version:10 + calls.length }) }
+        if (args.event === 'reserve' || args.event === 'reserve_next') throw new Error('no eligible candidate')
+        return text({ version:10 + calls.length })
+      }
+      return text({})
+    })
+    // Unlisted parked fork ($.agent.list dropped it, as observed on Andy and E2E stub-3).
+    state.agents = []
+    $.agent.spawn = async () => ({ agentId:'side-actor-1' })
+    $.session.send = async args => { (state.sent ||= []).push(args); return { isDelivered:true } }
+    await handlers['session.start']($, { isInteractive:true }, next(undefined))
+    if (mode === 'answer-already-running') {
+      leases.L1.wait_clear_now = true
+      const answered = await answerParkedForks($, 'claude:S1', { receipt_id:'e'.repeat(64) },
+        { fork_answers:[{ lease_id:'L1', item_id:'n2', answer:'MAIN DECISION: use v2', source:'n2 note' }] })
+      const shown = (await handlers['command.run']($, { args:'parallel' })).text || ''
+      return { answered, shown, logs:state.logs.filter(l => /parked|resumed parked/.test(l)), reacquireCount }
+    }
+    leases.L1.wait_clear_now = true; leases.L1.wait_cleared = true
+    if (mode === 'concurrent-p0') {
+      let listCalls = 0
+      const baseList = $.agent.list
+      $.agent.list = async () => {
+        // Calls 1-2 are turn.complete reconcile + parallelObserveNative before
+        // parallelPump; call 3 is listed.fresh() inside parallelResumeParked,
+        // after parallelPump already captured its pre-resume state snapshot.
+        if (++listCalls === 3) {
+          // While parallelPump holds its pre-resume state snapshot here, the
+          // side release finishes resuming L1 and clears parkedResumeInFlight.
+          await pollSide($, 'claude:S1')
+          await completeSide($, { agentId:'side-actor-1', reason:'answer', answer:JSON.stringify({
+            understanding:'Daniel approved', expected_version:4,
+            decision:{ action:'update', kind:'request', item_id:'n2', summary:'approved', reply:'ok',
+              note:'approved', release_waits:[{ id:'n2', waiting_on:'Daniel approval' }] } }) })
+          for (const end = Date.now() + 2000; Date.now() < end && !state.logs.some(l => l.includes('resumed by the Work host'));)
+            await sleep(5)
+        }
+        return baseList()
+      }
+    }
+    await handlers['turn.complete']($, {}, next(undefined))
+    await sleep(20)
+    const afterFirst = {
+      reacquireCount,
+      logs:state.logs.filter(l => /parked|resumed parked/.test(l)),
+      shown:(await handlers['command.run']($, { args:'parallel' })).text || '',
+      l1:{ state:leases.L1.state, slot:leases.L1.slot },
+    }
+    // Re-park L1 immediately: if a stale race did not wrongly poison
+    // parkedResumeTried or parkedResumedStamp, the next pump resumes L1 cleanly.
+    let afterRepark = null
+    if (mode === 'concurrent-p0' || mode === 'external-p0' || mode === 'external-regular') {
+      leases.L1.state = 'waiting_input'; leases.L1.slot = false
+      await handlers['turn.complete']($, {}, next(undefined))
+      await sleep(20)
+      afterRepark = { reacquireCount, l1:{ state:leases.L1.state, slot:leases.L1.slot } }
+    }
+    return { afterFirst, afterRepark }
   },
   async 'parallel-missing-exit-report-requests-contract'() {
     const leases = { L1: { id:'L1', item_id:'n2', role:'worker', state:'running', host_id:'agent-old', slot:true, plan_version:7 } }

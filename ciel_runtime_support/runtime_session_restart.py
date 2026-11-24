@@ -756,6 +756,19 @@ class RuntimeSessionRestartService:
             lock=self._lock,
         )
 
+    def restart_in_progress(self, instance_dir: Path | None = None) -> bool:
+        """Whether a restart is already queued or held by a live launcher."""
+        directory = Path(instance_dir) if instance_dir else self._ports.instance_dir
+        if self.repository(directory).read() is not None:
+            return True
+        from ciel_runtime_support import restart_hold
+
+        for row in restart_hold.listing(directory):
+            pid = int(row.get("pid") or 0)
+            if pid > 0 and self._ports.is_running(pid):
+                return True
+        return False
+
     def control(self) -> RuntimeSessionRestartControl:
         """The control shared by the CLI transports of this process."""
 

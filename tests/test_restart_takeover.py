@@ -97,6 +97,68 @@ class RestartTakeoverTests(unittest.TestCase):
         self.assertNotIn("error", fork)
         self.assertTrue(fork["snapshot_ref"])
 
+    @unittest.skipUnless(os.name == "nt", "Windows process command-line limit")
+    def test_git_trust_for_many_linked_worktrees_does_not_prevent_spawn(self):
+        # The takeover used to pass every registered root to every Git call.
+        roots = [self.repo, *(self.root / ("worktree-" + "x" * 65 + str(i)) for i in range(1218))]
+        with patch.dict(os.environ, {"GIT_TEST_ASSUME_DIFFERENT_OWNER": "1"}):
+            self.assertEqual("main", rt._git(self.repo, "branch", "--show-current", trust=roots).strip())
+
+    @unittest.skipUnless(os.name == "nt", "Windows process command-line limit")
+    def test_many_nested_exclusions_do_not_prevent_status_or_snapshot(self):
+        nested = [self.repo / ".claude" / ("worktree-" + "x" * 65 + str(i)) for i in range(1218)]
+        nested[0].mkdir(parents=True)
+        (nested[0] / "ignored.txt").write_text("outside snapshot\n", encoding="utf-8")
+        (self.repo / "keep.txt").write_bytes(b"keep\n")
+        self.assertEqual((0, 1, 5), rt._status(self.repo, [self.repo], nested))
+        ref = rt.REF_PREFIX + "test/many-exclusions"
+        rt.snapshot_worktree(self.repo, git(self.repo, "rev-parse", "HEAD"), ref, "test", [self.repo], nested)
+        self.assertEqual([".gitignore", "a.txt", "keep.txt"], git(self.repo, "ls-tree", "-r", "--name-only", ref).splitlines())
+
+    def test_snapshot_all_prioritizes_session_worktree_and_respects_time_budget(self):
+        # Andy 2026-11-24 (1,219 worktrees, 5.7 min stall per restart): the
+        # session's own worktree must be snapshotted first and remaining
+        # worktrees stop cleanly once MAX_TOTAL_SECONDS elapses.
+        other = self.worktree("other", "other")
+        (other / "o.txt").write_text("other\n", encoding="utf-8")
+        session_wt = self.worktree("session", "session")
+        (session_wt / "s.txt").write_text("session\n", encoding="utf-8")
+        claude = self.root / "claude"
+        project = claude / "projects" / rt.re.sub(r"[^A-Za-z0-9._-]", "-", str(self.repo.resolve()).rstrip("\\/"))
+        project.mkdir(parents=True)
+        (project / "s.jsonl").write_text(json.dumps({"cwd": str(session_wt)}) + "\n", encoding="utf-8")
+        ticks = iter([0.0, 100.0, 100.0, 100.0, 100.0])
+        with patch.object(rt, "MAX_TOTAL_SECONDS", 30.0), \
+                patch.object(rt.time, "monotonic", lambda: next(ticks, 100.0)):
+            manifest = rt.snapshot_all(self.repo, "7" * 32, claude_config=claude, state_dir=self.state)
+        rows = {Path(row["path"]).resolve(): row for row in manifest["worktrees"]}
+        self.assertTrue(rows[session_wt.resolve()]["snapshot_ref"], rows[session_wt.resolve()])
+        self.assertIn("time budget", str(rows[other.resolve()].get("skipped") or ""))
+        self.assertEqual(self.repo.resolve(), Path(manifest["worktrees"][0]["path"]).resolve())
+
+    def test_snapshot_all_keeps_explicit_state_excludes_even_with_many_nested_worktrees(self):
+        # Celly (home is repo) + many worktrees: explicit state excludes (.claude)
+        # must still reach git status directly rather than being dropped.
+        (self.repo / ".claude" / "projects").mkdir(parents=True)
+        (self.repo / ".claude" / "projects" / "big.jsonl").write_text("secret\n", encoding="utf-8")
+        (self.repo / "work.txt").write_bytes(b"real\n")
+        nested_many = [self.repo / ".local" / "wt" / ("worktree-" + "x" * 65 + str(i)) for i in range(600)]
+        seen_args: list[tuple[str, ...]] = []
+        orig_git = rt._git
+
+        def spy(cwd, *args, **kwargs):
+            seen_args.append(args)
+            return orig_git(cwd, *args, **kwargs)
+
+        with patch.object(rt, "_git", side_effect=spy):
+            modified, untracked, size = rt._status(
+                self.repo, [self.repo], [self.repo / ".claude", *nested_many],
+                explicit_excludes=[self.repo / ".claude"],
+            )
+        self.assertEqual((0, 1, 5), (modified, untracked, size))
+        status_args = next(a for a in seen_args if a and a[0] == "status")
+        self.assertIn(":(exclude).claude", status_args)
+
     def test_session_worktree_comes_from_the_newest_transcript_and_reaches_the_notice(self):
         work = self.worktree("feature", "feature")
         (work / "b.txt").write_text("x\n", encoding="utf-8")

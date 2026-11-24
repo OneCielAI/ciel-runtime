@@ -421,6 +421,23 @@ class WorkParallelMCPTests(unittest.TestCase):
         self.assertEqual(reserved["priority"], "P1")
         self.assertEqual(reserved["item_note"], "Do second")
 
+    def test_reserve_raises_work_parallel_error_if_lease_disappears_before_return(self):
+        # KOBE 2026-11-24 (08:05:38/49): concurrent orphan sweep deleted a reserved
+        # lease right as _reserve_assignment returned, causing an uncaught KeyError
+        # at work_parallel_mcp.run instead of a clean WorkParallelError.
+        store, _board, _config, run = self.env
+        orig = m._reserve_assignment
+
+        def swept(*args, **kwargs):
+            assignment = orig(*args, **kwargs)
+            store.release_unbound(assignment["lease_id"], proof="concurrent sweep",
+                                  expected_version=store.read()["version"])
+            return assignment
+
+        with patch.object(m, "_reserve_assignment", side_effect=swept):
+            with self.assertRaisesRegex(m.WorkParallelError, "reserved lease"):
+                run("event", {"fork": True, "dispatch_name": "auto-race"}, event="reserve_next")
+
     def test_owner_without_birth_identity_is_never_classified_dead(self):
         store, board, config, run = self.env
         reserved = run("event", {"fork": True, "session_pid": 4242,
