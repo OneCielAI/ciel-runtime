@@ -204,4 +204,14 @@ side 지침(`DEFAULT_SIDE_INSTRUCTION` = `side-intake.js PROMPT`), `gate_actor`,
 
 ## 회귀 (최종 트리)
 
-결과는 실행 후 아래에 채운다.
+- Windows 격리(파일당 독립 프로세스, `CIEL_RUNTIME_*` 해제, 임시 `CIEL_RUNTIME_CONFIG_DIR`, `CIEL_RUNTIME_TEST_ISOLATED=1`):
+  - 영향 139개 파일: 137개 통과, 2777 통과 / 2 실패.
+  - 실패 2건은 모두 기준 커밋 `072313c`에 이미 있던 pytest 전용 실패다(`test_router_debug.py::RouterDebugAccessTests::test_health_includes_debug_flag`, `test_unisolated_test_guard.py::IsolatedCliAssetTests::test_cli_asset_paths_follow_isolation`). unittest 실행기에서는 둘 다 통과한다.
+  - `test_work_mod_real_backend.py`: cf55ed2에서 117/0/3. 최종 트리 재실행은 백그라운드에서 진행 중이다.
+- 기존 Linux 컨테이너(격리):
+  - `ciel-runtime-test-py310`: 139개 파일 전부 실패 0.
+  - `ciel-runtime-test-py311`: 139개 파일 전부 실패 0.
+  - `ciel-runtime-test-py311` `test_work_mod_real_backend.py`: 120 통과 / 0 실패 / 4 skip.
+- 정적 검사·패키징·모드 검사:
+  - `ruff 0.15.22`, `python -m compileall`, `npm run check:docs`, `npm pack --dry-run` 통과.
+  - `claude plugin validate` 통과, `claude plugin test` 94 통과 / 0 실패.

@@ -2,6 +2,47 @@
 
 ## 2026-11-23
 
+- 2026-11-24 06:13:46–06:14:17Z 틱(직전 06:01Z), 5호스트. Betty 채널 기록은 06:30Z까지 추가로 읽기 전용 조사했다.
+  - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 모두 MCP `probe_succeeded`, new_failures 0.
+  - Andy
+    - running+slot 1, waiting_input 4, submitted 23→22, 원장 6886→6889, 보드 v11188→v11192, MCP 2,329 ms
+    - n1166 검수 행 누락과 n2708 `awaiting_capacity`(P3 1/1)가 계속된다(반복, 용량 가드).
+    - `channel_turn_projection_persistent` age가 851→3499초(06:25Z)로 계속 늘었다.
+      - 메인 대화 파일은 06:25:33Z에도 assistant 기록이 쓰였다. 멈춘 것이 아니라 한 턴이 길게 이어지는 상태로 관측된다.
+      - observe_only 경고다.
+  - Celly
+    - running+slot 4→5, waiting_input 6→5, 원장 8759→8774, 보드 v10407, MCP 390 ms
+    - 라우터 로그
+      - 클라이언트 연결 끊김(`ConnectionResetError` 10054): `anthropic_sse_client_disconnected` 10건, `router_client_disconnected` 2건
+      - keepalive TaskList 합성 9건
+      - 직전 틱의 게이트웨이 5xx는 이번 창에 없다.
+    - 대화 오류 5건은 메인의 PowerShell 사용 오류와 없는 파일 읽기다.
+  - KOBE: running+slot 1→2, waiting_input 4→3, 원장 3249→3254, MCP 885 ms. 오류 0.
+  - Prody
+    - running+slot 2→3, 원장 798→800, MCP 996 ms
+    - 대화 오류 2건
+      - 메인 스크립트 Traceback
+      - n1270 중복 디스패치 가드: 기존 리스 577354ba에 SendMessage로 재개하라고 안내했다. 설계된 가드다.
+  - Betty
+    - waiting_input 0→1, 원장 907→910, 보드 v5591, MCP 506 ms
+    - 대화 오류 3건: rg 시간 초과, 계획 버전 충돌 재시도(가드), 스크립트 종료 코드
+    - **입증된 결함: 실행 중인 턴에 전달된 SSE 메시지를 라우터가 `failed`로 기록한다.**
+      - 06:13Z 관측
+        - `channel_windows_console_unseen_failed` 7867·7866
+        - `channel_stdin_proxy_blocked ... prior_submission_failed detail=stale_unconfirmed` ERROR 2건
+      - 대화 대조
+        - 두 메시지는 06:12:43–44Z에 큐에 들어갔다.
+        - 06:13:36Z에 `queued_command` 첨부로 실행 중인 턴에 넘어갔다.
+        - 06:13:36.376Z 모델 요청에 들어갔다. 라우터도 `channel_llm_inject_skipped reason=already_in_request`를 남겼다.
+      - 범위: 11-23 20:11Z 이후 Betty 로그 두 개에서 `unseen_failed` 31건, `confirmed` 8건이다. 31건 모두 대화에 첨부와 큐 remove가 있어 실제로 전달됐다.
+      - 원인(소스 `channel_transcript.wake_state_evidence_from_text`와 Betty 대화 2.1.331 대조)
+        - 세션 소켓 제출의 `queue-operation enqueue`에는 `content`가 없다. 그래서 인계 전까지 상태가 `missing`이 되고, 20초 unseen 규칙이 실패로 만든다.
+        - 11-23 이후 실행 중 턴 인계 53건 중 47건은 첨부가 remove보다 먼저 기록됐다. 코드는 remove 뒤의 첨부만 전달로 본다. 그래서 전달이 확인되지 않고 `queued`로 남는다. 예: 7833은 15분 뒤 실패로 기록됐다.
+      - Betty만 해당하는 이유: Betty는 SSE를 메인에 직접 넣는다. 나머지 4호스트는 side 액터 경로이고, 현재 로그에 `unseen_failed`가 0이다.
+      - 메시지 유실은 관측되지 않았다. 실패 기록이 발신 측에 어떤 영향을 주는지는 확인하지 않았다.
+      - 처리: feature/priority-models에서 실패 테스트부터 재현하고 고친다(진행).
+  - 배포 대기 중인 943c3e2의 py311 real_backend는 아직 실행 중이다.
+
 - 2026-11-24 06:01:40–06:02:16Z 틱(직전 05:01Z). 이번 틱부터 Betty를 더해 5호스트를 본다(사용자 2026-11-24).
   - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 모두 MCP `probe_succeeded`, new_failures 0.
   - Betty 추가 내용
