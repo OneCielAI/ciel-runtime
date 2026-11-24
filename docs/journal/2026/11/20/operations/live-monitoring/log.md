@@ -2,6 +2,23 @@
 
 ## 2026-11-23
 
+- 2026-11-24 12:12:34–12:13:03Z 틱(직전 11:52Z), 5호스트.
+  - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 MCP `probe_succeeded`(201–1,096 ms), new_failures 0. 4886d62·7edfc0c는 파일만 설치(라이브 아님).
+  - Prody n1200(running, P1): 포크 기록이 75분째 갱신되지 않았다(마지막 10:58:19Z). 원장 891은 그대로다.
+    - 응답 없이 멈춘 실행 포크 감지는 별도 브랜치 `feature/silent-fork-notice`에서 구현하고 있다(배포 전).
+  - Andy: running+slot 1, submitted 21, 원장 7024. n1166(반복). 대화 오류 0.
+  - Celly
+    - running+slot 2, waiting_input 4→5, 원장 8885→8893
+    - 지난 틱의 n1452 검수 행 누락 finding은 이번에 없다. 해소됐다.
+    - `transcript_delta_delivery_failed` timeout 1(11:53Z), 권한 오류 2(반복)
+    - 대화 오류 6: 메인 스크립트 오류, `work_side_handoff` 불필요 호출
+  - KOBE: running 1→0, waiting_input 4, 원장 3313, MCP 201 ms
+  - Betty
+    - running+slot 1→0, 원장 941→945
+    - `unseen_failed` 7889(12:09Z): 같은 결함이고, 이전 코드가 돌고 있다.
+    - 대화 오류 5: 계획 버전 충돌(가드), 외부 API 400, 스크립트 오류
+  - Sarah(.25): SSH가 배너 전에 끊긴다. 미확인.
+
 - 2026-11-24 11:52:43–11:58Z 틱(직전 11:33Z), 5호스트.
   - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 MCP `probe_succeeded`(220–969 ms). 4886d62·7edfc0c는 파일만 설치(라이브 아님).
   - Prody n1200(리스 6ebe7e68, P1, running, 포크 a9b9ae4c7e): **응답 없이 멈춘 포크로 관측된다.**
