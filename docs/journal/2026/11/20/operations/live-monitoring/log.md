@@ -2,6 +2,32 @@
 
 ## 2026-11-23
 
+- 2026-11-24 11:52:43–11:58Z 틱(직전 11:33Z), 5호스트.
+  - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 MCP `probe_succeeded`(220–969 ms). 4886d62·7edfc0c는 파일만 설치(라이브 아님).
+  - Prody n1200(리스 6ebe7e68, P1, running, 포크 a9b9ae4c7e): **응답 없이 멈춘 포크로 관측된다.**
+    - 포크 대화 기록의 마지막 기록은 10:58:19Z의 Bash tool_use다(약 2,000자). 이 명령은 파일을 만든 뒤 node로 playwright 스크립트(chromium 실행, 스크린샷)를 돌린다.
+    - tool_result가 없다. 11:56Z에 57분째 갱신이 없다.
+    - 11:56Z 프로세스 목록에 그 node·chromium 프로세스는 없다.
+    - 원장 891은 10:31Z 이후 그대로다.
+    - Bash 기본 제한 시간(2분)이 지났는데도 결과가 기록되지 않은 원인은 확인하지 못했다.
+    - **요구사항 공백**: 11-24 사용자 요구는 "답이 없이 멈춘다든지에 대해서 상황을 캐치한 뒤 메인에게 공지"였다. 배포된 stall watch(943c3e2)는 `waiting_input` 포크의 오래된 대기(12시간)만 잡는다. 실행 중인데 응답 없는 포크는 잡지 못한다.
+      - 이 공백을 따로 구현한다(실패 테스트 먼저).
+  - Prody 라우터 로그
+    - 마지막 400 KB에 타임스탬프 있는 행이 1개(11-22)뿐이다. 나머지는 `ConnectionAbortedError` traceback이다.
+    - 그래서 모니터의 Prody 로그 집계가 계속 비어 있다.
+    - 11-23 재시작 이후 라우터의 정상 로그가 어디로 가는지는 확인하지 않았다(추적).
+  - Andy: running+slot 1, submitted 22→21, 원장 7021→7024. n1166(반복). 대화 오류 0.
+  - Celly
+    - running+slot 3→2, submitted 0→1, 원장 8883→8885, MCP 281 ms
+    - 새 finding: n1452(리스 ff4d503a, P2)는 submitted이고 완료 영수증도 있는데 검수 행이 없다. native=running 11:46Z. 방금 생긴 상태다.
+    - 11:52Z "Work reconciliation: Parallel read failed: git ... timed out after 37 s" 안내 1. git 시간 초과 계열이다(반복 유형).
+  - KOBE: 원장 3312, MCP 220 ms, 대화 오류 0.
+  - Betty
+    - 원장 936→941
+    - new_failures `decision_refused_stop 4cf3b83d x1`: 메인의 검수 결정이 거부된 기록이다. 가드다.
+    - `unseen_failed` 없음
+  - Sarah(.25): SSH가 배너 전에 끊긴다. 미확인.
+
 - 2026-11-24 11:33:39–11:34:23Z 틱(직전 11:12Z), 5호스트.
   - 공통: 운영 세션·라우터 재시작과 상태 파일 변경 없음. 5호스트 MCP `probe_succeeded`, new_failures 0. 4886d62·7edfc0c는 파일만 설치(라이브 아님).
   - Andy: running+slot 2→1, submitted 21→22, 원장 7019→7021, MCP 1,078 ms. n1166(반복). 대화 오류 0.
