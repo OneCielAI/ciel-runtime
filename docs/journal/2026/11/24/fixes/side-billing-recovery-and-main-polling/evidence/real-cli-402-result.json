@@ -1,0 +1,48 @@
+{
+  "key": "16cef946cee292751e700e24e9388b390829d02121767c967176efd2cc490b32",
+  "debug": [
+    "2026-11-24T18:49:07.432Z [DEBUG] hooks module ciel-work@inline loaded (worker, environment 1, tier user); events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,session.compact,classic.Stop,session.receive,prompt.submit,command.run,tool.call,session.send,tool.check,session.end,ui.render,ui.message",
+    "2026-11-24T18:49:12.741Z [ERROR] API error (attempt 1/11): 402 402 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Credit balance too low\"}}",
+    "2026-11-24T18:49:12.749Z [ERROR] Error in API request: 402 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Credit balance too low\"}}",
+    "2026-11-24T18:49:12.774Z [WARN] [Stall] agent_completion agentId=a4a68c4ee15a688f9 agentType=fork exitPath=error durationMs=895 turns=1 finalStopReason=stop_sequence lastChunkAgeMs=15 lastToolUseId=none lastToolResultSeen=none errorKind=AgentApiErrorTerminationError:Agent terminated early due to an API error: API Error: 402 Credit balance too lo",
+    "2026-11-24T18:49:13.116Z [DEBUG] [ciel-work] $.ui.log: Ciel side: original of failed event 16cef946cee2 → main (appended)"
+  ],
+  "failure": {
+    "category": "billing_error",
+    "model": "inherit",
+    "model_fingerprint": "native-fork",
+    "attempt_count": 1,
+    "failed_at": 1795546152.8992014,
+    "retry_not_before": 1795546157.8992014,
+    "quarantined": true,
+    "typed": true,
+    "retryable": false,
+    "code": "billing_error",
+    "effective_model": null,
+    "use_parent_model": false,
+    "main_fallback_eligible": false,
+    "generation": "70cd4c2a4dd64ad284ff2ee86f125303",
+    "compaction_waits": 0
+  },
+  "main_read": true,
+  "mcp": [
+    {
+      "at": 1795546152.93,
+      "name": "work_side_fail",
+      "error": false
+    },
+    {
+      "at": 1795546153.0,
+      "name": "work_side_wake",
+      "error": false
+    },
+    {
+      "at": 1795546153.11,
+      "name": "work_side_wake",
+      "error": false
+    }
+  ],
+  "forward": true,
+  "notice": "appended",
+  "owned": "<TEMP>/side-billing-dq1mt3xv"
+}
