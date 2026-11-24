@@ -117,3 +117,30 @@ timestamp: 2026-11-24T13:30:00Z
 - 전경 호출이 30분을 넘는 정상 작업: `BASH_MAX_TIMEOUT_MS`를 30분 넘게 올린 호스트, 포크 안의 긴 중첩 Agent 호출은 알림이 갈 수 있다. 사이드 확인과 메인 판단에 맡긴다. 각 호스트의 설정값은 확인하지 않았다.
 - 전사 파일이 아직 없는 running lease(실행이 기록을 남기지 못함)는 대상이 아니다.
 - 호스트에 `gate_actor`/`gate_recheck` 관리 프롬프트 재정의가 저장돼 있으면 새 규칙이 그 액터에 가지 않는다. 각 호스트의 재정의 여부는 확인하지 않았다.
+
+## 배포 (2026-11-24)
+
+- 0947231을 `feature/priority-models`에 cherry-pick했다(9a46b96). 코드는 0947231과 같다. 그 사이 커밋은 문서뿐이다.
+  - cherry-pick 뒤 핵심 7개 파일을 다시 돌렸다: 109 통과 / 12 skip.
+  - ruff 0.15.22와 `check:docs`도 통과했다.
+- `feature/priority-models`와 `beta`를 9a46b96으로 push했다. `git ls-remote`로 확인했다.
+- Publish to npm 45404482988: 성공. beta `0.2.51-beta.20261124-133238.9a46b96`, gitHead 9a46b96.
+  - tarball의 변경 파일 9개 해시가 오버레이 new와 같다.
+- 해시 확인 오버레이 `overlay-9a46b96`(9개 파일, base 4886d62)
+  - 설치 전 상태는 모든 루트에서 같았다: 기존 8개는 base, 새 모듈 `work_silent_forks.py`는 없음.
+  - 설치 후에는 new 9/9였다.
+
+  | 대상 | 설치 시각 |
+  |---|---|
+  | 로컬 hotfix5, `.local/share/ciel-runtime`, npm 전역 | 13:38:34Z |
+  | Celly(관리자 권한) | 13:38:47Z |
+  | KOBE | 13:39:24Z |
+  | Prody | 13:39:54Z |
+  | Betty | 13:40:27Z |
+
+- 라이브 효과(파일 설치와 구분)
+  - Python 변경은 라우터를 다시 시작해야 반영된다. `side-intake.js`·`texts.generated.js`는 세션이 모드를 다시 읽어야 반영된다.
+  - 운영 라우터와 세션은 재시작하지 않았다. 그래서 어느 호스트에서도 아직 라이브가 아니다.
+  - Prody n1200(13:12Z 기준 135분 무응답)도 라우터 재시작 전에는 이 알림을 받지 않는다.
+- 남은 결정(사용자): Betty처럼 side intake가 꺼진 호스트는 이 알림을 받지 않는다. 943c3e2의 wait/question 알림도 같다.
+
