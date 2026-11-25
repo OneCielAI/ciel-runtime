@@ -113,6 +113,27 @@ class SideForwardTests(unittest.TestCase):
                                        'attempt_id': prepared['attempt_id'], 'receipt': 'u-main'})
         self.assertEqual([], self.invoke('work_side_claim', {'owner': 'side'})['main_forwards'])
 
+    def test_superseded_and_gate_check_quarantines_never_forward_to_main(self):
+        # KOBE 2026-11-25 (8be7f63514d9, 472b5b0304a5): superseded gate-check
+        # events were backfilled by side_forward._backfill and dumped into main,
+        # and failed host-timer gate re-checks flooded main's context even
+        # though they are not external human messages and have another tick soon.
+        from ciel_runtime_support.side_intake_processing import supersede_unclaimed
+        superseded = self.inbox.receive('Ciel 게이트 재확인 old', 'gate-check:old:1',
+                                        route={'source_kind': 'gate_check'})['receipt_id']
+        supersede_unclaimed(self.root, IDENTITY, [superseded], now=1000.0)
+        failed_gate = self.inbox.receive('Ciel 게이트 재확인 failed', 'gate-check:fail:1',
+                                         route={'source_kind': 'gate_check'})['receipt_id']
+        leased = claim(self.root, IDENTITY, 'side', now=1001.0)
+        self.assertEqual(failed_gate, leased['receipt_id'])
+        fail(self.root, IDENTITY, failed_gate, leased['generation'], {'category': 'invalid_answer'}, now=1001.0)
+        self.assertEqual([], offered(self.inbox))
+        self.assertNotIn('main_forward', self.inbox._load(superseded))
+        self.assertNotIn('main_forward', self.inbox._load(failed_gate))
+        # A genuine external message still forwards when quarantined.
+        ext = self.quarantine('external user message', category='invalid_answer')
+        self.assertEqual([ext], [row['receipt_id'] for row in offered(self.inbox)])
+
 
 if __name__ == '__main__':
     unittest.main()

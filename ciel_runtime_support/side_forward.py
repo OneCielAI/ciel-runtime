@@ -22,12 +22,25 @@ INDEX_MAX = 500
 SETTLED = ('appended', 'uncertain', 'issuing')
 
 
+def _is_non_forwardable(row, failure):
+    """Host-timer gate checks and superseded/discarded rows never flood main."""
+    if not isinstance(row, dict) or not isinstance(failure, dict):
+        return True
+    if failure.get('operator_discarded') or failure.get('superseded') or failure.get('category') == 'superseded':
+        return True
+    from .work_gate_check import EVENT_PREFIX as GATE_CHECK_PREFIX
+    if str(row.get('event_key') or '').startswith(GATE_CHECK_PREFIX):
+        return True
+    return (row.get('route') or {}).get('source_kind') == 'gate_check'
+
+
 def is_forward(row):
     """A quarantined event whose original is to be delivered to main."""
     failure = row.get('side_failure') if isinstance(row, dict) else None
-    # A receipt the operator discarded (side-discard-failed) never goes to main.
+    # A receipt the operator discarded (side-discard-failed), a superseded
+    # snapshot, or a host-timer gate re-check never goes to main.
     return bool(isinstance(failure, dict) and failure.get('quarantined') and row.get(FIELD)
-                and not failure.get('operator_discarded'))
+                and not _is_non_forwardable(row, failure))
 
 
 def text(receipt_id, row):
@@ -48,6 +61,9 @@ def _write(inbox, entries):
 
 def mark(inbox, receipt_id, row):
     """Record on a just-quarantined row that main gets its original (lock held)."""
+    failure = row.get('side_failure') if isinstance(row, dict) else None
+    if _is_non_forwardable(row, failure):
+        return
     row[FIELD] = True
     # Commit the marker before publishing its index entry: a concurrent host
     # that sees the index must also see the forwardable record.
@@ -86,12 +102,12 @@ def _backfill(inbox, listed, budget=32):
         except (OSError, WorkPlanError):
             continue
         failure = row.get('side_failure') if isinstance(row, dict) else None
-        if not isinstance(failure, dict) or not failure.get('quarantined') or failure.get('operator_discarded'):
+        if not isinstance(failure, dict) or not failure.get('quarantined') or _is_non_forwardable(row, failure):
             continue
         if not row.get(FIELD):
             with exclusive_file_lock(inbox._event_path('locks', path.stem)):
                 current = inbox._load(path.stem)
-                if current and (current.get('side_failure') or {}).get('quarantined'):
+                if current and (current.get('side_failure') or {}).get('quarantined') and not _is_non_forwardable(current, current.get('side_failure')):
                     current[FIELD] = True
                     inbox._save_file(inbox._event_path('pending', path.stem), current)
         if path.stem not in listed:
