@@ -35,3 +35,27 @@ timestamp: 2026-11-25T02:00:00Z
   - Linux 기존 `ciel-runtime-test-py310` / `ciel-runtime-test-py311`: 각 **310 통과, 16 스킵, 0 실패**, `compileall` 0, `check_project_metadata.py` 0.
   - `claude plugin validate ciel-work` 통과, `claude plugin test ciel-work` **95 통과, 0 실패**.
   - 동일 파킹 포크까지의 실제 SSE 종단 검증은 이번 긴급 배포 전 미실행(하네스 및 durable-inbox 실 CLI 검증으로 대체, 별도 추적).
+
+## 배포 및 Ciel 라우터 재시작 (2026-11-25 06:11–06:34Z UTC, 사용자 명시 지시)
+
+- 커밋 `faa2c7ec33ec10107de438f0dc802347b69ff792`를 `feature/priority-models`·`beta`에 푸시.
+- GitHub `Publish to npm` 실행 `45558802221` 전체 스텝 성공:
+  - `@one-ciel-ai/ciel-runtime@beta` = `0.2.51-beta.20261125-061202.faa2c7e`
+  - `gitHead` = `faa2c7ec33ec10107de438f0dc802347b69ff792`
+  - tarball SHA-256 = `123050eb47f3bdf4ad235db2b367975b1a017b8c190f0006c92b8b06fd7d660e` (변경 12개 파일 전부 커밋 SHA-256 일치).
+- 해시 확인 오버레이 `overlay-faa2c7e` 7개 승인 루트 전부 `base → new` 일치 설치(`.cmd` 래퍼 미변경):
+  - 로컬 3루트: `C:\Users\djlov\.local\share\ciel-runtime-hotfix5-20261119-210220`, `C:\Users\djlov\.local\share\ciel-runtime`, `C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime`
+  - Celly: `G:\ciel-bridge-service\.npm-global\node_modules\@one-ciel-ai\ciel-runtime`
+  - KOBE(.14): `C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime`
+  - Prody(.12): `C:\ProgramData\aap-win\sandboxes\u41\home\prody-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime`
+  - Betty(.12): `C:\ProgramData\aap-win\sandboxes\u42\home\betty-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime`
+- **Ciel 라우터만 재시작 및 라이브 검증** (5/5 모두 `version=0.2.51-beta.20261125-061202.faa2c7e`, `REST /runtime ok=True`, `MCP recover_sse_delivery ok=True / gate=open`, 새 관리 프롬프트 `gate_verification_contract`·`side_external_wait_routing`·`mod_released_fork_signal` 로드 확인):
+  - Andy(9505): `PID 89532 → 67780`, `clients=[88952]` 유지
+  - Celly(9385): `PID 98976 → 114288` (`router_debug off` 유지 인프로세스 재시작), `clients=[15676]` 유지
+  - KOBE(9779): `PID 18196 → 10660`, `clients=[15784]` 유지
+  - Prody(9592): `PID 2684 → 8384`, `clients=[10788]` 유지
+  - Betty(9564): `PID 13248 → 11544 → 6068`, `clients=[11372 → 5624]` (Betty 쪽에서 별도 런처 교체가 겹쳤는지 `active_slots=0`으로 `n1815`·`n1816` 예약 해소됨; 이전 05:00/05:17 멈춘 `git.exe`·`git-credential-manager.exe` 손자 잔류 프로세스는 별도 강제 종료하지 않음)
+- 미도달: Sarah(`100.64.0.25:1004`) SSH 배너 타임아웃으로 미설치·미재시작.
+- **라이브 효과와 파일 설치 구분:**
+  - **라우터 재시작으로 즉시 라이브 반영:** `work_parallel_workspace._git` 비대화형 git env 및 타임아웃 프로세스 트리 종료, `side_intake_mcp.py`의 `fresh` 모드 동시 클레임 1개 제한 및 `work_side_understanding` prepare 누락 `reply`/`understanding` 복구, `side_work_decision.py`의 UTC 기한 전 해제 거부·게이트 핀·엄격한 `release_waits` 검증, `work_gate_threads.py` 스레드 바인딩 및 관리 프롬프트(`gate_verification_contract`, `side_external_wait_routing`).
+  - **파일 설치 완료 / 기존 CLI 세션은 다음 세션·플러그인 재로드 시 반영:** `ciel-work/hooks/side-intake.js`(바깥 `}` 누락 복구, `CORRECTABLE` 확장, 백그라운드 후속 산문 턴 회수, 읽기 쉬운 GitHub relay 포맷, 스레드 우선순위)와 `texts.generated.js`, `work-operations/SKILL.md`. 기존 `claude.exe` 프로세스는 재시작하지 않았다.
