@@ -1,0 +1,9 @@
+2026-11-25T18:50:46.032Z [DEBUG] hooks module ciel-work@inline loaded (worker, environment 1, tier user); events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,session.compact,classic.Stop,session.receive,prompt.submit,command.run,tool.call,session.send,tool.check,session.end,ui.render,ui.message
+2026-11-25T18:50:46.324Z [DEBUG] hooks module ciel-work@inline session.start settled in 107.1ms (worker hop, next() included)
+2026-11-25T18:50:53.245Z [DEBUG] $.agent.register (ciel-work): ciel-work:side-fresh listed
+2026-11-25T18:50:53.640Z [WARN] [claude-code:unrecognized_model] {"model":"fixture-main","query_source":"agent:custom:ciel-work:side-fresh"}
+2026-11-25T18:50:53.669Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-25T18:50:53.804Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-25T18:50:53.903Z [INFO] [Stall] agent_completion agentId=ad3d3e1daffe7bd4d agentType=ciel-work:side-fresh exitPath=completed durationMs=599 turns=2 finalStopReason=end_turn lastChunkAgeMs=10 lastToolUseId=toolu_f087fcbf708046369b7a lastToolResultSeen=toolu_f087fcbf708046369b7a
+2026-11-25T18:51:03.807Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-25T18:51:03.859Z [INFO] [Stall] agent_completion agentId=a855ffa23a52c5b9a agentType=ciel-work:side-fresh exitPath=completed durationMs=285 turns=1 finalStopReason=end_turn lastChunkAgeMs=5 lastToolUseId=none lastToolResultSeen=none

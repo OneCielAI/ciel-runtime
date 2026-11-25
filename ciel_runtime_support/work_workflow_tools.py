@@ -151,6 +151,7 @@ def side_instruction(config: Mapping[str, Any], state_dir: Path, instruction: An
     parts.append(_workflow_prompt(state_dir, "side_complaint_and_urgency")[0])
     parts.append(_workflow_prompt(state_dir, "side_running_fork_relay")[0])
     parts.append(_workflow_prompt(state_dir, "side_external_wait_routing")[0])
+    parts.append(_workflow_prompt(state_dir, "side_source_instructions")[0])
     return "\n".join(part for part in parts if part)
 
 

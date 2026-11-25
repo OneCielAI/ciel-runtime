@@ -159,6 +159,30 @@ class SideRelayNoticeTests(unittest.TestCase):
         self.assertEqual([], row['appended'])
         self.assertTrue(any('direct-relay' in line for line in row['logs']), row['logs'])
 
+    def test_direct_relay_resumes_the_unique_parked_owner_instead_of_only_telling_main(self):
+        # Andy 2026-11-25 (n2834, PR #134): the owning fork parked on its CI
+        # wait, so a direct handoff found no running fork and only main heard it.
+        row = self.run_case('relay-direct-parked')
+        self.assertEqual([['L2']], row['resumeCalls'])
+        self.assertEqual(1, len(row['resumeTexts']))
+        text = row['resumeTexts'][0]
+        self.assertIn('Ciel side relay for Work item n2', text)
+        self.assertIn('Message: ' + MESSAGE, text)
+        self.assertIn('34886995-4a66-4527-a618-814e9cb0a5bf', text)
+        self.assertNotIn('fixture-private-context', text)
+        self.assertIn('not new execution approval', text)
+        self.assertEqual([], row['appended'])
+        self.assertTrue(any('direct-relay n2 → parked' in line for line in row['logs']), row['logs'])
+
+    def test_ask_main_notice_carries_the_original_message(self):
+        # User 2026-11-25: what the side does not act on reaches main with the
+        # original, not only the side's summary.
+        row = self.run_case('ask-main-original')
+        self.assertEqual(1, len(row['appended']))
+        main = row['appended'][0]
+        self.assertTrue(main.startswith('Ciel side asks main'), main)
+        self.assertIn('Original message:\n' + MESSAGE, main)
+
     def test_direct_running_fork_relay_falls_back_to_main_if_fork_delivery_fails(self):
         row = self.run_case('relay-direct-fallback')
         self.assertEqual(1, len(row['sent']))

@@ -71,6 +71,14 @@ class WorkTextsTests(unittest.TestCase):
             combined = side_instruction({}, state, '')
             self.assertIn('외부 실행 결과 전달 (필수 규칙)', combined)
             self.assertIn('head SHA', combined)
+            # User 2026-11-25: GitHub failure/progress results reach the owning
+            # fork or main even without a recorded wait; an explicit ACK or
+            # instruction in the message or its metadata is acted on or
+            # forwarded with the original, never silently dropped.
+            for phrase in ('대기 기록이 없어도', '의미 있는 진행 전환', '직접 만든 PR',
+                           '명시 ACK', '메타데이터', '직접 보낼 수 있습니다', '원문을 전달'):
+                self.assertIn(phrase, combined)
+            self.assertIn('side_source_instructions', prompts.DEFAULTS)
             prompts.set_prompt(state, 'side_external_wait_routing', 'custom ci routing rule',
                                prompts.fingerprint(side))
             self.assertIn('custom ci routing rule', side_instruction({}, state, ''))

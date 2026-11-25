@@ -1209,10 +1209,21 @@ class SideModTests(unittest.TestCase):
                          '- 빌드, 테스트, 배포, 설치, 커밋, 푸시',
                          '- 런타임, 세션, 모델, 설정을 재시작하거나 바꾸거나 제어하기',
                          '- Work를 직접 변경하기 (work_* create/update/execute/report/handoff/resolve 등)',
-                         '- Agent 호출, 에이전트·서브에이전트·포크를 시작하거나 재개하거나 메시지 보내기',
-                         '- 원본이나 다른 채널에 ACK, 답장, SendMessage 등 무엇이든 보내기'):
+                         '- Agent 호출로 새 포크를 시작하거나 강제로 재개하기'):
                 self.assertIn(rule,instruction)
-            self.assertIn('판단 한 건을 기록하고 원본에 메시지를 보내는 일은 호스트만\n합니다.',instruction)
+            # User 2026-11-25: the side actor sends (ACK, short answer, reaction);
+            # a blanket send ban left explicit ACK requests unanswered.
+            self.assertNotIn('ACK, 답장, SendMessage 등 무엇이든 보내기',instruction)
+            self.assertNotIn('원본에 메시지를 보내는 일은 호스트만',instruction)
+            for role in ('당신은 사이드 액터입니다',
+                         '요청을 Work 큐에 할당',
+                         '진행 중인 항목이면 그 포크 세션에 바로 전달',
+                         '큐에 넣은 결과',
+                         '원본 스레드에 직접 보낼 수 있습니다',
+                         '"sent_via"',
+                         '메타데이터',
+                         '원문을 함께 전달'):
+                self.assertIn(role,instruction)
             self.assertIn('최종 답은 아래에 설명한 decision JSON 그대로여야 합니다',instruction)
             self.assertIn('{"understanding":"...","decision":{...},"expected_version":N}.',instruction)
             self.assertIn('target_message_id',instruction)
@@ -1224,9 +1235,13 @@ class SideModTests(unittest.TestCase):
         self.assertEqual('External reply route / Walkie preset (JSON)',menu_text(key))
         text=description({},key)
         self.assertIn('Walkie preset',text)
-        self.assertIn('The side model never sends',text)
+        # User 2026-11-25: the side actor may send a requested ACK or short
+        # answer itself; this route carries the host's result reply.
+        self.assertNotIn('The side model never sends',text)
+        self.assertIn('the side actor may also send a requested ACK',text)
         korean=description({'language':'ko'},key)
         self.assertIn('Walkie 프리셋',korean)
-        self.assertIn('사이드 모델은 전송하지 않습니다',korean)
+        self.assertNotIn('사이드 모델은 전송하지 않습니다',korean)
+        self.assertIn('사이드 액터도 요청받은 ACK',korean)
         for language in ('en','ko','ja','zh'):
             self.assertNotIn('MCP',menu_text(key,language))

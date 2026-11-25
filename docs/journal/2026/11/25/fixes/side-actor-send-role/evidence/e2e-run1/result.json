@@ -1,0 +1,582 @@
+{
+  "kind": "side actor role and send path, real load",
+  "claude_version": "2.1.332 (Claude Code)",
+  "mod_sha256": {
+    "register.js": "8f311af5b5d6dd584305743edd8e618d53fb68c062605af87572d842af01e44f",
+    "side-intake.js": "7946dd072eee56b607b057d6ae8c3f95b9b43ee14a3ee3410b7b4bcd3e1a0c49"
+  },
+  "python_sha256": {
+    "side_intake_settings.py": "a5d6423d9683b221fa9b9aff84081fe06521bbfa09dec783566db26f91958089",
+    "work_workflow_prompts.py": "bd0fa52fc88042b1ba325726ceb95f1597856c14c98aa85ab21d75bad7680f89",
+    "work_workflow_tools.py": "7630fd6db09af7c76f2c1db581ce5d4dd8fc97cb49273ea6fcc188f41f32afee"
+  },
+  "board": {
+    "goal": "n1",
+    "item": "n2",
+    "lease": "send50af3b2d1a79"
+  },
+  "steps": {
+    "mod_load_line": "hooks module ciel-work@inline loaded (worker, environment 1, tier user); events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,sess",
+    "session_start_settled_ms": 107.1,
+    "a_sent_s": 7.1,
+    "a_processed": true,
+    "a_main_notice": true,
+    "a_done_s": 10.1,
+    "b_sent_s": 18.1,
+    "b_processed": true,
+    "b_main_notice": true,
+    "b_done_s": 20.1
+  },
+  "kill": "SUCCESS: The process with PID 111808 (child process of PID 69832) has been terminated.",
+  "spawn_prompt_a": {
+    "session_mode": "fresh",
+    "instruction_head": "당신은 사이드 액터입니다. 메인이 Work를 계속하는 동안 외부 SSE 이벤트 한 건을 처리합니다.\n\n역할 (필수 규칙).\n1. 요청을 Work 큐에 할당합니다. 새 요청은 create, 기존 항목의 후속은 update, 순서와\n   긴급도는 prioritize로 decision에 적습니다. 호스트가 그대로 큐에 기록합니다.\n2. 진행 중인 항목이면 그 포크 세션에 바로 전달합니다. 그 항목에 update와 \"relay\": true를\n   넣으면 호스트가 실행 중인 포크에 즉시 보내고, 파킹된 포크는 재개를 시도해서 보냅니다.\n3. 큐에 넣은 결과로 원본 메시지에 반응합니다. 호스트가 understanding과 reply에 기록된\n   항목 번호, 우선순위, 큐 자리를 붙여 원본에 한 번 회신합니다.\n4. 메시지가 ACK, 확인, 짧은 답, 반응을 요구하면 Walkie 도구로\n   원본 스레드에 직접 보낼 수 있습니다.\n   보낸 도구 이름은 최종 JSON의 \"sent_via\" 배열에 적습니다\n   (예: [\"mcp__walkie__walkie_send_message\"]). 같은 내용을 두 번 보내지 마십시오.\n   사람이나 원본이 요구하지 않은 자동 수신 확인은 보내지 않고, 다른 에이전트의 ACK나\n   확인 글에 다시 ACK하지 않습니다. 최종 결과 회신은 3번대로 호스트가 보내므로 직접\n   보낸 글에 큐 결과를 미리 적지 마",
+    "metadata_in_original": true
+  },
+  "side_walkie_tools": {
+    "A": [
+      "mcp__walkie__walkie_read_messages",
+      "mcp__walkie__walkie_send_message"
+    ],
+    "B": [
+      "mcp__walkie__walkie_read_messages",
+      "mcp__walkie__walkie_send_message"
+    ]
+  },
+  "walkie_sends": [
+    {
+      "at": 1795632653.75,
+      "client_id": "5ae6cb6a-7fe2-4a95-87a2-232cdc87ce50",
+      "conversation_id": "7e347d29-9eb0-4a1e-aab6-0007650f65c7",
+      "reply_to": "9001",
+      "text": "ACK — 사이드 액터가 메시지를 받았습니다."
+    },
+    {
+      "at": 1795632654.16,
+      "client_id": "f6b2d77b-6779-4103-5d2c-e565f0c4dc32",
+      "conversation_id": "7e347d29-9eb0-4a1e-aab6-0007650f65c7",
+      "reply_to": "9001",
+      "text": "원본이 ACK와 결제 일정 변경의 메인 결정을 요청했다고 이해했습니다.\n\nACK를 남겼고 결제 일정 변경 결정은 메인에게 넘겼습니다.\n\n큐에 등록하지 않았습니다."
+    }
+  ],
+  "receipt_a": {
+    "action": "answer",
+    "ask_main": true,
+    "reported_sends": [
+      "mcp__walkie__walkie_send_message"
+    ],
+    "delivery": "submitted"
+  },
+  "receipt_b": {
+    "action": "update",
+    "item_id": "n2",
+    "relay": {
+      "item_id": "n2",
+      "fork_responds": true
+    },
+    "no_reply": true,
+    "delivery": "not_applicable"
+  },
+  "notice_a": "Ciel side asks main (event 841b29157747): 원본이 요구한 ACK를 직접 보냄; 결제 일정 변경은 메인 결정이 필요해 넘김 — ACK를 남겼고 결제 일정 변경 결정은 메인에게 넘겼습니다.\nOriginal message:\nSIDE-SEND-A 이 메시지를 받으면 ACK를 남겨 주세요. 결제 일정 변경은 메인이 결정해야 합니다.\n[Ciel host append ref f8fb1ce4e629f870]\n</system-reminder>\n<system-reminder>\nAs you answer the user's questions, you can use the following context:\n# gitStatus\nThis is the git status at the start of the conversation. Note that this status is a snapshot in time, and will not update during the conversation.\n\nCurrent branch: master\n\nMain branch (you will usually use this for PRs): main\n\nGit user: e2e\n\nStatus:\n(clean)\n\nRecent commits:\n1f92505 base\n\nClaude Code attached this context automatically; it isn't part of the user's message. It describes the user's own account and workspace, so they don't need it reported back.\n</system-reminder>\n<system-reminder>\nAttribution for git commits and pull requests you create from here on (this replaces Claude Code's own earlier attribution guidance, such as a previous copy of this reminder; the user's own instructions about these lines, such as a CLAUDE.md or memory rule, take precedence over this reminder, but do not add attribution lines this reminder leaves out):\n- End git commit messages with:\nCo-Authored-By: Claude Code <noreply@anthropic.com>\n- End pull request descriptions with:\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n</system-reminder>\n\nThe ciel-work plugin sent a message:\nCiel side wake 841b29157747: a host message ",
+  "notice_b": "Ciel side relay for Work item n2 (PR #77 CI follow-up), event 65e3a7c6bc47: OneCiel/demo PR #77 run 555 head abc1234 CI 실패; 담당 포크(파킹)에 전달\nOriginal message:\nSIDE-CI-B GitHub · CI 실패 — OneCiel/demo PR #77 run 555 head abc1234 conclusion failure\nSource: {\"conversation_id\":\"41d7d975-678d-405e-ae53-2d5d1be87855\",\"root_id\":\"9050\",\"target_message_id\":\"9101\"}\nDirect handoff: parked worker aaa5dabd7b0db4d15 (lease send50af3b2d1a79, item n2) was not resumed automatically: it is no longer a parked worker of this session; side skipped outbound reply. Check delivery before responding.\n[Ciel host append ref 99fcbc6e23cecee5]\n</system-reminder>\n\nThe ciel-work plugin sent a message:\nCiel side wake 65e3a7c6bc47: a host message beginning \"Ciel side relay for Work item\" was added to this conversation while you were idle. Durable source: work_side_claim main_wakes event ref 65e3a7c6bc47. Read it there and decide whether it matters to your current work. This wake holds no event data, needs no acknowledgment and grants no approval. Wake ref 7ffbdca04196.\n\nThis is how Claude Code surfaces a prompt a plugin submits between turns — it starts this turn in the user's place. Address the message above.",
+  "reacquire_calls": [],
+  "mcp_calls": [
+    {
+      "after_s": 2.2,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 2.3,
+      "name": "work_parallel_event",
+      "error": false,
+      "event": "gate_presence"
+    },
+    {
+      "after_s": 2.6,
+      "name": "work_parallel_event",
+      "error": true,
+      "event": "reserve_next",
+      "refusal": "no eligible candidate"
+    },
+    {
+      "after_s": 3.7,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 3.9,
+      "name": "work_parallel_event",
+      "error": true,
+      "event": "reserve_next",
+      "refusal": "no eligible candidate"
+    },
+    {
+      "after_s": 4.3,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 4.3,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 5.8,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 6.4,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 8.5,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 8.5,
+      "name": "work_side_ack",
+      "error": false
+    },
+    {
+      "after_s": 8.6,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 8.6,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 8.7,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 8.8,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 8.9,
+      "name": "work_parallel_event",
+      "error": false,
+      "event": "native_observation"
+    },
+    {
+      "after_s": 9.1,
+      "name": "work_live_settings",
+      "error": false
+    },
+    {
+      "after_s": 9.3,
+      "name": "work_side_understanding",
+      "error": false
+    },
+    {
+      "after_s": 9.3,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 9.3,
+      "name": "work_side_resolve",
+      "error": false,
+      "result": {
+        "action": "answer",
+        "item_id": null,
+        "relay": null,
+        "ask_main": true,
+        "no_reply": null,
+        "reported_sends": [
+          "mcp__walkie__walkie_send_message"
+        ]
+      }
+    },
+    {
+      "after_s": 9.4,
+      "name": "work_side_wake",
+      "error": false
+    },
+    {
+      "after_s": 9.4,
+      "name": "work_side_reply",
+      "error": false
+    },
+    {
+      "after_s": 9.4,
+      "name": "work_side_wake",
+      "error": false
+    },
+    {
+      "after_s": 9.4,
+      "name": "work_parallel_event",
+      "error": false,
+      "event": "native_observation"
+    },
+    {
+      "after_s": 9.5,
+      "name": "work_side_reply",
+      "error": false
+    },
+    {
+      "after_s": 9.5,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 9.6,
+      "name": "work_parallel_event",
+      "error": true,
+      "event": "reserve_next",
+      "refusal": "no eligible candidate"
+    },
+    {
+      "after_s": 9.7,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 9.8,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 9.8,
+      "name": "work_parallel_event",
+      "error": true,
+      "event": "reserve_next",
+      "refusal": "no eligible candidate"
+    },
+    {
+      "after_s": 9.9,
+      "name": "work_side_texts",
+      "error": false
+    },
+    {
+      "after_s": 9.9,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 10.0,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 10.0,
+      "name": "work_side_gate_check",
+      "error": false
+    },
+    {
+      "after_s": 10.0,
+      "name": "work_proposal_status",
+      "error": false
+    },
+    {
+      "after_s": 10.0,
+      "name": "work_proposal_status",
+      "error": false
+    },
+    {
+      "after_s": 10.1,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 10.2,
+      "name": "work_parallel_event",
+      "error": true,
+      "event": "reserve_next",
+      "refusal": "no eligible candidate"
+    },
+    {
+      "after_s": 10.6,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 10.6,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 10.9,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 11.0,
+      "name": "work_parallel_event",
+      "error": true,
+      "event": "reserve_next",
+      "refusal": "no eligible candidate"
+    },
+    {
+      "after_s": 12.6,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 12.9,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 14.7,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 16.7,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 17.0,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 17.7,
+      "name": "work_parallel_event",
+      "error": false,
+      "event": "native_observation"
+    },
+    {
+      "after_s": 18.8,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 18.8,
+      "name": "work_side_ack",
+      "error": false
+    },
+    {
+      "after_s": 18.9,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 18.9,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 19.2,
+      "name": "work_side_understanding",
+      "error": false
+    },
+    {
+      "after_s": 19.3,
+      "name": "work_side_resolve",
+      "error": false,
+      "result": {
+        "action": "update",
+        "item_id": "n2",
+        "relay": {
+          "item_id": "n2",
+          "fork_responds": true
+        },
+        "ask_main": null,
+        "no_reply": true,
+        "reported_sends": []
+      }
+    },
+    {
+      "after_s": 19.3,
+      "name": "work_side_reply",
+      "error": false
+    },
+    {
+      "after_s": 19.4,
+      "name": "work_parallel_event",
+      "error": false,
+      "event": "native_observation"
+    },
+    {
+      "after_s": 19.4,
+      "name": "work_side_wake",
+      "error": false
+    },
+    {
+      "after_s": 19.5,
+      "name": "work_side_wake",
+      "error": false
+    },
+    {
+      "after_s": 19.5,
+      "name": "work_parallel_event",
+      "error": true,
+      "event": "reserve_next",
+      "refusal": "no eligible candidate"
+    },
+    {
+      "after_s": 19.6,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 19.6,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 19.7,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 19.8,
+      "name": "work_parallel_event",
+      "error": true,
+      "event": "reserve_next",
+      "refusal": "no eligible candidate"
+    },
+    {
+      "after_s": 19.9,
+      "name": "work_side_texts",
+      "error": false
+    },
+    {
+      "after_s": 19.9,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 19.9,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 19.9,
+      "name": "work_side_gate_check",
+      "error": false
+    },
+    {
+      "after_s": 19.9,
+      "name": "work_proposal_status",
+      "error": false
+    },
+    {
+      "after_s": 19.9,
+      "name": "work_proposal_status",
+      "error": false
+    },
+    {
+      "after_s": 19.9,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 20.8,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 20.9,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 20.9,
+      "name": "work_side_status",
+      "error": false
+    },
+    {
+      "after_s": 21.0,
+      "name": "work_parallel_event",
+      "error": true,
+      "event": "reserve_next",
+      "refusal": "no eligible candidate"
+    },
+    {
+      "after_s": 22.9,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 22.9,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 25.0,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 27.0,
+      "name": "work_status",
+      "error": false
+    },
+    {
+      "after_s": 27.0,
+      "name": "work_side_claim",
+      "error": false
+    },
+    {
+      "after_s": 29.0,
+      "name": "work_side_claim",
+      "error": false
+    }
+  ],
+  "model_requests": [
+    {
+      "after_s": 8.9,
+      "agent": "ad3d3e1daffe7bd4",
+      "label": "A",
+      "tool_result": false
+    },
+    {
+      "after_s": 9.1,
+      "agent": "ad3d3e1daffe7bd4",
+      "label": "A",
+      "tool_result": true
+    },
+    {
+      "after_s": 9.7,
+      "agent": "",
+      "label": "A",
+      "tool_result": false
+    },
+    {
+      "after_s": 19.1,
+      "agent": "a855ffa23a52c5b9",
+      "label": "B",
+      "tool_result": false
+    },
+    {
+      "after_s": 19.7,
+      "agent": "",
+      "label": "A",
+      "tool_result": false
+    }
+  ],
+  "checks": {
+    "mod_loaded": true,
+    "prompt_states_side_role": true,
+    "prompt_has_no_send_ban": true,
+    "prompt_has_source_instruction_rule": true,
+    "prompt_carries_metadata_instruction": true,
+    "side_actor_has_walkie_send_tool": true,
+    "actor_sent_one_ack": true,
+    "event_a_processed": true,
+    "receipt_records_reported_send": true,
+    "main_read_ask_with_original": true,
+    "event_b_processed": true,
+    "b_relay_direct": true,
+    "main_read_b_handoff_with_original_and_reason": true
+  },
+  "passed": true,
+  "profile_changed": [
+    "~/.claude.json"
+  ],
+  "profile_unchanged": true,
+  "scratch_removed": true
+}

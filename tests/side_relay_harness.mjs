@@ -11,10 +11,11 @@ const FORWARD_TEXT = process.argv[3] || ''
 let busy = !['relay-idle','forward-idle','complaint-idle','relay-parked-complaint'].includes(scenario)
 sideMainBusy(() => busy)
 // Stage 3: register.js resumes a parked worker on its own lease first.
-const resumeCalls = []
-if (['relay-parked-resumed','relay-parked-waiting','relay-parked-complaint'].includes(scenario))
-  sideParkedResume(async ids => { resumeCalls.push(ids)
-    return new Map(ids.map(id => [id, scenario === 'relay-parked-resumed' ? true : 'its wait is still recorded on the board'])) })
+const resumeCalls = [], resumeTexts = []
+if (['relay-parked-resumed','relay-parked-waiting','relay-parked-complaint','relay-direct-parked'].includes(scenario))
+  sideParkedResume(async (ids,texts) => { resumeCalls.push(ids)
+    if (texts instanceof Map) resumeTexts.push(...texts.values())
+    return new Map(ids.map(id => [id, ['relay-parked-resumed','relay-direct-parked'].includes(scenario) ? true : 'its wait is still recorded on the board'])) })
 const sent = [], appended = [], submitted = [], wakes = [], logs = [], resolved = []
 let noticeClaimed = false
 const leases = {
@@ -22,6 +23,9 @@ const leases = {
                     L9:{id:'L9',item_id:'n9',host_id:'agent-other',state:'running',slot:true}},
   'relay-direct-running': {L1:{id:'L1',item_id:'n3',host_id:'agent-run',state:'running',slot:true}},
   'relay-direct-fallback': {L1:{id:'L1',item_id:'n2',host_id:'agent-gone',state:'running',slot:true}},
+  // Andy 2026-11-25 (n2834, PR #134): the owning fork parked on its CI wait;
+  // a direct handoff found no running fork and only told main.
+  'relay-direct-parked': {L2:{id:'L2',item_id:'n3',host_id:'agent-park',state:'waiting_input',slot:false}},
   'relay-parked': {L2:{id:'L2',item_id:'n2',host_id:'agent-park',state:'waiting_input',slot:false}},
   'relay-parked-resumed': {L2:{id:'L2',item_id:'n2',host_id:'agent-park',state:'waiting_input',slot:false}},
   'relay-parked-waiting': {L2:{id:'L2',item_id:'n2',host_id:'agent-park',state:'waiting_input',slot:false}},
@@ -68,7 +72,8 @@ const $ = {
           relay:args.decision.relay ? {item_id:'n2',...(direct ? {fork_responds:true} : {})} : undefined,
           ...(direct ? {no_reply:true} : {}),
           handoff:'not_required',
-          ...(['complaint-idle','relay-parked-complaint'].includes(scenario) ? {ask_main:true,complaint:true} : {})},
+          ...(['complaint-idle','relay-parked-complaint','ask-main-original'].includes(scenario) ? {ask_main:true} : {}),
+          ...(['complaint-idle','relay-parked-complaint'].includes(scenario) ? {complaint:true} : {})},
         ...(['complaint-idle','relay-parked-complaint'].includes(scenario) ? {main_notice:'Ciel side asks main (complaint · n2 · event eeeeeeeeeeee): Delimiter is still wrong'} : {})}
     }
     if (name === 'work_side_reply') value = {receipt:{receipt_id:args.receipt_id,stage:'processed'},arguments:null}
@@ -92,13 +97,15 @@ await pollSide($,'claude:parent')
 const isDirect = scenario.startsWith('relay-direct-')
 if (scenario !== 'forward-idle')
   await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({understanding:'understood in my own words',decision:{action:'update',kind:'request',item_id:'n2',
-    summary:'Delimiter is a semicolon',reply:'forwarded',note:'CSV delimiter must be ;',relay:!['no-relay','complaint-idle'].includes(scenario),
+    summary:'Delimiter is a semicolon',reply:'forwarded',note:'CSV delimiter must be ;',relay:!['no-relay','complaint-idle','ask-main-original'].includes(scenario),
     ...(isDirect ? {no_reply:true} : {}),
+    ...(scenario === 'ask-main-original' ? {ask_main:true} : {}),
     ...(['complaint-idle','relay-parked-complaint'].includes(scenario) ? {complaint:true} : {})},expected_version:4})})
 // The notice and the idle wake run in hooks the harness does not await. A
 // fixed 20 ms wait lost the append on a loaded machine (2 of 5 runs on 3d42d1d).
 const idle = !busy
-const settled = () => (scenario === 'no-relay' || scenario === 'relay-direct-running') ? false : appended.length > 0 && (!idle || submitted.length > 0)
+const quiet = ['no-relay','relay-direct-running','relay-direct-parked'].includes(scenario)
+const settled = () => quiet ? false : appended.length > 0 && (!idle || submitted.length > 0)
 for (let i = 0; i < 150 && !settled(); i++) await new Promise(resolve => setTimeout(resolve, 20))
-await new Promise(resolve => setTimeout(resolve, (scenario === 'no-relay' || scenario === 'relay-direct-running') ? 200 : 20))
-console.log(JSON.stringify({sent,appended,submitted,wakes,logs,resolved,resumeCalls,spawnedPrompt}))
+await new Promise(resolve => setTimeout(resolve, quiet ? 200 : 20))
+console.log(JSON.stringify({sent,appended,submitted,wakes,logs,resolved,resumeCalls,resumeTexts,spawnedPrompt}))
