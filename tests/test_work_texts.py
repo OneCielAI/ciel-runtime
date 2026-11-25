@@ -52,6 +52,29 @@ class WorkTextsTests(unittest.TestCase):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, text)
 
+    def test_external_ci_wait_prompt_connects_the_worker_and_sse_actor(self):
+        from ciel_runtime_support.work_workflow_tools import side_instruction
+
+        worker = work_texts.TEXTS['mod_fork_question_wait']
+        for phrase in ('GitHub PR', 'head SHA', 'run ID', '외부 결과를 기다리기 전에', '할당된 리프',
+                       '실패·취소', 'read-only'):
+            self.assertIn(phrase, worker)
+        self.assertIn('side_external_wait_routing', prompts.DEFAULTS)
+        side = prompts.DEFAULTS['side_external_wait_routing']
+        for phrase in ('head SHA', 'run ID', 'release_waits', 'relay', 'ask_main', 'work_status', '실행 승인'):
+            self.assertIn(phrase, side)
+        gate = prompts.DEFAULTS['gate_actor']
+        for phrase in ('head SHA', 'run ID', 'release_hint.condition'):
+            self.assertIn(phrase, gate)
+        with tempfile.TemporaryDirectory() as raw:
+            state = Path(raw)
+            combined = side_instruction({}, state, '')
+            self.assertIn('외부 실행 결과 전달 (필수 규칙)', combined)
+            self.assertIn('head SHA', combined)
+            prompts.set_prompt(state, 'side_external_wait_routing', 'custom ci routing rule',
+                               prompts.fingerprint(side))
+            self.assertIn('custom ci routing rule', side_instruction({}, state, ''))
+
     def test_no_bundled_skill_takes_a_registered_command_name(self):
         # Claude Code 2.1.330 real load (2026-11-23): a skill named work-mode made
         # $.command.register('/work-mode') throw "it is the plugin's
@@ -86,6 +109,7 @@ class WorkTextsTests(unittest.TestCase):
                 "Do not poll `work_status`, `work_parallel_status`",
                 "run the existing read-only diagnostic",
                 "put deterministic checks in the host",
+                "Before waiting on external results (GitHub PR, CI/CD, deployment)",
         ):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, skill)

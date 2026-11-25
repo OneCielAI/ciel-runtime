@@ -78,6 +78,11 @@ detail={question, blocking_todos:[<assigned leaf item_id>], decision_needed,
   shown above. Top-level waiting fields are not recorded.
 - Never pass `item_id`, `answer`, `approved`, or an approval/execution field.
   A wait is never an answer, approval, or execution authorization.
+- Before waiting on external results (GitHub PR, CI/CD, deployment), record
+  the verified repository, PR number, head SHA, workflow/check, and run ID /
+  attempt (when known) in `waiting_on` and `release_hint` on the assigned leaf
+  so the SSE side actor can route the arriving result to the fork or main
+  instead of polling with a running slot.
 
 The board records the exact assigned leaf's wait first. The question receipt
 then records the same paired values, and only after both writes succeed is the

@@ -144,7 +144,15 @@ TEXTS: dict[str, str] = {
         "Side validation requires blocking_todos to have exactly one item: the assigned leaf ITEM_ID. waiting_on is the exact external decision state (one normalized line, 1..120 chars); release_hint.lookup is the read-only source/state/evidence the side verifies (condition 1..600, lookup 1..600, optional prompt 1..400). "
         "Waiting must be recorded inside detail against the assigned leaf ITEM_ID only. Never place waiting_on or release_hint at top level; never pass item_id, answer, approved, or any approval/execution field. waiting_on/release_hint are never an answer, approval, or execution authorization; a main-only question may omit the pair. "
         "question_wait requires waiting_on and a structured release_hint before parking whenever an external wait is requested. A refusal of a pairless/malformed wait, wrong/extra/duplicate blocking_todos, an existing wait, a non-leaf, missing assignment information, or a board conflict writes no board state, receipt, or lease/state transition, so the same lease remains running/slotted and you must correct/retry it. Only start a wait once per lease. On success the original lease is parked as waiting_input and side/gate checking sees the recorded gate; lookup is read-only. Release is accepted only after the original answer/lookup is verified by side/gate and resume resumes that original lease/fork. "
-        "Detail validation may reject fields (detail needs exactly blocking_todos, decision_needed, question (optional: release_hint, waiting_on)). Parser order is question, blocking_todos, decision_needed, waiting_on, release_hint{condition, lookup, prompt?}. The parser validates required fields before optional fields; write waiting_on and release_hint last in detail."),
+        "Detail validation may reject fields (detail needs exactly blocking_todos, decision_needed, question (optional: release_hint, waiting_on)). Parser order is question, blocking_todos, decision_needed, waiting_on, release_hint{condition, lookup, prompt?}. The parser validates required fields before optional fields; write waiting_on and release_hint last in detail. "
+        "GitHub PR을 열거나 갱신하고 CI/CD·배포 등 외부 결과를 기다리기 전에, 할당된 리프 Work 아이템에 이 보고로 대기 신호를 반드시 기록하십시오. "
+        "전사·저널·로컬 백그라운드 작업에만 남기거나 결과를 폴링하며 슬롯을 점유하지 마십시오. 먼저 확인한 저장소, PR 번호, head SHA, 워크플로/체크, "
+        "run ID·attempt(확인된 경우)를 기록하십시오. ID가 없으면 만들지 말고 저장소·PR·SHA·워크플로로 실행을 찾는 read-only 조회 방법을 적으십시오. "
+        "waiting_on에는 짧은 신호 이름, release_hint.condition에는 실제로 기다리는 결론(성공만 또는 실패·취소를 포함한 종료), "
+        "release_hint.lookup에는 그 결론과 대상 일치를 검증할 URL 또는 조회 방법을 넣으십시오. 예: waiting_on='org/repo PR #42 CI 결과', "
+        "condition='기록한 head SHA의 CI run 123 attempt 1 완료(결론 포함)', lookup='해당 run URL에서 head SHA, attempt, status, conclusion을 확인'. "
+        "보고 성공을 확인한 다음 턴을 끝내십시오. 거부되면 정정하고, 기록할 수 없으면 정확한 대상과 조건을 메인에 인계하십시오. "
+        "알림을 받아 재개하면 같은 실행의 최종 상태를 확인한 뒤 승인된 범위에서 다음 단계로 진행하십시오."),
     # Main is told at its turn end that fork results await its review.
     'mod_review_reminder': (
         "Ciel Work: 포크 결과 {count}건이 메인의 검수를 기다립니다(아이템 {items}). 검수는 메인의 일입니다. 각 결과의 증거를 직접 열어 보고 {c"

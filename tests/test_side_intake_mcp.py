@@ -836,6 +836,11 @@ class SideMcpTests(unittest.TestCase):
             self.config['work_side_intake']['context_mode']=mode
             self.inbox.receive('Question '+mode,'profile:'+mode)
             value=json.loads(self.invoke('work_side_claim',{'owner':mode})['text'])
+            if value.get('paged'):
+                meta=value['paged']
+                chunks=[json.loads(self.invoke('work_host_page',{'id':meta['id'],'part':part})['text'])['text']
+                        for part in range(meta['parts'])]
+                value=json.loads(''.join(chunks))
             board=value['claim']['workload']
             self.assertEqual(expected['version'],board['version'])
             self.assertEqual(25,len(board['nodes']))

@@ -147,9 +147,10 @@ def side_instruction(config: Mapping[str, Any], state_dir: Path, instruction: An
         parts.extend(_workflow_prompt(state_dir, name)[0] for name in ("side_intake", "side_answer", "side_approval"))
         parts.append('승인 워크플로우가 켜져 있습니다: 메인만 답할 수 있는 간단한 질문은 action answer에 '
                      '"ask_main": true를 넣습니다. 호스트가 바로 메인에게 알리고, 메인의 답이 스레드로 돌아갑니다.')
-    # Complaint escalation, P0 inheritance, and running-fork direct relay apply with or without the workflow.
+    # Complaint escalation, P0 inheritance, running-fork direct relay, and external wait routing apply with or without the workflow.
     parts.append(_workflow_prompt(state_dir, "side_complaint_and_urgency")[0])
     parts.append(_workflow_prompt(state_dir, "side_running_fork_relay")[0])
+    parts.append(_workflow_prompt(state_dir, "side_external_wait_routing")[0])
     return "\n".join(part for part in parts if part)
 
 
