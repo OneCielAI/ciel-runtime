@@ -332,5 +332,22 @@ class CorrectiveTurnTests(unittest.TestCase):
         self.assertEqual(([None, None], [], 1), (before['sentRefs'], before['failures'], before['resolves']))
 
 
+class RefsShapeTests(unittest.TestCase):
+    def test_positive_integer_refs_are_kept_as_their_exact_decimal_text(self):
+        # KOBE 2026-11-25 (f5ae6c68b340): a side actor listed Walkie message ids
+        # as JSON numbers; an older loaded mod passes them through unchanged.
+        decision = {'action': 'update', 'kind': 'request', 'item_id': 'n29', 'summary': 's', 'reply': 'r',
+                    'refs': [138846, '160846', 123456789012345678]}
+        validate(decision)
+        self.assertEqual(['138846', '160846', '123456789012345678'], decision['refs'])
+
+    def test_other_non_string_refs_are_still_refused(self):
+        for bad in ([0], [-5], [True], [1.5], [{'id': '1'}], [None]):
+            with self.subTest(bad=bad):
+                with self.assertRaisesRegex(tree.WorkPlanError, 'invalid side decision refs'):
+                    validate({'action': 'update', 'kind': 'request', 'item_id': 'n1', 'summary': 's',
+                              'reply': 'r', 'refs': bad})
+
+
 if __name__ == '__main__':
     unittest.main()

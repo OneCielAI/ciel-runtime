@@ -46,6 +46,13 @@ import {startSide,pollSide,completeSide,decisionOf} from './side-intake.js'
   const missingUnderstanding = decisionOf('{"decision":{"action":"answer","kind":"status","summary":"게이트 재확인: 변동 없음","reply":"변동 없음","no_reply":true},"expected_version":0}')
   const missingNoReply = decisionOf('{"understanding":"확인","decision":{"action":"answer","kind":"status","summary":"중복 알림 확인, 기록만 남김","no_reply":true},"expected_version":0}')
   const escapedDecisionInSummary = decisionOf('Here: {"understanding":"요약","decision":{"action":"answer","kind":"status","summary":"about \\"decision\\" key","reply":"ok"},"expected_version":7}')
+  // KOBE 2026-11-25 (f5ae6c68b340): the corrected answer listed a Walkie
+  // conversation UUID as a bare JSON token and message ids as numbers in refs.
+  let bareUuidRefs = null
+  try {
+    bareUuidRefs = decisionOf('\n\n{"understanding":"게이트 10건 판정","decision":{"action":"update","kind":"request","item_id":"n29","summary":"n29 해제: run 45571733507 성공","reply":"n29 해제","refs":[138846,160846,4c846761-5ce7-4f79-b65f-db09b5605413,226],"release_waits":[{"id":"n29","waiting_on":"run 45571733507 attempt 1 result"}]},"expected_version":0}')
+  } catch (err) { bareUuidRefs = {error:String(err?.message || err)} }
+  const uuidInsideText = decisionOf('{"understanding":"u","decision":{"action":"answer","kind":"status","summary":"대화 [4c846761-5ce7-4f79-b65f-db09b5605413] 확인","reply":"ok"},"expected_version":1}')
   const noDecisionErrors = []
   for (const sample of [
     '{"analysis_focus":"Ciel host gate re-check","answer":"게이트 6건 판정","understanding":"fresh"}',
@@ -136,7 +143,7 @@ import {startSide,pollSide,completeSide,decisionOf} from './side-intake.js'
   console.log(JSON.stringify({
     freshConcurrentSpawns, freshUrgentWhileBusySpawns,
     missingBrace, missingBraceWithExpected, missingUnderstanding, missingNoReply,
-    escapedDecisionInSummary, noDecisionErrors,
+    escapedDecisionInSummary, noDecisionErrors, bareUuidRefs, uuidInsideText,
     priorityCorrection, queuePositionCorrection, missingTargetCorrection,
     bgFollowup:{resolves:bgResolves,failures:bgFailures},
   }))

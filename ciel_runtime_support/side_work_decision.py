@@ -331,6 +331,10 @@ def validate(decision, *, source_has_ids=False, strict_releases=False):
         # sources carry ids that are shaped differently and longer than the node
         # ref limit. Those are dropped, exactly like accumulated refs, so the
         # request itself is never lost for one oversized id.
+        # KOBE 2026-11-25 (f5ae6c68b340): message ids sent as JSON numbers keep
+        # their exact decimal text; any other non-string ref is still refused.
+        if isinstance(refs, list):
+            refs = [str(row) if type(row) is int and row > 0 else row for row in refs]
         if not isinstance(refs, list) or not all(isinstance(row, str) for row in refs):
             raise tree.WorkPlanError('invalid side decision refs')
         decision['refs'] = tree._refs(refs, strict=False)

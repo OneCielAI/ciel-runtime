@@ -2627,11 +2627,51 @@ const DECISION_FIELDS = new Set(['action','kind','item_id','summary','reply','no
 // The side turn ends with its decision, but models often wrap it in prose or a
 // ```json fence, or drop the final outer '}' of {"understanding":...,"decision":{...}}.
 // Take the last parseable object that carries `decision`.
+// KOBE 2026-11-25 (f5ae6c68b340): a corrected answer listed a conversation UUID
+// as a bare token and message ids as JSON numbers inside "refs". Each bare
+// element of a refs array becomes a string with its exact text (a number keeps
+// every digit; JSON.parse would round an 18-digit id). Strings stay untouched.
+const BARE_REF = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/
+function quoteBareRefs(text) {
+  let out = '', from = 0
+  for (const match of text.matchAll(/(?<!\\)"refs"\s*:\s*\[/g)) {
+    const open = match.index + match[0].length
+    if (open <= from) continue
+    const items = []
+    let item = '', inString = false, escaped = false, end = -1
+    for (let i = open; i < text.length; i++) {
+      const ch = text[i]
+      if (inString) {
+        item += ch
+        if (escaped) escaped = false
+        else if (ch === '\\') escaped = true
+        else if (ch === '"') inString = false
+        continue
+      }
+      if (ch === '"') { inString = true; item += ch; continue }
+      if (ch === '[' || ch === '{') { end = -2; break }
+      if (ch === ',') { items.push(item); item = ''; continue }
+      if (ch === ']') { items.push(item); end = i; break }
+      item += ch
+    }
+    if (end < 0) continue
+    const fixed = items.map(raw => {
+      const value = raw.trim()
+      return value && !value.startsWith('"') && BARE_REF.test(value)
+        && !['true','false','null'].includes(value) ? JSON.stringify(value) : raw.trim()
+    })
+    out += text.slice(from, open) + (items.length === 1 && !items[0].trim() ? '' : fixed.join(','))
+    from = end
+  }
+  return from ? out + text.slice(from) : text
+}
 function parseDecisionCandidate(candidate) {
-  const attempts = [candidate]
+  const quoted = quoteBareRefs(candidate)
+  const attempts = quoted === candidate ? [candidate] : [quoted, candidate]
   // Celly & KOBE 2026-11-25: 9 of 11 live invalid_answer failures had a complete
   // {"understanding":"...","decision":{...}} missing only the final outer '}'.
   if (candidate.startsWith('{') && candidate.endsWith('}') && candidate.includes('"decision"')) {
+    if (quoted !== candidate) attempts.push(quoted + '}')
     attempts.push(candidate + '}')
   }
   for (const raw of attempts) {

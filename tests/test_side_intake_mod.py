@@ -134,6 +134,15 @@ class SideModTests(unittest.TestCase):
         # infinite-looping in lastIndexOf(..., -1) and crashing Claude Code's hooks worker
         # (Prody 03:30Z/07:50Z, KOBE 01:00Z/03:09Z).
         self.assertEqual(['side answer carries no decision JSON'] * 3, row['noDecisionErrors'])
+        # KOBE f5ae6c68b340: a bare UUID token and numeric ids in refs are repaired
+        # into string refs instead of failing the corrected answer.
+        self.assertEqual(['138846', '160846', '4c846761-5ce7-4f79-b65f-db09b5605413', '226'],
+                         row['bareUuidRefs']['decision']['refs'])
+        self.assertEqual([{'id': 'n29', 'waiting_on': 'run 45571733507 attempt 1 result'}],
+                         row['bareUuidRefs']['decision']['release_waits'])
+        # A UUID inside a string value is left untouched.
+        self.assertEqual('대화 [4c846761-5ce7-4f79-b65f-db09b5605413] 확인',
+                         row['uuidInsideText']['decision']['summary'])
         # Invalid priority, queue_position, and missing target item_id are correctable.
         self.assertEqual(1, row['priorityCorrection']['sends'])
         self.assertEqual(1, row['priorityCorrection']['resolves'])
