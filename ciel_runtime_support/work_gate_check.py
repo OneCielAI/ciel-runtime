@@ -520,7 +520,7 @@ def tick_event(config: Mapping[str, Any], rows: list[dict[str, Any]], current: s
     parked_ids = [row["lease_id"] for row in parked or []]
     stalled_ids = [row["lease_id"] for row in stalled or []]
     included_ids = set(fit)
-    pins = {row['id']: wait_pin(row['waiting_on'], row.get('release_hint'), row['blocked'])
+    pins = {row['id']: wait_pin(row['waiting_on'], row.get('release_hint'), bool(row.get('blocked')))
             for row in rows if row['id'] in included_ids}
     event = {"event_key": f"{EVENT_PREFIX}{current}:{slot}:1:{body}", "text": text, "gates": fit, "gate_pins": pins,
              "parked": parked_ids, "stalled": stalled_ids}

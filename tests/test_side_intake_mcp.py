@@ -897,6 +897,57 @@ class SideMcpTests(unittest.TestCase):
         self.assertTrue(result['error'])
         self.assertEqual(1,len(self.inbox.pending()))
 
+    def test_understanding_rejects_missing_target_item_before_saving_proposal(self):
+        # KOBE 2026-11-25 (b41a2e1bd98f): side-fresh returned action=update with
+        # Walkie message id "153865" as item_id. work_side_understanding saved the
+        # proposal without checking that item_id exists on the Work board, locking
+        # actor.understood=true so work_side_resolve immediately quarantined it
+        # without a correction turn.
+        from ciel_runtime_support import work_plan_tree as tree
+        store = session_work_plan_store(self.root, self.identity)
+        _, node_id = store.transaction(lambda doc: tree.add_node(doc, None, 'existing goal', priority='P1'))
+        event = json.loads(self.invoke('work_side_claim', {'owner': 'fresh'})['text'])['claim']
+        host = {'token': 'x' * 40, 'receipt_id': event['receipt_id'], 'generation': event['generation']}
+        bad = self.invoke('work_side_understanding', {
+            'state': 'prepare',
+            'understanding': '게이트 10건 유지',
+            'decision': {'action': 'update', 'kind': 'request', 'item_id': '153865',
+                         'summary': '게이트 유지', 'reply': '유지'},
+            'expected_version': store.read()['version'],
+        }, host)
+        self.assertTrue(bad['error'], bad)
+        self.assertIn('side target Work item missing', bad['text'])
+        # Proposal must not be persisted so the actor can send a corrected answer.
+        self.assertIsNone(self.inbox._load(event['receipt_id']).get('proposal'))
+        # Corrected answer on the same claim succeeds through understanding + resolve.
+        good = self.invoke('work_side_understanding', {
+            'state': 'prepare',
+            'understanding': '게이트 10건 유지',
+            'decision': {'action': 'update', 'kind': 'request', 'item_id': node_id,
+                         'summary': '게이트 유지', 'reply': '유지'},
+            'expected_version': store.read()['version'],
+        }, host)
+        self.assertFalse(good['error'], good)
+        resolved = self.invoke('work_side_resolve', {
+            'decision': {'action': 'update', 'kind': 'request', 'item_id': node_id,
+                         'summary': '게이트 유지', 'reply': '유지'},
+            'expected_version': store.read()['version'],
+        }, host)
+        self.assertFalse(resolved['error'], resolved)
+
+    def test_understanding_allows_complaint_update_on_missing_target_item(self):
+        # A complaint update targeting a missing/done item converts to create on resolve.
+        event = json.loads(self.invoke('work_side_claim', {'owner': 'fresh'})['text'])['claim']
+        host = {'token': 'x' * 40, 'receipt_id': event['receipt_id'], 'generation': event['generation']}
+        ok = self.invoke('work_side_understanding', {
+            'state': 'prepare',
+            'understanding': '완료 항목 재불만 접수',
+            'decision': {'action': 'update', 'kind': 'request', 'item_id': 'n999',
+                         'complaint': True, 'summary': '불만 접수', 'reply': '새 항목으로 등록'},
+            'expected_version': 0,
+        }, host)
+        self.assertFalse(ok['error'], ok)
+
 
 class SideReviewDeliveryStatusTests(unittest.TestCase):
     """Main's Work status says whether the person actually received each side answer."""

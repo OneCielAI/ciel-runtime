@@ -39,13 +39,24 @@ import {startSide,pollSide,completeSide,decisionOf} from './side-intake.js'
   await pollSide($,'claude:p-fresh-conc')
   const freshUrgentWhileBusySpawns = spawns.length
 
-  // 2. decisionOf repairs for live Celly/KOBE shapes
+  // 2. decisionOf repairs for live Celly/KOBE shapes + non-hanging rejection for
+  // Prody/KOBE leading-brace answers without a decision object (hooks-worker crash root cause).
   const missingBrace = decisionOf('{"understanding":"요약","decision":{"action":"answer","kind":"status","summary":"게이트 유지","reply":"게이트 유지"}')
   const missingBraceWithExpected = decisionOf('{"understanding":"요약","decision":{"action":"answer","kind":"status","summary":"유지","reply":"유지","expected_version":198}')
   const missingUnderstanding = decisionOf('{"decision":{"action":"answer","kind":"status","summary":"게이트 재확인: 변동 없음","reply":"변동 없음","no_reply":true},"expected_version":0}')
   const missingNoReply = decisionOf('{"understanding":"확인","decision":{"action":"answer","kind":"status","summary":"중복 알림 확인, 기록만 남김","no_reply":true},"expected_version":0}')
+  const escapedDecisionInSummary = decisionOf('Here: {"understanding":"요약","decision":{"action":"answer","kind":"status","summary":"about \\"decision\\" key","reply":"ok"},"expected_version":7}')
+  const noDecisionErrors = []
+  for (const sample of [
+    '{"analysis_focus":"Ciel host gate re-check","answer":"게이트 6건 판정","understanding":"fresh"}',
+    '{"analysis_focus":"all","blockers":[{"id":"n1121"}],"decision":"string-not-object"}',
+    '}{"no_decision":true}',
+  ]) {
+    try { decisionOf(sample); noDecisionErrors.push('unexpected_ok') }
+    catch (err) { noDecisionErrors.push(String(err?.message || err)) }
+  }
 
-  // 3. Correction for invalid priority & queue_position
+  // 3. Correction for invalid priority, queue_position, and missing target Work item
   async function runCorrection(errText, badDecision) {
     let sent = 0, resolves = 0, failures = 0, claimed = false
     const hs = new Map()
@@ -62,7 +73,7 @@ import {startSide,pollSide,completeSide,decisionOf} from './side-intake.js'
           return text({claim,settings:{max_active:1,session:'fresh'},handoff_replies:[],main_wakes:[]})
         }
         if (name === 'work_side_understanding' && args.state === 'prepare') {
-          if (args.decision.priority === 'P9' || args.decision.queue_position === 0)
+          if (args.decision.priority === 'P9' || args.decision.queue_position === 0 || args.decision.item_id === '153865')
             return {isError:true,content:[{type:'text',text:errText}]}
           return text({state:'merged_into_reply'})
         }
@@ -84,6 +95,7 @@ import {startSide,pollSide,completeSide,decisionOf} from './side-intake.js'
   }
   const priorityCorrection = await runCorrection('invalid side decision priority', {action:'answer',kind:'status',summary:'s',reply:'r',priority:'P9'})
   const queuePositionCorrection = await runCorrection('invalid side decision queue_position', {action:'answer',kind:'status',summary:'s',reply:'r',queue_position:0})
+  const missingTargetCorrection = await runCorrection('side target Work item missing', {action:'update',kind:'request',item_id:'153865',summary:'s',reply:'r'})
 
   // 4. Background task follow-up prose turn after a valid decision JSON turn (Andy 50f0bcedf586)
   let bgResolves = 0, bgFailures = 0, bgClaimed = false
@@ -124,7 +136,8 @@ import {startSide,pollSide,completeSide,decisionOf} from './side-intake.js'
   console.log(JSON.stringify({
     freshConcurrentSpawns, freshUrgentWhileBusySpawns,
     missingBrace, missingBraceWithExpected, missingUnderstanding, missingNoReply,
-    priorityCorrection, queuePositionCorrection,
+    escapedDecisionInSummary, noDecisionErrors,
+    priorityCorrection, queuePositionCorrection, missingTargetCorrection,
     bgFollowup:{resolves:bgResolves,failures:bgFailures},
   }))
 }

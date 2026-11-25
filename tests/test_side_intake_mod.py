@@ -11,7 +11,7 @@ ROOT=Path(__file__).resolve().parents[1]
 
 @unittest.skipUnless(shutil.which('node'),'node required')
 class SideModTests(unittest.TestCase):
-    def run_harness(self, name, *args):
+    def run_harness(self, name, *args, timeout=60):
         with tempfile.TemporaryDirectory() as raw:
             path=Path(raw)
             (path/'package.json').write_text('{"type":"module"}')
@@ -19,7 +19,7 @@ class SideModTests(unittest.TestCase):
             shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
             shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/texts.generated.js',path/'texts.generated.js')
             done=subprocess.run(['node',str(path/'test.mjs'),*args],capture_output=True,text=True,encoding='utf8',
-                                check=True,timeout=60)
+                                check=True,timeout=timeout)
         return json.loads(done.stdout)
 
     def test_side_failure_retries_only_the_same_mcp_write(self):
@@ -117,7 +117,7 @@ class SideModTests(unittest.TestCase):
         #    {"understanding":"...","decision":{...}}, failed on missing
         #    understanding or reply, or emitted invalid priority/queue_position
         #    — quarantining and dumping raw originals into main's context.
-        row=self.run_harness('side_fresh_reliability_harness.mjs')
+        row=self.run_harness('side_fresh_reliability_harness.mjs', timeout=10)
         self.assertEqual(1, row['freshConcurrentSpawns'])
         self.assertEqual(1, row['freshUrgentWhileBusySpawns'])
         # Missing closing brace repaired without losing the decision or sending a correction turn.
@@ -127,13 +127,23 @@ class SideModTests(unittest.TestCase):
         # Missing closing brace with expected_version inside decision object: repaired too.
         self.assertEqual('answer', row['missingBraceWithExpected']['decision']['action'])
         self.assertEqual(198, row['missingBraceWithExpected']['expected_version'])
-        # Invalid priority and queue_position are correctable, not immediately quarantined.
+        # Escaped "decision" text inside summary still extracts the real outer decision JSON.
+        self.assertEqual('answer', row['escapedDecisionInSummary']['decision']['action'])
+        self.assertEqual(7, row['escapedDecisionInSummary']['expected_version'])
+        # Leading '{' or '}' without a valid decision object must reject cleanly instead of
+        # infinite-looping in lastIndexOf(..., -1) and crashing Claude Code's hooks worker
+        # (Prody 03:30Z/07:50Z, KOBE 01:00Z/03:09Z).
+        self.assertEqual(['side answer carries no decision JSON'] * 3, row['noDecisionErrors'])
+        # Invalid priority, queue_position, and missing target item_id are correctable.
         self.assertEqual(1, row['priorityCorrection']['sends'])
         self.assertEqual(1, row['priorityCorrection']['resolves'])
         self.assertEqual(0, row['priorityCorrection']['failures'])
         self.assertEqual(1, row['queuePositionCorrection']['sends'])
         self.assertEqual(1, row['queuePositionCorrection']['resolves'])
         self.assertEqual(0, row['queuePositionCorrection']['failures'])
+        self.assertEqual(1, row['missingTargetCorrection']['sends'])
+        self.assertEqual(1, row['missingTargetCorrection']['resolves'])
+        self.assertEqual(0, row['missingTargetCorrection']['failures'])
         # Missing understanding on a valid decision is synthesized from decision.summary
         # rather than failing on bounded understanding, while still refusing ACK/echo.
         self.assertEqual('게이트 재확인: 변동 없음', row['missingUnderstanding']['understanding'])

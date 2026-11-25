@@ -56,7 +56,7 @@ def validate_understanding(value, original=''):
     return text
 
 
-def save_proposal(state_dir, identity, receipt_id, generation, proposal):
+def save_proposal(state_dir, identity, receipt_id, generation, proposal, *, existing_item_ids=None):
     inbox = SideIntakeInbox(state_dir, identity)
     with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
         from .side_intake_processing import verify_claim
@@ -78,6 +78,14 @@ def save_proposal(state_dir, identity, receipt_id, generation, proposal):
                  and not isinstance(prior, dict), strict_releases=not isinstance(prior, dict))
         if expected is not None and type(expected) is not int:
             raise WorkPlanError('expected Work version must be an integer')
+        if not isinstance(prior, dict) and existing_item_ids is not None:
+            action = decision.get('action')
+            item = decision.get('item_id')
+            complaint_update = decision.get('complaint') is True and action == 'update'
+            needs_target = (action in ('update', 'prioritize', 'advise')
+                            or (decision.get('time_limit') is not None and action in ('answer', 'clarify')))
+            if needs_target and not complaint_update and item not in existing_item_ids:
+                raise WorkPlanError('side target Work item missing')
         value = {'understanding': understanding, 'decision': decision, 'expected_version': expected,
                  'digest': digest(understanding, decision, expected), 'saved_at': time.time()}
         if isinstance(prior, dict):

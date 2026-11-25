@@ -694,12 +694,19 @@ def run(name, args, config, state_dir, identity, store):
                         and (not isinstance(decision.get('reply'), str) or not decision['reply'].strip())
                         and isinstance(summary, str) and summary.strip()):
                     decision['reply'] = ' '.join(summary.split())[:300]
-                if ((not isinstance(understanding, str) or not understanding.strip())
+                if (understanding is None
                         and isinstance(summary, str) and summary.strip()):
                     understanding = ' '.join(summary.split())[:400]
+            existing_item_ids = None
+            if config.get('work_mode', True) is True:
+                existing_item_ids = {
+                    node['id'] for node in store.read_snapshot().get('nodes', [])
+                    if isinstance(node, dict) and isinstance(node.get('id'), str)
+                }
             save_proposal(state_dir, identity, key, generation, {
                 'understanding': understanding, 'decision': decision,
-                'expected_version': args.get('expected_version')})
+                'expected_version': args.get('expected_version')},
+                existing_item_ids=existing_item_ids)
             return understanding_prepare(state_dir, identity, key, config=config)
         return {'receipt': understanding_record(state_dir, identity, key, args.get('state'),
                                                 attempt_id=host.get('attempt_id'))}

@@ -2645,12 +2645,20 @@ function parseDecisionCandidate(candidate) {
 export function decisionOf(answer) {
   const text = String(answer || '')
   const candidates = [text.trim(), ...[...text.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)].map(m => m[1].trim()).reverse()]
-  for (let end = text.lastIndexOf('}'); end >= 0; end = text.lastIndexOf('}', end - 1)) {
-    for (let start = text.lastIndexOf('{', end); start >= 0; start = text.lastIndexOf('{', start - 1)) {
-      const slice = text.slice(start, end + 1)
-      if (slice.includes('"decision"')) { candidates.push(slice); break }
+  // Guard lastIndexOf(..., index - 1) at index 0: in JS, lastIndexOf(ch, -1)
+  // clamps to 0 and infinite-loops when text[0] is '{' or '}' (Prody 03:30Z/
+  // 07:50Z and KOBE 01:00Z/03:09Z hooks-worker crashes).
+  const firstDec = text.indexOf('"decision"')
+  if (firstDec > 0) {
+    for (let end = text.lastIndexOf('}'); end >= firstDec + 10; end = end > 0 ? text.lastIndexOf('}', end - 1) : -1) {
+      const lastDec = text.lastIndexOf('"decision"', end - 10)
+      if (lastDec <= 0) break
+      for (let start = text.lastIndexOf('{', lastDec - 1); start >= 0 && candidates.length <= 64;
+           start = start > 0 ? text.lastIndexOf('{', start - 1) : -1) {
+        candidates.push(text.slice(start, end + 1))
+      }
+      if (candidates.length > 64) break
     }
-    if (candidates.length > 64) break
   }
   for (const candidate of candidates) {
     const value = parseDecisionCandidate(candidate)
@@ -2675,8 +2683,8 @@ export function decisionOf(answer) {
     // The actor's own restatement (top level). KOBE 2026-11-25 (d548fdd3):
     // models sometimes omit understanding on no-op/status answers; fall back to
     // summary (the router still refuses ACK/echo).
-    const rawUnderstanding = typeof value.understanding === 'string' && value.understanding.trim() ? value.understanding
-      : typeof value.decision.understanding === 'string' && value.decision.understanding.trim() ? value.decision.understanding
+    const rawUnderstanding = typeof value.understanding === 'string' ? value.understanding
+      : typeof value.decision.understanding === 'string' ? value.decision.understanding
       : typeof decision.summary === 'string' && decision.summary.trim() ? line(decision.summary, 400) : undefined
     const expected_version = Number.isInteger(value.expected_version) ? value.expected_version
       : Number.isInteger(innerVersion) ? innerVersion : value.expected_version
@@ -2803,7 +2811,7 @@ async function resumeSide($,identity,event) {
 // same fork is told the exact error once and answers again. Only errors raised
 // before the router saved the proposal qualify (nothing was sent yet); every
 // check still applies to the second answer, and a second refusal is recorded.
-const CORRECTABLE = /side answer carries no decision JSON|invalid side decision (action|kind|fields|priority|queue_position|item_id|note|title|refs|release_waits)|decision refs required|side decision kind does not match its action|side decision needs bounded summary and reply|a request must create, update or prioritize Work|existing Work identity required|new Work cannot overwrite an existing identity|side proposal needs bounded understanding|side understanding must/
+const CORRECTABLE = /side answer carries no decision JSON|invalid side decision (action|kind|fields|priority|queue_position|item_id|note|title|refs|release_waits)|decision refs required|side decision kind does not match its action|side decision needs bounded summary and reply|a request must create, update or prioritize Work|existing Work identity required|side target Work item missing|new Work cannot overwrite an existing identity|side proposal needs bounded understanding|side understanding must/
 function correctionText(reason) {
   return 'Ciel side host: your answer was refused, so nothing was committed or sent. Exact error: '
     + line(reason,400) + '\nAnswer again with only the one JSON object the event prompt describes: '
