@@ -2,6 +2,16 @@
 
 ## 2026-11-25
 
+- 2026-11-25 15:52:15–15:52:49Z 정기 틱, 15:32Z 대비. Work MCP 4곳 성공, Andy 실패(9505 정지 지속). 실패 side 원문 메인 전달 0. 이하 UTC.
+  - Andy: 9505 정지 지속(MCP `probe_failed` 2063ms). 원장 7684·리스·finding 변화 없음. 재기동하지 않았다.
+  - Celly: 대기 7·실행+슬롯 1·원장 9533·보드 v11172 유지, MCP 282→453ms. finding·메인 오류 0, 포크 표본 오류 1(`ac3b6a93` 15:36:11). 라우터 `keep_alive` 238, 외부 SSE EOF 20(첫 15:32:53).
+    - **side 대기열·장기 처리 추적:** 직전 틱에서 멈춰 보였던 `7afafa0b3940`(게이트 재확인, 15:06:59 클레임)의 side-fresh `ab276262`는 진행 중이었다(15:53:18 기준 185줄, 46분째 실행). 그 사이 대기(`received`) 영수증이 4건→11건으로 늘었고, P2 `7f1dfc59b8ee`(14:22:59 수신)는 90분째 미클레임이다.
+    - **반복 이상(side 모델의 headscale `online` 오독·3회째 징후):** `ab276262`가 15:50:45 `.2` headscale JSON에서 node 32(`GINA_HK_VALLEY`) 블록을 추출했을 때 `online` 필드는 없었고(`"online": true` 32개는 파일 전체 집계), 그런데도 15:53:10 사고문에서 "Node 32 (GINA_HK_VALLEY) is `online: true`"라고 적었다(`last_seen` 컷오프 미충족이라 아직 해제하진 않음). `84aa5c78b72c`와 같은 모델(`k-exaone_v2.5`)의 동일 판독 오류 패턴으로 계속 추적한다.
+  - KOBE: 제출 1→0, 대기 2→3, 실행+슬롯 1→2, 원장 4063→4077, 보드 v389→400(노드 188→202, 루트 20→21), MCP 190→919ms. 직전 틱 `n143/f5c111da` finding은 검수가 진행되며 해소됐다. `n5/24fffb5b` 자식 검수 가드 유지. 포크 표본 오류 1(`a7f25afc` 15:46:42). 메인: Walkie 400 2(15:36:41·15:42:10), `Connection closed` 1(15:37:02), Python 인코딩/출력 오류 1(15:45:00), `n210` 기존 리스 가드 1(15:47:31). 라우터 `keep_alive` 236, 외부 SSE EOF 20(첫 15:32:51), `context-usage PermissionError` 2(15:35:30), turn projection 경고 8(15:34:49–15:52:02, 최대 605s), 모델 리셋·downstream 끊김 2(15:47:20·15:48:07).
+  - Prody: 실행+슬롯 1 유지, 원장 1142→1149, 보드 v7350→7355, MCP 297→671ms. finding·포크 표본 오류·식별 거부 0. 메인 Walkie `client_id` UUID 검증 오류 1(15:35:02). `router.log` 공백 지속.
+  - Betty(보조): 제출 5·실행+슬롯 1 유지, 원장 1088→1094, 보드 v5711→5713, MCP 1065→424ms. finding 0, 포크 표본 오류 2(`a0b82894` 15:42:07·32). **신규 원장 실패 1(`decision_refused_stop a6c44b65 x1`, 15:45:05):** 메인 `work_parallel_item_review`(n1825) 호출의 `evidence`가 2,093자(상한 2,000자 초과)여서 정상 `review decision` 가드에 1회 거부됐고, 15:46:24 1,749자로 줄여 재호출해 `finalized`(v1014) 통과했다(앞서 Celly `f1c0b436`과 같은 정상 상한 가드, 제품 결함 아님). 메인 `gh_api.py` exit 1 1건(15:48:34). 라우터 외부 SSE EOF 20(첫 15:32:34), turn projection 경고 4(15:45:36–15:51:38).
+  - 새로 입증된 제품 코드 결함 없음. 코드 변경·설치·발행, 운영 재시작·상태 파일 수정 없음(라이브 라우터 `faa2c7e`, 파일 설치 `d1f9da3`, 모드 핫 리로드 상태 유지).
+
 - 2026-11-25 15:32:23–15:32:54Z 정기 틱, 15:12Z 대비. 사용자 화면(`oh no. Bun has crashed` → `Claude Code exited with code 3 … 9505`) 지적에 따라 Andy 중단 원인을 먼저 다시 조사했다. 이하 UTC(로그 원문 시각은 Andy·Celly −6h, KOBE·Prody·Betty −8h 로컬).
   - **Andy CLI 중단 = Bun 크래시(확인):** `claude.exe` pid 56812가 08:37:36에 `returncode=3`으로 끝났다(`channel_windows_console_child_exit`, `launch_phase_end … elapsed_ms=61589112 result=exit_3`, 약 17.1시간 실행). 08:37:41 라우터 67780이 `router_lifetime_stopped reason=claude_exit`로 따라 멈췄고 9505는 그 뒤로 내려가 있다. 이전 틱들은 "exit 3 / 라우터 정지"만 적고 Bun 크래시라는 사실을 확인하지 않았다(누락).
   - 크래시 직전 8초: P1 모델 요청(msgs=164) 08:37:24 `bytes=9849211 tokens≈2469783`, P3 요청(msgs=166) 08:37:30 `bytes=9856435 tokens≈2471589`, 메인 요청 08:37:35(`tokens=164809`). 1초 뒤 크래시했다. 오늘 5MB 넘는 업스트림 요청은 116건이고, 10분 단위 최대 크기는 02:0x 6.6MB → 02:1x 8.5MB → 02:2x 9.07MB → 02:3x 9.86MB(로컬)로 커졌다. 크래시 분이 하루 최대치다.
