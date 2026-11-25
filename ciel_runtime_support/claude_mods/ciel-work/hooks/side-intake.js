@@ -46,6 +46,7 @@ async function recoverReply($,identity,event) {
 let lifecycle = 0
 let busy = false
 let maxActive = 2
+let sessionMode = 'fork'
 const unconfirmedFailures = new Map()
 // Native forks inherit the main session's live model, context, tools and
 // permission mode. This display value deliberately has no allowlist digest.
@@ -278,8 +279,17 @@ export async function sideThreadReadAfter($,thread) {
     return {key,messages,more}
   } catch (error) { return {key,error:line(String(error?.message || error),200)} }
 }
-// The event's own message text: data.text of a Walkie CloudEvent, else the
-// event body itself (a plain-text event is its own message).
+// A readable preview for delivery, without copying an opaque JSON envelope.
+function relayMessage(original) {
+  const raw = String(original || '')
+  let body
+  try { body = JSON.parse(raw) } catch { return /^\s*[{[]/.test(raw) ? '(source text unavailable)' : line(raw,3000) }
+  const data = body?.data
+  const text = [data?.text,data?.message,data?.payload?.text,body?.text,body?.message]
+    .find(value => typeof value === 'string' && value.trim())
+  return text ? line(text,3000) : '(source text unavailable; read the referenced message)'
+}
+
 function walkieEventText(original) {
   let body
   try { body = JSON.parse(original) } catch { return String(original || '') }
@@ -329,7 +339,7 @@ async function mainTranscriptPath($) {
     return typeof info?.transcriptPath === 'string' ? info.transcriptPath : ''
   } catch { return '' }
 }
-function compactWorkload(workload,text,ids = []) {
+function compactWorkload(workload,text,ids = [],thread = null) {
   const nodes = Array.isArray(workload?.nodes) ? workload.nodes : []
   const byId = new Map(nodes.map(node => [node.id,node]))
   const exact = new Set(ids.filter(id => typeof id === 'string' && id))
@@ -343,7 +353,7 @@ function compactWorkload(workload,text,ids = []) {
     })
     .map(key => {
       const value = key === 'release_hint' ? releaseHint : node[key]
-      return [key, typeof value === 'string' ? line(value,160) : value]
+      return [key, typeof value === 'string' && key !== 'waiting_on' ? line(value,160) : value]
     }))
     if (!records) return row
     const refs = Array.isArray(node.refs) ? node.refs.filter(ref => typeof ref === 'string' && ref).slice(0,16) : []
@@ -363,11 +373,34 @@ function compactWorkload(workload,text,ids = []) {
       if (!picked.has(up.id) || records) picked.set(up.id,brief(up,records || detailed.has(up.id)))
     }
   }
+  const activeForks = Array.isArray(workload?.active_forks) ? workload.active_forks.slice(0, 32) : []
+  const activeIds = new Set(activeForks.map(fork => fork.item_id))
+  const matches = new Set(thread?.bindings?.matches || [])
+  const excluded = new Set(thread?.bindings?.excluded || [])
+  const preciseIds = new Set([...exact].filter(id => id !== thread?.conversation_id))
+  const threadRank = node => {
+    let rank = 0
+    for (let up = node, seen = 0; up && seen < 32; up = byId.get(up.parent_id), seen++) {
+      if (up.status === 'done' || excluded.has(up.id)) return -1
+      if (matches.has(up.id)) rank = 2
+      else if (!rank && names(up).some(ref => preciseIds.has(ref))) rank = 1
+    }
+    return rank
+  }
+  const ranks = thread ? new Map(nodes.map(node => [node.id,threadRank(node)])) : new Map()
+  if (thread) {
+    const candidates = nodes.filter(node => ranks.get(node.id) > 0)
+    const hasSignal = node => node.waiting_on || node.status === 'blocked' || activeIds.has(node.id)
+    for (const rank of [2,1])
+      for (const node of candidates)
+        if (ranks.get(node.id) === rank && hasSignal(node)) pick(node)
+    for (const node of candidates) pick(node)
+  }
   for (const node of nodes) {
-    if (node.status === 'done' || !names(node).some(ref => exact.has(ref) || (ref.length >= 6 && source.includes(ref)))) continue
+    if (node.status === 'done' || ranks.get(node.id) === -1
+        || !names(node).some(ref => exact.has(ref) || (ref.length >= 6 && source.includes(ref)))) continue
     pick(node)
   }
-  const activeForks = Array.isArray(workload?.active_forks) ? workload.active_forks.slice(0, 32) : []
   for (const fork of activeForks) pick(byId.get(fork.item_id) || byId.get(fork.root_id))
   return {version:workload?.version, compact:true, node_count:nodes.length,
     open_goals:nodes.filter(node => node.parent_id == null && node.status !== 'done').length,
@@ -801,7 +834,7 @@ function retire($,actor) {
   if (actor.id) scheduleSideStop($, actor.id, trackRetiredSide(actor.id), 10)
 }
 export async function startSide($) {
-  lifecycle++; busy = false; pending.clear()
+  lifecycle++; busy = false; sessionMode = 'fork'; pending.clear()
   // Hydrate the host-held keys that survived this start (a hot reload keeps
   // $.state; /clear and a fresh process do not). Prompts this module itself
   // issued stay marked until their own resolution or idle-window release.
@@ -970,10 +1003,10 @@ async function readApprovalRequests($, rows) {
 // The approval re-check and the SSE approval path share one reader (register.js
 // gate tick; this file's workflow_event claim).
 export async function sideApprovalRead($, rows) { return readApprovalRequests($, rows) }
-async function resumeParked(leases) {
+async function resumeParked(leases,texts) {
   if (!leases.length) return new Map()
   if (!parkedResume) return new Map(leases.map(lease => [lease.id,'the Work host cannot resume workers here']))
-  try { return await parkedResume(leases.map(lease => lease.id)) || new Map() }
+  try { return await parkedResume(leases.map(lease => lease.id),texts) || new Map() }
   catch (error) { return new Map(leases.map(lease => [lease.id,'the automatic resume failed: '+line(String(error?.message || error),120)])) }
 }
 function parkedNote(lease,outcomes) {
@@ -2023,8 +2056,11 @@ export async function pollSide($, identity) {
   for (const actor of [...actors.values()]) if (!actor.current && !actor.retired) retire($,actor)
   // Ordinary events use max_active slots. One more slot is reserved for a P1
   // event, so an urgent message never waits for two long ordinary forks.
+  // Fresh side mode (KOBE 2026-11-25): keep strictly 1 active side-fresh actor
+  // so fresh actors never stack concurrently on top of each other.
   const running = [...actors.values()].filter(a => a.current)
-  if (busy || running.length > maxActive || (running.length === maxActive && running.some(a => a.reserved))) {
+  const freshLocked = sessionMode === 'fresh' && running.length >= 1
+  if (busy || freshLocked || running.length > maxActive || (running.length === maxActive && running.some(a => a.reserved))) {
     // Every slot is busy: the receipt ACK still goes out at once (status lists
     // the events owed one). Claiming waits for a slot; the ACK does not.
     if (!busy && !ackSweep) {
@@ -2116,6 +2152,14 @@ export async function pollSide($, identity) {
     await sendOwedAcks($,identity,[event.receipt_id])
     const settings = answer.settings || {}
     maxActive = Number.isInteger(settings.max_active) ? Math.max(1,Math.min(16,settings.max_active)) : 2
+    sessionMode = settings.session === 'fresh' ? 'fresh' : 'fork'
+    if (sessionMode === 'fresh' && [...actors.values()].some(a => a.current)) {
+      // Another fresh actor is already live (e.g. session switched to fresh
+      // mid-flight): leave the newly claimed receipt unspawned for its lease
+      // expiry rather than stacking a second concurrent side-fresh actor.
+      claimed = null
+      return false
+    }
     if (event.proposal) {
       // Its model answer survived a restart: commit it, never ask the model again.
       claimed = null
@@ -2159,6 +2203,9 @@ export async function pollSide($, identity) {
     // its target message read once. Identity checks still refuse a malformed
     // or out-of-thread target before any spawn.
     const sourceMessage = await eventSource($,event.source_read,event)
+    // Retain only the verified target text in memory for native delivery.
+    const targetText = sourceMessage.target_message?.text
+    if (typeof targetText === 'string' && targetText.trim()) event.relay_target_text = line(targetText,3000)
     // session "fresh" (user 2026-11-20): an empty conversation that carries
     // main's own system prompt and every tool main has (its MCP servers
     // included), registered as this plugin's agent type. "fork" (default)
@@ -2177,7 +2224,8 @@ export async function pollSide($, identity) {
       session_mode:agentType === 'fork' ? 'fork' : 'fresh',
       ...(mainTranscript ? {main_transcript:mainTranscript} : {}),
       workload:compactWorkload(workload,event.text,[sourceMessage.target_message_id,sourceMessage.root_id,
-        sourceMessage.reply_to_message_id,sourceMessage.thread_root_id,sourceMessage.conversation_id]),
+        sourceMessage.reply_to_message_id,sourceMessage.thread_root_id,sourceMessage.conversation_id],
+        sourceMessage.root_id ? {conversation_id:sourceMessage.conversation_id, bindings:event.thread_bindings} : null),
       handoff_context:event.handoff_context || [],
       priority_policy:settings.priority_policy || 'adaptive',
       // A gate re-check runs the blocker-check actor: its own instruction
@@ -2450,7 +2498,11 @@ async function notifyReleased($,identity,event,result,withFork = text => text,al
   }
   const parked = [...new Map(toMain.filter(({lease}) => lease?.state === 'waiting_input')
     .map(({lease}) => [lease.id,lease])).values()]
-  const outcomes = await resumeParked(parked)
+  const texts = event.source_read?.classification === 'thread' ? new Map(parked.map(lease => [lease.id,
+    T('mod_released_fork_signal',{item:lease.item_id,event:source,
+      root:event.source_read.root_id,message:event.source_read.target_message_id,
+      body:event.relay_target_text || relayMessage(event.text)})])) : undefined
+  const outcomes = await resumeParked(parked,texts)
   const resumed = parked.filter(lease => outcomes.get(lease.id) === true)
   const stuck = parked.filter(lease => outcomes.get(lease.id) !== true)
   for (const lease of resumed) $.ui.log('Side released wait → parked worker '+lease.host_id.slice(0,12)+' resumed by the Work host')
@@ -2458,7 +2510,9 @@ async function notifyReleased($,identity,event,result,withFork = text => text,al
   // no review, acknowledgment or action is asked of it.
   const named = [...new Set(toMain.map(({wait}) => wait.id))]
   const text = 'Ciel side: released '+named.join(', ')
-    +' ('+source+'). The queue runs '+(named.length > 1 ? 'them' : 'it')+' automatically; nothing to do.'
+    +' ('+source+'). '+(stuck.length
+      ? 'Automatic worker resume not confirmed: '+stuck.map(lease => parkedNote(lease,outcomes)).join('; ')+'.'
+      : 'The queue runs '+(named.length > 1 ? 'them' : 'it')+' automatically; nothing to do.')
   const state = await noticeToMain($,identity,event.receipt_id,withFork(text))
   $.ui.log('Side released '+toMain.map(({wait}) => wait.id).join(', ')+' → main ('+state+')')
 }
@@ -2482,7 +2536,11 @@ async function relayToItem($,identity,event,result,withFork = text => text,alone
   }
   const forks = Object.values(leases).filter(row => row.host_id && covers(row.item_id)
     && ['running','waiting_input'].includes(row.state))
-  const message = line(String(event.text || ''),3000)
+  const message = event.relay_target_text || relayMessage(event.text)
+  const spec = event.source_read
+  const source = spec?.classification === 'thread' ? {conversation_id:spec.conversation_id,
+    root_id:spec.root_id,target_message_id:spec.target_message_id} : null
+  const sourceLine = source ? '\nSource: '+JSON.stringify(source) : ''
   const waits = result.released_waits || []
   const released = waits.length ? ' Released wait'+(waits.length > 1 ? 's' : '')+': '
     +waits.map(wait => wait.id+' ("'+line(wait.waiting_on,160)+'")').join(', ')+' (already cleared).' : ''
@@ -2491,17 +2549,14 @@ async function relayToItem($,identity,event,result,withFork = text => text,alone
   const ask = ' Decide whether this matters to your current work; if not, ignore it. No acknowledgment is needed. '
     +'This is not new execution approval and does not change your approved scope.'
   if (result.relay.fork_responds === true) {
-    const spec = event.source_read
     const candidates = [...new Set(forks.filter(row => row.state === 'running' && row.slot === true)
       .map(row => row.host_id))]
     const target = candidates.length === 1 ? candidates[0] : null
     let outcome = 'no unique running worker or verified source'
     if (target && spec?.classification === 'thread' && await identityOf($) === identity) {
-      const source = {conversation_id:spec.conversation_id, root_id:spec.root_id,
-        target_message_id:spec.target_message_id}
       try {
         const sent = await $.session.send({to:{agentId:target},text:header+'\n'+T('mod_direct_fork_reply')
-          +'\nSource: '+JSON.stringify(source)+'\nMessage: '+eventView(event.text)})
+          +sourceLine+'\nMessage: '+message})
         if (sent?.isDelivered === true) {
           $.ui.log('Side direct-relay '+item+' → '+target+' (queued)')
           if (alone) await noticeToMain($,identity,event.receipt_id,alone)
@@ -2511,7 +2566,7 @@ async function relayToItem($,identity,event,result,withFork = text => text,alone
       } catch { outcome = 'delivery uncertain' }
     }
     await noticeToMain($,identity,event.receipt_id,withFork(header+'\nOriginal message:\n'+message
-      +'\nDirect handoff: '+outcome+'; side skipped outbound reply. Check delivery before responding.'))
+      +sourceLine+'\nDirect handoff: '+outcome+'; side skipped outbound reply. Check delivery before responding.'))
     return
   }
   const delivered = []
@@ -2526,7 +2581,7 @@ async function relayToItem($,identity,event,result,withFork = text => text,alone
   for (const lease of [...forks.filter(row => row.state === 'running'), ...resumed]) {
     let sent = null
     try { sent = await $.session.send({to:{agentId:lease.host_id},
-      text:header+'\nOriginal message:\n'+message+'\n'+ask}) } catch {}
+      text:header+'\nOriginal message:\n'+message+sourceLine+'\n'+ask}) } catch {}
     if (sent?.isDelivered) delivered.push(lease.host_id)
   }
   const forkNote = (delivered.length ? ' Also delivered to the Work fork'+(delivered.length > 1 ? 's' : '')+' running it: '
@@ -2536,7 +2591,7 @@ async function relayToItem($,identity,event,result,withFork = text => text,alone
     +(stuck.length ? ' Parked worker'+(stuck.length > 1 ? 's' : '')+' on it: '
       +stuck.map(row => parkedNote(row,outcomes)).join(', ')
       +'; resume with SendMessage to that worker only if this matters to it.' : '')
-  const state = await noticeToMain($,identity,event.receipt_id,withFork(header+'\nOriginal message:\n'+message+'\n'+forkNote+ask))
+  const state = await noticeToMain($,identity,event.receipt_id,withFork(header+'\nOriginal message:\n'+message+sourceLine+'\n'+forkNote+ask))
   $.ui.log('Side relay '+item+' → main ('+state+')'+(delivered.length ? ' + '+delivered.length+' fork(s)' : ''))
 }
 // Answers to forks parked on a question (fork_answers, user 2026-11-23). The
@@ -2570,7 +2625,23 @@ export async function answerParkedForks($,identity,event,result) {
 }
 const DECISION_FIELDS = new Set(['action','kind','item_id','summary','reply','note','title','priority','queue_position','release_waits','time_limit','relay','ask_main','no_reply','complaint','refs','fork_answers','stall_notices'])
 // The side turn ends with its decision, but models often wrap it in prose or a
-// ```json fence. Take the last parseable object that carries `decision`.
+// ```json fence, or drop the final outer '}' of {"understanding":...,"decision":{...}}.
+// Take the last parseable object that carries `decision`.
+function parseDecisionCandidate(candidate) {
+  const attempts = [candidate]
+  // Celly & KOBE 2026-11-25: 9 of 11 live invalid_answer failures had a complete
+  // {"understanding":"...","decision":{...}} missing only the final outer '}'.
+  if (candidate.startsWith('{') && candidate.endsWith('}') && candidate.includes('"decision"')) {
+    attempts.push(candidate + '}')
+  }
+  for (const raw of attempts) {
+    try {
+      const value = JSON.parse(raw)
+      if (value && typeof value === 'object' && value.decision && typeof value.decision === 'object') return value
+    } catch {}
+  }
+  return null
+}
 export function decisionOf(answer) {
   const text = String(answer || '')
   const candidates = [text.trim(), ...[...text.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)].map(m => m[1].trim()).reverse()]
@@ -2582,26 +2653,34 @@ export function decisionOf(answer) {
     if (candidates.length > 64) break
   }
   for (const candidate of candidates) {
-    try {
-      const value = JSON.parse(candidate)
-      if (value && typeof value === 'object' && value.decision && typeof value.decision === 'object') {
-        // Observed live: sent_via nested inside decision and "public_summary"
-        // for summary. Both are presentation slips, not different decisions.
-        const {sent_via, public_summary, ...proposed} = value.decision
-        if (proposed.summary === undefined && typeof public_summary === 'string') proposed.summary = public_summary
-        // Observed 2026-11-08: a valid advise carried "reason_for_advise". Extra
-        // keys have no host meaning; the host still validates every kept field.
-        // Observed the same day: a create carried "item_id": null. Null means
-        // absent; a present value is still validated by the host.
-        const decision = Object.fromEntries(Object.entries(proposed)
-          .filter(([key, value]) => DECISION_FIELDS.has(key) && value !== null))
-        // The actor's own restatement (top level). The router refuses a
-        // missing one, an echo of the source, or one starting with "ACK".
-        const understanding = typeof value.understanding === 'string' ? value.understanding
-          : typeof value.decision.understanding === 'string' ? value.decision.understanding : undefined
-        return {...value, decision, understanding, sent_via: value.sent_via || sent_via}
-      }
-    } catch {}
+    const value = parseDecisionCandidate(candidate)
+    if (!value) continue
+    // Observed live: sent_via nested inside decision and "public_summary"
+    // for summary. Both are presentation slips, not different decisions.
+    // Also recover expected_version placed inside decision when the outer '}' was dropped.
+    const {sent_via, public_summary, expected_version: innerVersion, ...proposed} = value.decision
+    if (proposed.summary === undefined && typeof public_summary === 'string') proposed.summary = public_summary
+    // KOBE 2026-11-25 (68f98974): no_reply=true decisions sometimes omit reply
+    // because nothing will be posted externally; use summary as the record line.
+    if (proposed.no_reply === true && (typeof proposed.reply !== 'string' || !proposed.reply.trim())
+        && typeof proposed.summary === 'string' && proposed.summary.trim()) {
+      proposed.reply = line(proposed.summary, 300)
+    }
+    // Observed 2026-11-08: a valid advise carried "reason_for_advise". Extra
+    // keys have no host meaning; the host still validates every kept field.
+    // Observed the same day: a create carried "item_id": null. Null means
+    // absent; a present value is still validated by the host.
+    const decision = Object.fromEntries(Object.entries(proposed)
+      .filter(([key, val]) => DECISION_FIELDS.has(key) && val !== null))
+    // The actor's own restatement (top level). KOBE 2026-11-25 (d548fdd3):
+    // models sometimes omit understanding on no-op/status answers; fall back to
+    // summary (the router still refuses ACK/echo).
+    const rawUnderstanding = typeof value.understanding === 'string' && value.understanding.trim() ? value.understanding
+      : typeof value.decision.understanding === 'string' && value.decision.understanding.trim() ? value.decision.understanding
+      : typeof decision.summary === 'string' && decision.summary.trim() ? line(decision.summary, 400) : undefined
+    const expected_version = Number.isInteger(value.expected_version) ? value.expected_version
+      : Number.isInteger(innerVersion) ? innerVersion : value.expected_version
+    return {...value, expected_version, decision, understanding: rawUnderstanding, sent_via: value.sent_via || sent_via}
   }
   throw new Error('side answer carries no decision JSON')
 }
@@ -2724,7 +2803,7 @@ async function resumeSide($,identity,event) {
 // same fork is told the exact error once and answers again. Only errors raised
 // before the router saved the proposal qualify (nothing was sent yet); every
 // check still applies to the second answer, and a second refusal is recorded.
-const CORRECTABLE = /side answer carries no decision JSON|invalid side decision (action|kind|fields)|decision refs required|side decision kind does not match its action|side decision needs bounded summary and reply|a request must create, update or prioritize Work|existing Work identity required|new Work cannot overwrite an existing identity|side proposal needs bounded understanding|side understanding must/
+const CORRECTABLE = /side answer carries no decision JSON|invalid side decision (action|kind|fields|priority|queue_position|item_id|note|title|refs|release_waits)|decision refs required|side decision kind does not match its action|side decision needs bounded summary and reply|a request must create, update or prioritize Work|existing Work identity required|new Work cannot overwrite an existing identity|side proposal needs bounded understanding|side understanding must/
 function correctionText(reason) {
   return 'Ciel side host: your answer was refused, so nothing was committed or sent. Exact error: '
     + line(reason,400) + '\nAnswer again with only the one JSON object the event prompt describes: '
@@ -2796,7 +2875,23 @@ export async function completeSide($,e) {
       // A plugin's own hooks do not see the tool calls of an agent it spawned
       // (turn.step/tool.call, probed 2026-11-07 on Claude Code 2.1.310), so the
       // side AI's own report of what it sent is carried, labelled as reported.
-      const {sent_via, understanding, ...proposal} = decisionOf(e.answer)
+      let parsed
+      try { parsed = decisionOf(e.answer) }
+      catch (parseError) {
+        // Andy 2026-11-25 (50f0bcedf586): a background task notification woke
+        // the actor after it had already emitted its valid decision JSON, and
+        // the final turn was a short prose confirmation with no JSON. Check
+        // this actor's own recent assistant messages before failing.
+        try {
+          const recent = await $.session.messages({agentId:actor.id,last:6})
+          for (let i = (Array.isArray(recent) ? recent.length : 0) - 1; i >= 0; i--) {
+            if (recent[i]?.role !== 'assistant' || !recent[i]?.text) continue
+            try { parsed = decisionOf(recent[i].text); break } catch {}
+          }
+        } catch {}
+        if (!parsed) throw parseError
+      }
+      const {sent_via, understanding, ...proposal} = parsed
       // The version only records which snapshot the decision saw; the host
       // re-validates against the current board, so a missing one is not fatal.
       if (!Number.isInteger(proposal.expected_version)) proposal.expected_version = event.workload?.version ?? null

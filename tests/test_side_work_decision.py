@@ -302,6 +302,26 @@ class SideDecisionTests(unittest.TestCase):
         with self.assertRaises(tree.WorkPlanError):
             validate({**self.base, 'action': 'update', 'item_id': 'n1', 'release_waits': [{'id': 'n1'}]})
 
+    def test_explicit_utc_wait_cannot_release_before_deadline(self):
+        from unittest.mock import patch
+        waiting = 'UTC clock past 2026-11-24T23:10:00Z (time gate only; no PR/CI/message event counts)'
+        _, item = self.store.transaction(lambda d: tree.add_node(d, None, 'time gate', waiting_on=waiting))
+        decision = {**self.base, 'action': 'update', 'item_id': item,
+                    'release_waits': [{'id': item, 'waiting_on': waiting}]}
+        with patch('ciel_runtime_support.side_work_decision.time.time', return_value=1795543500):
+            refused = apply(self.store, self.key, decision, self.store.read()['version'], gate_check=True)
+        self.assertNotIn('released_waits', refused)
+        self.assertEqual(waiting, self.store.read()['nodes'][0]['waiting_on'])
+        with patch('ciel_runtime_support.side_work_decision.time.time', return_value=1795563300):
+            released = apply(self.store, 'a' * 64, decision, self.store.read()['version'], gate_check=True)
+        self.assertEqual([{'id': item, 'waiting_on': waiting}], released['released_waits'])
+
+    def test_new_answer_cannot_silently_discard_verified_wait_release(self):
+        from ciel_runtime_support.side_work_decision import validate
+        with self.assertRaisesRegex(tree.WorkPlanError, 'release_waits requires action update'):
+            validate({**self.base, 'kind': 'status', 'release_waits': [{'id': 'n1', 'waiting_on': 'x'}]},
+                     strict_releases=True)
+
     @unittest.skip('retired 2026-11-18 (user): the side no longer hands off to main or leaves review rows; only ask_main reaches main')
     def test_gate_handoff_activation_refuses_finished_goal_without_mutation(self):
         from ciel_runtime_support.side_handoff import acknowledge

@@ -93,13 +93,73 @@ _CONTENT_SUFFIX = ".content-baseline-v1.json"
 _CONTENT_INTENT_SUFFIX = ".content-baseline-v1.intent"
 _CONTENT_SKIPPED_SUFFIX = ".content-baseline-v1.skipped"
 
+_GIT_TIMEOUT_SECONDS = 30.0
+_GIT_NONINTERACTIVE_ENV = {
+    "GIT_TERMINAL_PROMPT": "0",
+    "GCM_INTERACTIVE": "never",
+    "GIT_GCM_INTERACTIVE": "never",
+}
+
+
+def _kill_process_tree(process):
+    """Kill the whole subprocess tree so grandchildren cannot hold pipes open."""
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+            capture_output=True,
+            check=False,
+            stdin=subprocess.DEVNULL,
+            timeout=10,
+        )
+    else:
+        try:
+            os.killpg(process.pid, 9)
+        except OSError:
+            process.kill()
+    try:
+        process.kill()
+    except OSError:
+        pass
+
+
+def _git_popen_env():
+    return {**os.environ, **_GIT_NONINTERACTIVE_ENV}
+
+
+def _run_git_subprocess(cmd, *, timeout, env):
+    kwargs = {"stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "stdin": subprocess.DEVNULL,
+              "text": True, "encoding": "utf-8", "errors": "replace", "env": env}
+    if os.name != "nt":
+        kwargs["start_new_session"] = True
+    process = subprocess.Popen(cmd, **kwargs)
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        # Betty 2026-11-25: on Windows, git.exe (cmd wrapper) spawns mingw64 git
+        # and credential-manager; killing only the wrapper left grandchildren
+        # holding stdout/stderr open so communicate() blocked forever and kept
+        # the unbound reservation's slot pinned. Kill the whole tree before draining.
+        _kill_process_tree(process)
+        try:
+            process.communicate(timeout=5)
+        except Exception:
+            for stream in (process.stdout, process.stderr):
+                if stream is not None:
+                    try:
+                        stream.close()
+                    except OSError:
+                        pass
+        raise
+    return subprocess.CompletedProcess(cmd, process.returncode, stdout or "", stderr or "")
+
+
 def _git(repo, *args, strip=True, trust=None):
     """One Work git command run in ``repo``; ``trust`` defaults to trusted_roots(repo)."""
     started = time.monotonic()
     trust = trusted_roots(repo) if trust is None else trust
+    cmd = ["git", *trust_arguments(trust), "-C", str(repo), *args]
     try:
-        r = subprocess.run(["git", *trust_arguments(trust), "-C", str(repo), *args], capture_output=True,
-                           text=True, encoding="utf-8", timeout=30, check=False, stdin=subprocess.DEVNULL)
+        r = _run_git_subprocess(cmd, timeout=_GIT_TIMEOUT_SECONDS, env=_git_popen_env())
     except subprocess.TimeoutExpired as exc:
         # Seen only inside the router (owned run 2026-11-09: worktree add, 30 s);
         # the same command outside it took 0.06 s. Name the step for the log.

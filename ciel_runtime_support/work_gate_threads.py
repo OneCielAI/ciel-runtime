@@ -120,6 +120,16 @@ def bind(state_dir: Path, identity: str, node_id: str, conversation_id: str, roo
                  {"action": "update", "item_id": node_id})
 
 
+def source_bindings(state_dir: Path, identity: str, source: Mapping[str, Any]) -> dict[str, list[str]]:
+    """Scope local candidates by the exact conversation and thread pair."""
+    bindings = _read(_path(state_dir, identity))["nodes"]
+    key = thread_key(source['conversation_id'], source['root_id'])
+    prefix = source['conversation_id'] + '|'
+    return {"matches": [node for node, bound in bindings.items() if bound == key],
+            "excluded": [node for node, bound in bindings.items() if isinstance(bound, str) and bound != key
+                         and (bound.startswith(prefix) or bound.endswith('|' + source['root_id']))]}
+
+
 def threads_for(state_dir: Path, identity: str, rows: list[Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
     """Gate rows grouped by their bound thread: {key: {..., "after", "gates": [ids]}}.
 

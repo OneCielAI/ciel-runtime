@@ -93,6 +93,10 @@ class SideReleaseNoticeTests(unittest.TestCase):
         # may release it, the forks on those leaves are the waiters.
         parked = self.run_case('group-parked-resumed')
         self.assertEqual([['L3']], parked['resumeCalls'])
+        [(lease, message)] = parked['resumeTexts']
+        self.assertEqual('L3', lease)
+        self.assertIn('Walkie thread 1000, message 1005: Andy: approved', message)
+        self.assertIn('not new execution approval', message)
         running = self.run_case('group-running')
         self.assertEqual([{'agentId': 'agent-run'}], [item['to'] for item in running['sent']])
         self.assertIn('n2 ("group approval")', running['sent'][0]['text'])

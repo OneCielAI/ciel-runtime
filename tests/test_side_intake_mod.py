@@ -108,6 +108,42 @@ class SideModTests(unittest.TestCase):
                          [r['decision']['action'] for r in fresh['resolveCalls']])
         self.assertEqual(['actor1','actor2','actor3'],fresh['stopped'])
 
+    def test_fresh_side_runs_single_active_actor_and_recovers_missing_closing_brace_and_priority(self):
+        # KOBE & Celly 2026-11-25:
+        # 1) fresh mode ran 2-3 side-fresh actors concurrently (overlapping work,
+        #    burning tokens and stalling the queue). Fresh mode keeps 1 active
+        #    side-fresh actor at a time unless P0/P1 urgent slot is needed.
+        # 2) side models repeatedly dropped the outer closing brace '}' on
+        #    {"understanding":"...","decision":{...}}, failed on missing
+        #    understanding or reply, or emitted invalid priority/queue_position
+        #    — quarantining and dumping raw originals into main's context.
+        row=self.run_harness('side_fresh_reliability_harness.mjs')
+        self.assertEqual(1, row['freshConcurrentSpawns'])
+        self.assertEqual(1, row['freshUrgentWhileBusySpawns'])
+        # Missing closing brace repaired without losing the decision or sending a correction turn.
+        self.assertEqual('answer', row['missingBrace']['decision']['action'])
+        self.assertEqual('게이트 유지', row['missingBrace']['decision']['reply'])
+        self.assertEqual('요약', row['missingBrace']['understanding'])
+        # Missing closing brace with expected_version inside decision object: repaired too.
+        self.assertEqual('answer', row['missingBraceWithExpected']['decision']['action'])
+        self.assertEqual(198, row['missingBraceWithExpected']['expected_version'])
+        # Invalid priority and queue_position are correctable, not immediately quarantined.
+        self.assertEqual(1, row['priorityCorrection']['sends'])
+        self.assertEqual(1, row['priorityCorrection']['resolves'])
+        self.assertEqual(0, row['priorityCorrection']['failures'])
+        self.assertEqual(1, row['queuePositionCorrection']['sends'])
+        self.assertEqual(1, row['queuePositionCorrection']['resolves'])
+        self.assertEqual(0, row['queuePositionCorrection']['failures'])
+        # Missing understanding on a valid decision is synthesized from decision.summary
+        # rather than failing on bounded understanding, while still refusing ACK/echo.
+        self.assertEqual('게이트 재확인: 변동 없음', row['missingUnderstanding']['understanding'])
+        # Missing reply on no_reply=true answer is filled from summary instead of quarantining.
+        self.assertEqual('중복 알림 확인, 기록만 남김', row['missingNoReply']['decision']['reply'])
+        # Previous valid JSON turn in same actor is recovered if a background task
+        # notification triggers a prose-only final turn (Andy 50f0bcedf586).
+        self.assertEqual(1, row['bgFollowup']['resolves'])
+        self.assertEqual(0, row['bgFollowup']['failures'])
+
     def test_a_side_actor_gets_its_session_mode_transcript_and_the_items_records(self):
         # Andy 2026-11-23: a fresh actor starts with no conversation, yet its
         # instruction said it inherited main's, and the workload it got had no
@@ -120,6 +156,9 @@ class SideModTests(unittest.TestCase):
         # Picked through refs: the event's target message 41 is one of n23's refs.
         self.assertIn('n23',referenced)
         self.assertNotIn('n24',referenced)
+        self.assertNotIn('n27',referenced)
+        self.assertEqual('run 455 attempt 2 completed',referenced['n26']['waiting_on'])
+        self.assertEqual('n26',fresh['workload']['referenced'][0]['id'])
         self.assertEqual('MAIN DECISION: only 120px is approved; the rest stays held',referenced['n23']['progress'])
         self.assertTrue(referenced['n23']['note'].endswith('NOTE-TAIL'))
         self.assertTrue(referenced['n23']['note'].startswith('…'))

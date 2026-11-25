@@ -151,7 +151,8 @@ TEXTS: dict[str, str] = {
         "waiting_on에는 짧은 신호 이름, release_hint.condition에는 실제로 기다리는 결론(성공만 또는 실패·취소를 포함한 종료), "
         "release_hint.lookup에는 그 결론과 대상 일치를 검증할 URL 또는 조회 방법을 넣으십시오. 예: waiting_on='org/repo PR #42 CI 결과', "
         "condition='기록한 head SHA의 CI run 123 attempt 1 완료(결론 포함)', lookup='해당 run URL에서 head SHA, attempt, status, conclusion을 확인'. "
-        "보고 성공을 확인한 다음 턴을 끝내십시오. 거부되면 정정하고, 기록할 수 없으면 정확한 대상과 조건을 메인에 인계하십시오. "
+        "원본 Walkie 대화 ID와 스레드 루트 ID가 확인됐으면 release_hint.lookup에도 넣으십시오. 후속 GitHub 알림의 스레드 ID는 작업 후보를 찾는 데만 쓰며 실행 일치의 증거는 아닙니다. "
+        "보고 성공과 할당된 리프의 대기 기록을 확인한 다음 턴을 끝내십시오. 거부되면 정정하고, 기록할 수 없으면 정확한 대상과 조건을 메인에 인계하십시오. "
         "알림을 받아 재개하면 같은 실행의 최종 상태를 확인한 뒤 승인된 범위에서 다음 단계로 진행하십시오."),
     # Main is told at its turn end that fork results await its review.
     'mod_review_reminder': (
@@ -160,6 +161,10 @@ TEXTS: dict[str, str] = {
     # The pane while the board is being loaded.
     'mod_pane_loading': (
         "Work 보드를 불러오는 중입니다. 잠시 뒤에도 그대로면 r(Refresh)을 누르십시오."),
+    'mod_released_fork_signal': (
+        "Ciel Work: the recorded wait on {item} was cleared. Evidence ({event}). "
+        "Walkie thread {root}, message {message}: {body}\n"
+        "Continue only the approved assignment in the same workspace. This is not new execution approval."),
     # Direct side-to-running-fork handoff when the side skipped its own reply.
     'mod_direct_fork_reply': (
         "Direct handoff: the side actor did not post an outbound reply or create a new Work item so your running "

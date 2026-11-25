@@ -4,6 +4,7 @@ A side event is either answered (status/info/clarify, no Work change) or a
 request (create/update/prioritize Work). The host, never the model, states
 the outcome: whether anything was queued and where the goal now stands.
 """
+from datetime import datetime
 import hashlib
 import json
 import re
@@ -55,6 +56,26 @@ class WorkChanged(tree.WorkPlanError):
 def wait_digest(waiting_on):
     """SHA-256 of the exact released wait text; the text itself is never copied."""
     return hashlib.sha256(waiting_on.encode('utf-8')).hexdigest()
+
+
+_UTC_WAIT = re.compile(r'^UTC clock past (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)(?: \([^\n]*\))?$', re.ASCII)
+
+
+def _utc_wait_refusal(waiting_on, now):
+    """Enforce explicit UTC clock waits without interpreting arbitrary prose."""
+    if not (match := _UTC_WAIT.fullmatch(waiting_on)):
+        return None
+    try:
+        deadline = datetime.fromisoformat(match[1].replace('Z', '+00:00')).timestamp()
+    except ValueError:
+        return 'invalid UTC wait deadline'
+    return 'UTC wait deadline has not passed' if now <= deadline else None
+
+
+def _gate_pin_matches(pins, node):
+    from .work_gate_check import wait_pin
+    return isinstance(pins, dict) and pins.get(node['id']) == wait_pin(
+        node.get('waiting_on', ''), node.get('release_hint'), node.get('status') == 'blocked')
 
 
 def _release_leaf(doc, node_id, line, now):
@@ -257,7 +278,7 @@ def clamp_text(value, limit):
     return (value[:keep] + marker)[:limit]
 
 
-def validate(decision, *, source_has_ids=False):
+def validate(decision, *, source_has_ids=False, strict_releases=False):
     if not isinstance(decision, dict) or set(decision) - FIELDS:
         raise tree.WorkPlanError('invalid side decision fields')
     for key, limit in (('summary', MAX_SIDE_SUMMARY), ('reply', MAX_SIDE_SUMMARY), ('note', tree.MAX_TEXT_CHARS),
@@ -301,6 +322,8 @@ def validate(decision, *, source_has_ids=False):
                        for row in releases)
                 or len({row['id'] for row in releases}) != len(releases)):
             raise tree.WorkPlanError('invalid side decision release_waits')
+    if strict_releases and releases and decision['action'] != 'update':
+        raise tree.WorkPlanError('invalid side decision action: release_waits requires action update')
     refs = decision.get('refs')
     if refs is not None:
         # Every external id the actor found in the source or in its lookups:
@@ -505,7 +528,7 @@ def _record_review(doc, receipt_id, result, source):
 
 def apply(store, receipt_id, decision, expected_version, *, main_reply=False, observed_digest=None, source=None,
           source_context=None, parked_projection=None, gate_check=False, workflow=None,
-          source_priority=None, p0_roots=frozenset(), source_has_ids=False):
+          source_priority=None, p0_roots=frozenset(), source_has_ids=False, gate_pins=None):
     """``workflow`` (approval workflow on): {'source': {...}, 'prompt': digest}.
 
     A create then opens the goal's workflow record (intake -> proposal_due) and
@@ -564,6 +587,7 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
         groups: set[str] = set()
         if action == 'update':
             goal = tree._root_of(by_id, item)
+            release_at = time.time()
             for wait in decision.get('release_waits') or []:
                 node = by_id.get(wait['id'])
                 # A gate re-check covers every goal's gates in one event, so its
@@ -574,6 +598,10 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
                 elif node.get('waiting_on', '') != wait['waiting_on']:
                     unreleased.append({'id': wait['id'], 'reason': 'wait changed since side observation'
                                        if node.get('waiting_on') else 'no recorded wait'})
+                elif gate_pins is not None and not _gate_pin_matches(gate_pins, node):
+                    unreleased.append({'id': wait['id'], 'reason': 'gate absent or changed since scheduled check'})
+                elif reason := _utc_wait_refusal(node['waiting_on'], release_at):
+                    unreleased.append({'id': wait['id'], 'reason': reason})
                 else:
                     # A goal or group wait is released like a leaf's (Andy
                     # 2026-11-23: n2296 and n1675 stayed gated after the side
@@ -582,7 +610,6 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
                     released.append({'id': node['id'], 'waiting_on': node['waiting_on']})
                     if tree._children(doc, node['id']):
                         groups.add(node['id'])
-            release_at = time.time()
             for wait in released:
                 line = ('\n\nSide released wait "' + wait['waiting_on'] + '" (event ' + receipt_id[:12] + '): '
                         + decision['summary'].strip().splitlines()[0][:300])
@@ -816,6 +843,11 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             # no second "ACK —". The committed outcome, never the model's guess,
             # closes it.
             text = decision['reply'].rstrip()
+            if unreleased:
+                # Do not publish the actor's claim of release when the board refused it.
+                confirmed = ', '.join(wait['id'] for wait in released) or '없음'
+                held = '; '.join(f"{wait['id']} ({wait['reason']})" for wait in unreleased)
+                text = f'대기 해제 확인: {confirmed}. 해제되지 않은 대기: {held}.'
             result['final_text'] = text + '\n\n' + outcome_text(result, priority='P0' if already_p0 else None)
         if asks_main and not main_reply:
             result['ask_main'] = True

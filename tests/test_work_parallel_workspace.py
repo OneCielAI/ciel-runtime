@@ -340,5 +340,78 @@ class WorkspaceTests(unittest.TestCase):
                              for p in (self.config / "work-parallel-workspaces").glob("*.json")))
         self.assertEqual(self.observe()["status"], "ready")
 
+    def test_git_sets_noninteractive_env_and_kills_grandchild_on_timeout(self):
+        # Betty 2026-11-25: partial-clone worktree add triggered a promisor fetch
+        # whose credential-manager child blocked on interactive auth; Windows
+        # subprocess.run(timeout) killed only git's wrapper child and hung forever
+        # draining pipes held open by the surviving grandchild, stranding the
+        # unbound reservation and its slot.
+        import os
+        import sys
+        import time
+
+        seen_env = {}
+        real_popen = subprocess.Popen
+
+        def spy_popen(cmd, **kwargs):
+            seen_env.update(kwargs.get("env") or {})
+            return real_popen(cmd, **kwargs)
+
+        with patch.object(ws.subprocess, "Popen", side_effect=spy_popen):
+            ws._git(self.repo, "rev-parse", "HEAD")
+        self.assertEqual("0", seen_env.get("GIT_TERMINAL_PROMPT"))
+        self.assertEqual("never", seen_env.get("GCM_INTERACTIVE"))
+        self.assertEqual("never", seen_env.get("GIT_GCM_INTERACTIVE"))
+
+        marker = self.root / "grandchild.pid"
+        helper = self.root / "spawn_grandchild.py"
+        helper.write_text(
+            "import pathlib, subprocess, sys, time\n"
+            "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
+            "pathlib.Path(sys.argv[1]).write_text(str(child.pid))\n"
+            "time.sleep(60)\n",
+            encoding="utf-8",
+        )
+
+        def fake_popen(cmd, **kwargs):
+            if cmd and cmd[0] == "git":
+                return real_popen([sys.executable, str(helper), str(marker)], **kwargs)
+            return real_popen(cmd, **kwargs)
+
+        started = time.monotonic()
+        with (patch.object(ws, "_GIT_TIMEOUT_SECONDS", 0.6),
+              patch.object(ws.subprocess, "Popen", side_effect=fake_popen)):
+            with self.assertRaisesRegex(ws.WorkspaceError, "timed out"):
+                ws._git(self.repo, "worktree", "add")
+        elapsed = time.monotonic() - started
+        self.assertLess(elapsed, 15.0, "timeout must not hang on grandchild pipes")
+        if marker.exists():
+            grandchild_pid = int(marker.read_text(encoding="utf-8").strip())
+            deadline = time.monotonic() + 5.0
+            alive = True
+            while time.monotonic() < deadline:
+                if os.name == "nt":
+                    chk = subprocess.run(["tasklist", "/FI", f"PID eq {grandchild_pid}", "/NH"],
+                                         capture_output=True, text=True, check=False)
+                    alive = str(grandchild_pid) in chk.stdout
+                else:
+                    try:
+                        os.kill(grandchild_pid, 0)
+                        stat_path = Path(f"/proc/{grandchild_pid}/stat")
+                        if stat_path.exists():
+                            parts = stat_path.read_text(encoding="utf-8", errors="replace").rsplit(")", 1)
+                            alive = not (len(parts) == 2 and parts[1].lstrip().startswith("Z"))
+                        else:
+                            alive = True
+                    except OSError:
+                        alive = False
+                if not alive:
+                    break
+                time.sleep(0.1)
+            if alive and os.name == "nt":
+                subprocess.run(["taskkill", "/PID", str(grandchild_pid), "/T", "/F"],
+                               capture_output=True, check=False)
+            self.assertFalse(alive, "timed-out git grandchild process was left alive")
+
 if __name__ == "__main__":
     unittest.main()

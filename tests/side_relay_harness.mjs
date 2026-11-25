@@ -34,6 +34,9 @@ let spawnedPrompt = ''
 const timers = []
 const hostStore = new Map()
 const MESSAGE = 'Andy: the CSV delimiter must be a semicolon, not a comma'
+const ORIGINAL = scenario.startsWith('relay-direct-') ? JSON.stringify({
+  type:'com.ciel.walkie.support.message',data:{sender:'GitHub',text:MESSAGE,activity_context:'fixture-private-context'}
+}) : MESSAGE
 const $ = {
   state:{get:async ref=>{const held=hostStore.get(ref.plugin+'/'+ref.key);return {value:held?structuredClone(held.value):undefined,version:held?.version||0}},set:async (ref,value,options={})=>{const name=ref.plugin+'/'+ref.key,held=hostStore.get(name)||{version:0};if(options.ifVersion!==undefined&&options.ifVersion!==held.version)return {isSet:false,version:held.version};hostStore.set(name,{value:structuredClone(value),version:held.version+1});return {isSet:true,version:held.version+1}}},
   session:{model:async()=>'fixture-main',id:async()=>'parent',
@@ -44,7 +47,7 @@ const $ = {
     let value = {}
     if (name === 'work_side_claim') {
       const direct = scenario.startsWith('relay-direct-')
-      const claim = claimed ? null : {receipt_id:'e'.repeat(64),generation:'10000000000000000000000000000005',text:MESSAGE,event_key:'walkie:1',
+      const claim = claimed ? null : {receipt_id:'e'.repeat(64),generation:'10000000000000000000000000000005',text:ORIGINAL,event_key:'walkie:1',
         lease_until:Date.now()/1000+120,route:{},
         ...(direct ? {source_read:{classification:'thread',server:'walkie',conversation_id:'34886995-4a66-4527-a618-814e9cb0a5bf',root_id:'1000',target_message_id:'1005'}} : {}),
         workload:{version:4,truncated:false,active_root:'n1',queue_order:[],

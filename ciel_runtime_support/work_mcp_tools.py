@@ -745,7 +745,7 @@ def dispatch_work_tool(
                         newest = {key: read["newest"] for key, read in reads.items() if read.get("newest")}
                         from .work_gate_check import INTERNAL_WAIT
                         rows = [row for row in rows if row["id"] not in quiet
-                                or row.get("release_hint")
+                                or row.get("release_hint") or row.get("blocked")
                                 or INTERNAL_WAIT.search(row.get("waiting_on") or "")]
                         if not rows and not parked and not stalled:
                             advance_threads(state_dir, identity, newest)
@@ -795,7 +795,8 @@ def dispatch_work_tool(
                                    review_text=prompt_text(state_dir, "gate_review"), parked=parked_round,
                                    stalled=stalled_round)
                 receipts = [receive(state_dir, identity, part["text"], part["event_key"], admit=False,
-                                    route={"source_kind": "gate_check", **({"turn_end": True} if turn_end else {})}
+                                    route={"source_kind": "gate_check", "gate_pins": part["gate_pins"],
+                                           **({"turn_end": True} if turn_end else {})}
                                     ).get("receipt_id")
                             for part in event["events"]]
                 record.write_text(json.dumps({**(last or {}), "at": event["at"], "digest": event["digest"],

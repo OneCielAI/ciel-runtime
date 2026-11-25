@@ -82,7 +82,9 @@ detail={question, blocking_todos:[<assigned leaf item_id>], decision_needed,
   the verified repository, PR number, head SHA, workflow/check, and run ID /
   attempt (when known) in `waiting_on` and `release_hint` on the assigned leaf
   so the SSE side actor can route the arriving result to the fork or main
-  instead of polling with a running slot.
+  instead of polling with a running slot. If known, include the original Walkie
+  conversation and thread root IDs in `release_hint.lookup`. Match the run and
+  its conclusion separately: a matching thread is not release evidence.
 
 The board records the exact assigned leaf's wait first. The question receipt
 then records the same paired values, and only after both writes succeed is the

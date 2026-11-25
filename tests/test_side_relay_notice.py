@@ -150,6 +150,9 @@ class SideRelayNoticeTests(unittest.TestCase):
         self.assertEqual([{'agentId': 'agent-run'}], [item['to'] for item in row['sent']])
         fork = row['sent'][0]['text']
         self.assertIn('Direct handoff', fork)
+        self.assertIn('Message: ' + MESSAGE, fork)
+        self.assertNotIn('[object Object]', fork)
+        self.assertNotIn('fixture-private-context', fork)
         self.assertIn('34886995-4a66-4527-a618-814e9cb0a5bf', fork)
         self.assertIn('1005', fork)
         self.assertIn('not new execution approval', fork)

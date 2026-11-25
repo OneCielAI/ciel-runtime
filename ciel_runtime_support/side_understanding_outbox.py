@@ -75,7 +75,7 @@ def save_proposal(state_dir, identity, receipt_id, generation, proposal):
         # already saved (an older router saved it without refs) is final.
         gate_check = str(row.get('event_key') or '').startswith(GATE_CHECK_PREFIX)
         validate(decision, source_has_ids=source_identity(row.get('text')) is not None and not gate_check
-                 and not isinstance(prior, dict))
+                 and not isinstance(prior, dict), strict_releases=not isinstance(prior, dict))
         if expected is not None and type(expected) is not int:
             raise WorkPlanError('expected Work version must be an integer')
         value = {'understanding': understanding, 'decision': decision, 'expected_version': expected,

@@ -20,6 +20,16 @@ HOST = {'token': 'x' * 40}
 
 
 class GateCheckUnitTests(unittest.TestCase):
+    def test_source_binding_distinguishes_thread_and_conversation(self):
+        from ciel_runtime_support.work_gate_threads import bind, source_bindings
+        state = Path(self.tmp.name)
+        for node, conversation, root in [('n1', 'room-a', '42'), ('n2', 'room-b', '42'), ('n3', 'room-a', '43')]:
+            bind(state, 'claude:parent', node, conversation, root)
+        self.assertEqual({'matches': ['n1'], 'excluded': ['n2', 'n3']}, source_bindings(
+            state, 'claude:parent', {'conversation_id': 'room-a', 'root_id': '42'}))
+        self.assertEqual({'matches': [], 'excluded': []}, source_bindings(
+            state, 'claude:other', {'conversation_id': 'room-a', 'root_id': '42'}))
+
     def test_interval_default_off_and_bounds(self):
         # User 2026-11-19: the default is 10 minutes (was 5).
         config = {}
@@ -388,7 +398,8 @@ class GateCheckMcpTests(unittest.TestCase):
         inbox = SideIntakeInbox(self.root, self.identity)
         row = inbox._load(queued['receipt_id'])
         self.assertTrue(row['event_key'].startswith('gate-check:'))
-        self.assertEqual({'source_kind': 'gate_check'}, row['route'])
+        self.assertEqual({'source_kind': 'gate_check', 'gate_pins': {
+            wait: gate.wait_pin('CI run 42 green', None, False)}}, row['route'])
         self.assertIsNone(row['item_id'])
         self.assertEqual('previous_round_pending', self.check()['reason'])
         self.assertEqual(1, len(inbox.pending()))
@@ -419,6 +430,21 @@ class GateCheckMcpTests(unittest.TestCase):
         self.assertEqual('claimed', notice['state'])
         self.assertTrue(self.notice(claimed['receipt_id'])['state'].startswith('already_'))
         self.assertEqual('no_gates', self.check()['reason'])
+
+    def test_gate_cannot_release_a_wait_whose_hint_changed_after_scheduling(self):
+        _, item = self._waiting()
+        self.check()
+        claimed = self.claim('actor')
+        self.store.transaction(lambda d: tree.update_node(d, item, release_hint={
+            'condition': 'CI attempt 2 passes', 'lookup': 'Read attempt 2'}))
+        host = {**HOST, 'receipt_id': claimed['receipt_id'], 'generation': claimed['generation']}
+        result = self.value('work_side_resolve', {'decision': {
+            'action': 'update', 'kind': 'request', 'item_id': item, 'summary': 'attempt 1 passed',
+            'reply': 'checked', 'release_waits': [{'id': item, 'waiting_on': 'CI run 42 green'}]},
+            'expected_version': claimed['workload']['version']}, host)['result']
+        self.assertEqual([{'id': item, 'reason': 'gate absent or changed since scheduled check'}],
+                         result['unreleased_waits'])
+        self.assertNotIn('released_waits', result)
 
     def test_next_round_waits_for_the_last_and_then_the_interval(self):
         import time as clock

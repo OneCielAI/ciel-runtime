@@ -550,7 +550,20 @@ def run(name, args, config, state_dir, identity, store):
             if followup_missing:
                 _answer_followup(inbox, key, row['answer'])
             replies.append(reply)
-        active = None if waiting_reason else claim(
+        # Fresh side mode (KOBE 2026-11-25): enforce strictly 1 active fresh
+        # claim at the router boundary as well so an older loaded JS mod or
+        # concurrent poll never runs 2-3 side-fresh actors at once.
+        fresh_busy = False
+        if runtime_side.get('session') == 'fresh':
+            import time as _time
+            _now = _time.time()
+            _owner = args.get('owner')
+            for _row in inbox.pending(200, skip=inbox.quarantined_keys()):
+                _proc = _row.get('processing') or {}
+                if float(_proc.get('lease_until') or 0) > _now and _row.get('stage') == 'received':
+                    fresh_busy = True
+                    break
+        active = None if (waiting_reason or fresh_busy) else claim(
             state_dir, identity, args.get('owner'),
             aging_seconds=config.get('work_side_intake',{}).get('aging_seconds',60),
             model_fingerprint=NATIVE_FORK_FINGERPRINT,
@@ -588,6 +601,9 @@ def run(name, args, config, state_dir, identity, store):
                 from .side_reply_connector import source_read
                 active['source_read'] = source_read(config, active.get('route', {}), active['text'])
                 active['source_context'] = (active['source_read'] or {}).get('classification', 'not_walkie')
+                if active['source_context'] == 'thread':
+                    from .work_gate_threads import source_bindings
+                    active['thread_bindings'] = source_bindings(state_dir, identity, active['source_read'])
                 active['source_truncated'] = bool((active['source_read'] or {}).get('event_truncated'))
                 # Persist the classification for receipt and Side UI visibility.
                 with exclusive_file_lock(inbox._event_path('locks', active['receipt_id'])):
@@ -638,7 +654,8 @@ def run(name, args, config, state_dir, identity, store):
         # the response over the page size (24 kB) and paged all claims.
         if isinstance(active, dict) and (active.get('route') or {}).get('source_kind') == 'gate_check':
             from .work_workflow_prompts import effective as _prompt_text
-            settings['gate_instruction'] = _prompt_text(state_dir, 'gate_actor')
+            settings['gate_instruction'] = '\n\n'.join(_prompt_text(state_dir, name) for name in
+                                                      ('gate_actor', 'gate_verification_contract'))
         # wake_protocol 2: main_wakes lists every appended row main has not read.
         # main_notices: released-wait notices a host may issue once more (a
         # definite failure, or a person-confirmed release); each is claimed
@@ -663,8 +680,25 @@ def run(name, args, config, state_dir, identity, store):
         from .side_understanding_outbox import prepare as understanding_prepare, record as understanding_record
         from .side_understanding_outbox import save_proposal
         if args.get('state') == 'prepare':
+            decision = args.get('decision')
+            understanding = args.get('understanding')
+            # KOBE 2026-11-25 (68f98974, d548fdd3): an older loaded JS mod sends
+            # the raw model proposal straight to the router. Recover the two
+            # harmless omissions here too: missing reply on no_reply=true, and
+            # missing understanding when summary is non-empty (still checked
+            # against ACK/echo in save_proposal).
+            if isinstance(decision, dict):
+                decision = dict(decision)
+                summary = decision.get('summary')
+                if (decision.get('no_reply') is True
+                        and (not isinstance(decision.get('reply'), str) or not decision['reply'].strip())
+                        and isinstance(summary, str) and summary.strip()):
+                    decision['reply'] = ' '.join(summary.split())[:300]
+                if ((not isinstance(understanding, str) or not understanding.strip())
+                        and isinstance(summary, str) and summary.strip()):
+                    understanding = ' '.join(summary.split())[:400]
             save_proposal(state_dir, identity, key, generation, {
-                'understanding': args.get('understanding'), 'decision': args.get('decision'),
+                'understanding': understanding, 'decision': decision,
                 'expected_version': args.get('expected_version')})
             return understanding_prepare(state_dir, identity, key, config=config)
         return {'receipt': understanding_record(state_dir, identity, key, args.get('state'),
@@ -692,12 +726,15 @@ def run(name, args, config, state_dir, identity, store):
             args = {**args, 'decision': decision}
         from .side_intake_inbox import source_identity as _resolve_source_identity
         from .work_gate_check import EVENT_PREFIX as GATE_CHECK_PREFIX
-        gate_check = str((row or {}).get('event_key') or '').startswith(GATE_CHECK_PREFIX)
+        route = (row or {}).get('route') or {}
+        gate_check = (route.get('source_kind') == 'gate_check'
+                      and str((row or {}).get('event_key') or '').startswith(GATE_CHECK_PREFIX))
+        gate_pins = route.get('gate_pins') if gate_check else None
         # A saved proposal passed the refs check when it was saved; one saved by
         # an older router (before refs, 2026-11-20) is final and still commits.
         source_has_ids = (_resolve_source_identity((row or {}).get('text')) is not None and not gate_check
                           and not isinstance(saved, dict))
-        validate(decision, source_has_ids=source_has_ids)
+        validate(decision, source_has_ids=source_has_ids, strict_releases=not isinstance(saved, dict))
         if config.get('work_mode', True) is not True and decision.get('action') not in ('answer', 'clarify'):
             raise WorkPlanError('Work is off; answering allowed, queue mutation denied')
         # A handoff follow-up carries main's own answer back to the source. Its
@@ -717,7 +754,7 @@ def run(name, args, config, state_dir, identity, store):
                            observed_digest=observed if isinstance(observed, str) else None,
                            source=source_identity(original), source_priority=source_priority(original),
                            p0_roots=p0_roots, source_context=(row or {}).get('source_context'),
-                           parked_projection=parked, gate_check=gate_check,
+                           parked_projection=parked, gate_check=gate_check, gate_pins=gate_pins,
                            source_has_ids=source_has_ids,
                            workflow=side_workflow_context(config, state_dir, row))
         except WorkChanged as error:

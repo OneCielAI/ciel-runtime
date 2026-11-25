@@ -320,7 +320,7 @@ class WorkParallelMCPTests(unittest.TestCase):
             self.assertEqual({}, store.read()["leases"])
             def hang(*args, **kwargs):
                 raise subprocess.TimeoutExpired(args[0], 30)
-            with patch.object(work_parallel_workspace.subprocess, "run", hang):
+            with patch.object(work_parallel_workspace, "_run_git_subprocess", hang):
                 with self.assertRaisesRegex(Exception, "timed out after"):
                     run("event", {"fork": True, "workspace_repo": str(not_root)}, event="reserve", item_id="n1", priority="P2")
             self.assertEqual({}, store.read()["leases"])

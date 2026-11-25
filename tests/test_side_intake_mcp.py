@@ -477,6 +477,42 @@ class SideMcpTests(unittest.TestCase):
         reserved = json.loads(self.invoke('work_side_claim', {'owner': 'actor', 'urgent_only': True})['text'])
         self.assertEqual('P0', reserved['claim']['source_priority'])
 
+    def test_fresh_session_allows_only_one_live_claim_at_router_and_recovers_omissions(self):
+        # KOBE 2026-11-25: fresh side mode stacked 2-3 concurrent actors and
+        # quarantined valid no_reply / missing-understanding proposals at prepare.
+        self.config['work_side_intake']['session'] = 'fresh'
+        self.inbox.receive('first event', 'fresh:1')
+        self.inbox.receive('second event', 'fresh:2')
+        first = json.loads(self.invoke('work_side_claim', {'owner': 'side-1'})['text'])
+        self.assertIsNotNone(first['claim'])
+        # While the first fresh claim holds an active lease, a second claim
+        # (including urgent_only) returns None instead of stacking another actor.
+        second = json.loads(self.invoke('work_side_claim', {'owner': 'side-1'})['text'])
+        self.assertIsNone(second['claim'])
+        urgent = json.loads(self.invoke('work_side_claim', {'owner': 'side-1', 'urgent_only': True})['text'])
+        self.assertIsNone(urgent['claim'])
+        # Proposal with omitted understanding and omitted reply (with no_reply=True)
+        # is recovered from summary at prepare instead of quarantining to main.
+        host = {'token': 'x' * 40, 'receipt_id': first['claim']['receipt_id'],
+                'generation': first['claim']['generation']}
+        prep = self.invoke('work_side_understanding', {
+            'state': 'prepare',
+            'decision': {'action': 'answer', 'kind': 'status', 'no_reply': True,
+                         'summary': '중복 GitHub 알림 확인, 기록만 남김'},
+            'expected_version': first['claim']['workload']['version'],
+        }, host)
+        self.assertFalse(prep['error'], prep)
+        res = self.invoke('work_side_resolve', {
+            'decision': {'action': 'answer', 'kind': 'status', 'no_reply': True,
+                         'summary': '중복 GitHub 알림 확인, 기록만 남김', 'reply': '중복 GitHub 알림 확인, 기록만 남김'},
+            'expected_version': first['claim']['workload']['version'],
+        }, host)
+        self.assertFalse(res['error'], res)
+        # Once the first claim settles, the second event is claimable.
+        after = json.loads(self.invoke('work_side_claim', {'owner': 'side-1'})['text'])
+        self.assertIsNotNone(after['claim'])
+        self.assertNotEqual(first['claim']['receipt_id'], after['claim']['receipt_id'])
+
     def _resolve_event(self, event, decision):
         host = {'token': 'x'*40, 'receipt_id': event['receipt_id'], 'generation': event['generation']}
         response = self.invoke('work_side_resolve', {'decision': decision,

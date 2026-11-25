@@ -15,6 +15,7 @@ let events=[
  {receipt_id:'a'.repeat(64),generation:'1'.repeat(32),text:'question',event_key:'source:one',lease_until:Date.now()/1000+120,
   source_read:{server:'walkie',classification:'thread',conversation_id:CONVERSATION,
    root_id:'40',target_message_id:'41',reply_to_message_id:'40',thread_root_id:'40'},
+  thread_bindings:{matches:['n25'],excluded:['n27']},
   route:{channel:'external:source',sender_id:'sender',source_kind:'external_event'}},
 ]
 const calls=[],spawns=[],timers=[],rewrites=[]
@@ -45,7 +46,10 @@ const $={
     {id:'n23',parent_id:'n1',title:'refs leaf',priority:'P1',refs:['ticket-77','41'],waiting_on:'review of 41',
      note:'OLD '+'x'.repeat(600)+' NOTE-TAIL',progress:'MAIN DECISION: only 120px is approved; the rest stays held',
      evidence:'checked 41'},
-    {id:'n24',parent_id:'n1',title:'unrelated leaf',priority:'P1',refs:['other-99'],note:'UNRELATED-NOTE'}
+    {id:'n24',parent_id:'n1',title:'unrelated leaf',priority:'P1',refs:['other-99'],note:'UNRELATED-NOTE'},
+    {id:'n25',parent_id:null,title:'original thread'},
+    {id:'n26',parent_id:'n25',title:'waiting leaf',waiting_on:'run 455 attempt 2 completed'},
+    {id:'n27',parent_id:null,title:'wrong thread',refs:['40']}
    ],active_forks:[{item_id:'n21',root_id:'n1',state:'waiting_input',agent_id:'worker'}]}
    value={claim,settings:{...settings},handoff_replies:[],main_wakes:wakes}
   }

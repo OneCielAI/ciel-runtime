@@ -311,6 +311,11 @@ def stalled_forks(leases: Mapping[str, Any], scope: str, doc: Mapping[str, Any],
     return rows
 
 
+def wait_pin(waiting_on: str, hint: Any, blocked: bool) -> str:
+    material = json.dumps([waiting_on, hint, blocked], sort_keys=True, separators=(',', ':'))
+    return hashlib.sha256(material.encode()).hexdigest()
+
+
 def digest(rows: list[dict[str, Any]], parked: list[dict[str, Any]] | None = None,
            stalled: list[dict[str, Any]] | None = None) -> str:
     material = [[row['id'], row['waiting_on'], row['blocked'], row.get('release_hint')] for row in rows]
@@ -383,7 +388,7 @@ def event_text(rows: list[dict[str, Any]], interval: int, part: str = "",
                threads: Mapping[str, Mapping[str, Any]] | None = None,
                included: list[str] | None = None, rules: str | None = None,
                parked: list[dict[str, Any]] | None = None,
-               stalled: list[dict[str, Any]] | None = None) -> str:
+               stalled: list[dict[str, Any]] | None = None, stamp: float | None = None) -> str:
     """The tick's one event. ``rules`` is the managed instruction (prompt
     ``gate_recheck``: REST, web, ctl and menu edit it; it applies from the next
     tick with no restart). ``threads`` maps a gate id to its thread's new
@@ -393,6 +398,7 @@ def event_text(rows: list[dict[str, Any]], interval: int, part: str = "",
     lines = [
         "Ciel 게이트 재확인 (호스트 타이머, %d분마다, 메인이 바쁠 때도 동작; Work 포크가 돌고 있을 수 있음)%s." % (
             interval, (" — " + part) if part else ""),
+        "호스트 관측 UTC: " + time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() if stamp is None else stamp)),
         *(rules if isinstance(rules, str) and rules.strip() else prompt_default("gate_recheck")).split("\n"),
         "게이트:" if rows else "게이트: 없음",
     ]
@@ -500,7 +506,7 @@ def tick_event(config: Mapping[str, Any], rows: list[dict[str, Any]], current: s
     slot = int(stamp // (interval * 60))
     fit: list[str] = []
     text = event_text(rows, interval, "%d gate(s)" % len(rows) if len(rows) > 1 else "", threads, included=fit,
-                      rules=rules, parked=parked, stalled=stalled)
+                      rules=rules, parked=parked, stalled=stalled, stamp=stamp)
     if review_pending:
         # Results that wait for main's review (user 2026-11-19: the side tells main).
         template = review_text if isinstance(review_text, str) and review_text.strip() else prompt_default("gate_review")
@@ -513,7 +519,10 @@ def tick_event(config: Mapping[str, Any], rows: list[dict[str, Any]], current: s
     body = hashlib.sha256(text.encode()).hexdigest()[:8]
     parked_ids = [row["lease_id"] for row in parked or []]
     stalled_ids = [row["lease_id"] for row in stalled or []]
-    event = {"event_key": f"{EVENT_PREFIX}{current}:{slot}:1:{body}", "text": text, "gates": fit,
+    included_ids = set(fit)
+    pins = {row['id']: wait_pin(row['waiting_on'], row.get('release_hint'), row['blocked'])
+            for row in rows if row['id'] in included_ids}
+    event = {"event_key": f"{EVENT_PREFIX}{current}:{slot}:1:{body}", "text": text, "gates": fit, "gate_pins": pins,
              "parked": parked_ids, "stalled": stalled_ids}
     return {"event_key": event["event_key"], "text": text, "events": [event], "digest": current, "at": stamp,
             "gates": event["gates"], "parked": parked_ids, "stalled": stalled_ids, "interval_minutes": interval}

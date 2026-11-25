@@ -230,6 +230,19 @@ class GateThreadTests(unittest.TestCase):
         # The tick is recorded: inside the interval the next ask is not due.
         self.assertEqual('not_due', self.check()['reason'])
 
+    def test_quiet_thread_preserves_blocked_and_explicit_lookup_gates(self):
+        from ciel_runtime_support import work_gate_threads as threads
+        blocked, hinted, plain = self.gates(3, 'quiet')
+        self.store.transaction(lambda d: tree.update_node(d, blocked, status='blocked'))
+        self.store.transaction(lambda d: tree.update_node(d, hinted, release_hint={
+            'condition': 'Workflow 42 succeeds', 'lookup': 'Read workflow 42 status'}))
+        for item in (blocked, hinted, plain):
+            threads.bind(self.root, self.identity, item, CONVERSATION, '40', last_seen='100')
+        self.assertEqual('read_threads', self.check()['reason'])
+        queued = self.check(threads_read=[{'key': CONVERSATION + '|40', 'messages': []}])
+        self.assertEqual([blocked, hinted], queued['gates'])
+        self.assertIn('호스트 관측 UTC:', self.pending()[0]['text'])
+
     def test_a_failed_read_checks_its_gates_like_gates_without_a_thread(self):
         from ciel_runtime_support import work_gate_threads as threads
         ids = self.gates(2, 'alpha')

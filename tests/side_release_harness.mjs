@@ -7,9 +7,9 @@ const scenario = process.argv[2]
 let busy = scenario !== 'main-idle' && scenario !== 'main-idle-repolled'
 sideMainBusy(() => busy)
 // Stage 3: register.js resumes a parked worker on its own lease first.
-const resumeCalls = []
+const resumeCalls = [], resumeTexts = []
 if (scenario === 'fork-parked-resumed' || scenario === 'fork-parked-refused' || scenario === 'group-parked-resumed')
-  sideParkedResume(async ids => { resumeCalls.push(ids)
+  sideParkedResume(async (ids,texts) => { resumeCalls.push(ids); resumeTexts.push(...(texts || []))
     return new Map(ids.map(id => [id, scenario === 'fork-parked-refused' ? 'the resume was not delivered: declined' : true])) })
 const sent = [], appended = [], submitted = [], wakes = [], logs = []
 // The backend grants the notice of one event receipt once (side_notice.py).
@@ -41,7 +41,8 @@ const $ = {
     let value = {}
     if (name === 'work_side_claim') {
       const claim = claimed ? null : {receipt_id:'e'.repeat(64),generation:'10000000000000000000000000000005',text:'Andy: approved',event_key:'walkie:1',
-        lease_until:Date.now()/1000+120,route:{},workload:{version:4,truncated:false,active_root:'n1',queue_order:[],
+        lease_until:Date.now()/1000+120,route:{},
+        ...(scenario === 'group-parked-resumed' ? {source_read:{classification:'thread',server:'walkie',conversation_id:'34886995-4a66-4527-a618-814e9cb0a5bf',root_id:'1000',target_message_id:'1005'}} : {}),workload:{version:4,truncated:false,active_root:'n1',queue_order:[],
           nodes:group ? [{id:'n1',parent_id:null,title:'goal'},{id:'n2',parent_id:'n1',title:'deploy',waiting_on:'group approval'},
             {id:'n3',parent_id:'n2',title:'gate',...(scenario === 'group-leaf-still-waits' ? {waiting_on:'its own review'} : {})}]
           : [{id:'n1',parent_id:null,title:'goal'},{id:'n2',parent_id:'n1',title:'deploy'},{id:'n3',parent_id:'n2',title:'gate',waiting_on:released[0].waiting_on}]}}
@@ -90,4 +91,4 @@ if (scenario === 'main-idle-repolled') {
 // Anything that would arrive after settling (a duplicate notice or prompt) is
 // still given the old window to show up.
 await sleep(20)
-console.log(JSON.stringify({sent,appended,submitted,wakes,logs,resumeCalls}))
+console.log(JSON.stringify({sent,appended,submitted,wakes,logs,resumeCalls,resumeTexts}))

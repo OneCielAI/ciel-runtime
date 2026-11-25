@@ -52,9 +52,17 @@ DEFAULTS: dict[str, str] = {
         '메시지를 바로 넘기고 그 포크가 문맥에 맞게 직접 응답하게 하십시오(사이드가 중복 답장을 올리지 않습니다). '
         '단, 별개의 새 요청이거나 해당 항목에 실행 중인 포크가 없거나 ask_main·release_waits·time_limit이 '
         '필요한 경우에는 일반 규칙을 따르십시오.'),
+    "gate_verification_contract": (
+        '현재 게이트 확인 계약: session_mode=fresh이면 메인 대화를 상속하지 않았습니다. 호스트의 UTC 시각과 '
+        '최신 보드 기록을 기준으로 조사하십시오. 명시된 외부 대기 조건은 lease 부재만으로 충족되지 않습니다. '
+        '조회할 수 없거나 조건 일부만 충족하면 유지하고 확인 불가 사유를 남기십시오. 상태가 blocked뿐이고 '
+        '기록된 대기가 없으면 해제를 요청하지 마십시오. 실제 해제 요청은 action=update, kind=request와 '
+        '현재 대기 원문을 담은 비어 있지 않은 release_waits로 제출하십시오.'),
     "side_external_wait_routing": (
         '외부 실행 결과 전달 (필수 규칙): GitHub PR·CI/CD·배포 SSE가 오면 Work 보드의 waiting_on과 '
-        'release_hint부터 대조하십시오. 요약에 해당 아이템이 없으면 없다고 단정하지 말고 work_status로 '
+        'release_hint부터 대조하십시오. Walkie로 전달된 GitHub 알림이면 source_ref의 대화·스레드 루트로 '
+        '관련 목표와 하위 리프를 찾고 target_message_id의 원문을 읽으십시오. 스레드 일치만으로 해제하지 마십시오. '
+        '요약에 해당 아이템이 없으면 없다고 단정하지 말고 work_status로 '
         '관련 목표와 리프를 읽은 뒤 판단하십시오. 저장소, PR 번호, head SHA, 워크플로/체크, 기록된 '
         'run ID와 attempt를 확인하고, 필요한 경우 release_hint.lookup을 읽기 전용으로 조회하십시오. '
         '이전 커밋·다른 실행·진행 중 알림·단순 언급으로 대기를 해제하지 마십시오. 정확한 실행이 '
