@@ -437,6 +437,35 @@ class SideDecisionTests(unittest.TestCase):
                          (duplicate['stage'], duplicate['result']['delivery'], duplicate['result']['duplicate_of']))
         self.assertEqual([handled], [row['receipt_id'] for row in pending(self.root, 'claude:test')])
 
+    def test_followup_lifecycle_events_are_not_deduplicated_against_initial_message(self):
+        # Andy 2026-11-26: after task.auto_assigned for #161594/#161501/#161412
+        # finished, _source_holder dropped message.renotify (with edited body
+        # and P2 priority), thread.eta_requested and task.status_changed as
+        # duplicate_source. Only initial delivery (message.created /
+        # task.auto_assigned) shares the per-message deduplication lock.
+        import json
+        def walkie(kind, event_id, text='Intranet rail'):
+            return json.dumps({'id': event_id, 'type': 'com.ciel.walkie.support.message',
+                'data': {'event_type': kind, 'conversation': '256a28fd-f1c3-443a-9782-19405288a8d3',
+                         'message_id': '161594', 'text': text}})
+        inbox = SideIntakeInbox(self.root, 'claude:test')
+        initial = inbox.receive(walkie('task.auto_assigned', 'evt:init'), 'source:init')
+        lease = claim(self.root, 'claude:test', 'actor-1', now=100)
+        self.assertEqual(initial['receipt_id'], lease['receipt_id'])
+        finish(self.root, 'claude:test', initial['receipt_id'], lease['generation'],
+               {**self.base, 'kind': 'request', 'action': 'create', 'delivery': 'not_applicable'}, now=101)
+        # Paired initial message.created is still settled as duplicate_source.
+        dup_created = inbox.receive(walkie('message.created', 'evt:created'), 'source:created')
+        self.assertIsNone(claim(self.root, 'claude:test', 'actor-2', now=102))
+        self.assertEqual('duplicate_source', inbox._load(dup_created['receipt_id'])['result']['delivery'])
+        # Distinct lifecycle events on the same message must each be claimed.
+        for idx, kind in enumerate(('message.renotify', 'thread.eta_requested', 'task.status_changed',
+                                    'message.edited', 'message.approved'), start=1):
+            ev = inbox.receive(walkie(kind, f'evt:{kind}'), f'source:{kind}')
+            picked = claim(self.root, 'claude:test', 'actor-2', now=102 + idx)
+            self.assertIsNotNone(picked, f'{kind} must not be dropped as duplicate_source')
+            self.assertEqual(ev['receipt_id'], picked['receipt_id'])
+
     def test_routine_side_answer_does_not_hold_main(self):
         # User requirement 2026-11-17: main is told only when it must act.
         apply(self.store, self.key, {**self.base, 'kind': 'status'}, 0, source='walkie:3c720143:119649')

@@ -459,7 +459,8 @@ class SideIntakeFixTests(WorkflowCase):
         self.assertEqual('not_applicable', state['state'])
         # No receipt ACK is sent for any event (user 2026-11-19: one message per event).
         self.assertNotIn('arguments', state)
-        approved = self.approve(root, event_id='evt-ack2')
+        # Claim and settle that same approval event (FIFO claims the earlier receipt first).
+        approved = self.approve(root, event_id='evt-ack', key='walkie:ack')
         result = self.stored(approved['receipt']['receipt_id'])['result']
         self.assertIn('승인을 확인했습니다', result['final_text'])
         self.assertEqual('pending', result['delivery'])

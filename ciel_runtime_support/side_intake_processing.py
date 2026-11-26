@@ -1,5 +1,6 @@
 """Fenced per-event AI processing; receipt commits precede pending removal."""
 import hashlib
+import json
 import time
 import uuid
 from pathlib import Path
@@ -8,9 +9,28 @@ from .channel_message_repository import exclusive_file_lock
 from .side_intake_inbox import SideIntakeInbox, source_identity, source_priority, unaddressed_reply
 from .work_plan_tree import WorkPlanError
 
+# Events that represent the initial delivery of a new source message and share
+# one per-message deduplication marker (Prody 2026-11-09 #119649:
+# message.created + task.auto_assigned). Distinct follow-up events on the same
+# message (message.renotify, thread.eta_requested, task.status_changed,
+# message.edited, message.approved — observed dropped on Andy 2026-11-26
+# #161594/#161501/#161412) carry their own event_key and must not be settled as
+# duplicate_source.
+INITIAL_SOURCE_EVENTS = frozenset({'', 'message.created', 'task.auto_assigned'})
+
+
+def _source_event_type(text):
+    try:
+        body = json.loads(text)
+    except (ValueError, TypeError):
+        return ''
+    data = body.get('data') if isinstance(body, dict) else None
+    kind = data.get('event_type') if isinstance(data, dict) else None
+    return kind.strip().lower() if isinstance(kind, str) else ''
+
 
 def _source_holder(inbox, key, row, stamp, *, by_event=False):
-    """Bind one source message to one side actor; settle later events for it.
+    """Bind one initial source message to one side actor; settle duplicate initial delivery.
 
     Returns 'claim' when this event may start an actor, 'wait' while the first
     event for the same source is still being handled, or 'settled' when this
@@ -24,6 +44,8 @@ def _source_holder(inbox, key, row, stamp, *, by_event=False):
         from .work_workflow_approval import event_kind, parse_event
         if event_kind(parse_event(row.get('text'))):
             return 'claim'
+    if _source_event_type(row.get('text')) not in INITIAL_SOURCE_EVENTS:
+        return 'claim'
     source = source_identity(row['text'])
     if not source:
         return 'claim'
