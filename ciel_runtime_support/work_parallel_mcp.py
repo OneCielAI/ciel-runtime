@@ -1723,6 +1723,15 @@ def _reserve_assignment(store, board_store, identity, host, version, *, item_id=
                 and existing.get("dispatch_name") == p0_intent["dispatch_name"]
                 and p0_intent["state"] in ("reserved", "spawning", "bound"),
                 "P0 intent lease identity")
+        # A bound P0 intent already owns a live worker lease (for example when
+        # the host pump bound the item concurrently with a manual reserve call,
+        # Celly 2026-11-26 n1600). Refuse cleanly instead of falling through to
+        # coord.record_assignment and reporting a misleading manifest failure.
+        if p0_intent["state"] == "bound" or existing.get("host_id") is not None:
+            raise WorkParallelError(
+                f"Work item {existing['item_id']} already has bound lease {existing['id']} "
+                f"({existing['state']}; agent {existing.get('host_id') or 'bound'})"
+            )
         ident = existing["id"]
     elif p0_intent is not None:
         # Crash recovery precedes a new reserve: adopt only the one exact legacy

@@ -38,4 +38,11 @@ timestamp: 2026-11-26T13:42:00Z
 
 ## 발행·설치
 
-- 커밋·npm `@beta`·7개 루트 해시 확인 설치 후 결과를 기록한다.
+- 커밋 `42abda18b0bf4d1f270c8cdaca09238cc335cdb5`, GitHub Actions `Publish to npm` (`45831968493`) 성공, npm `@beta` = `0.2.51-beta.20261126-134400.42abda1`(`gitHead` 일치).
+- npm tarball 내부 3개 파일 SHA-256과 커밋 `42abda1` 일치 확인:
+  - `ciel_runtime_support/channel_cursor_recovery.py`: `2244d79ef4c7` → `09c23bbd7cef` (3,771 B).
+  - `ciel_runtime_support/channel_wake_delivery_repository.py`: `25a8654f6bf4` → `1541371aac5f` (13,496 B).
+  - `ciel_runtime_support/channel_wake_context.py`: `5e20730de9b2` → `7f91d3bc02ba` (31,302 B).
+- 승인된 7개 루트(로컬 4곳, KOBE `u24`, Prody `u41`, Betty `u42`) 해시 확인 설치 완료(`check` 7/7 `base` → `apply` 7/7 `ok=True`, `.cmd` 래퍼·버전 메타 미변경, 원격 임시 오버레이 정리 완료).
+- **라이브 효과 구분:** Python 라우터 모듈 3개 파일 설치만 완료된 상태다. 모니터링 규칙상 실행 중 라우터와 CLI 세션을 재시작하지 않았으므로, 기동 중인 라우터 메모리에는 재시작 전까지 이전 코드가 유지된다.
+

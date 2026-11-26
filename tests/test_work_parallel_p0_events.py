@@ -245,6 +245,28 @@ class P0EventTests(unittest.TestCase):
         self.assertEqual("reserved", side["intents"][second["intent_id"]]["state"])
         self.assertEqual(old_run, m.coordination(self.store).read()["runs"][first["lease_id"]])
 
+    def test_reserve_on_already_bound_p0_intent_refuses_cleanly_without_manifest_error(self):
+        # Celly 2026-11-26 n1600 (13:46:40Z): host pump reserved and bound
+        # 39e5560c while main called work_parallel_run concurrently. reserve
+        # reused the bound P0 intent, called coord.record_assignment on the
+        # active run, and failed with a misleading "coordination persistence
+        # failed; reservation released: assignment already exists with a
+        # different manifest".
+        first = self.reserve()
+        launch = {key: first[key] for key in ("intent_id", "lease_id", "dispatch_name")}
+        self.call("p0_launch_spawning", {"internal": True}, **launch)
+        self.call("bind", {"host_id": "agent-live", "agent_name": first["dispatch_name"]},
+                  lease_id=first["lease_id"])
+        before_ledger = self.store.read()
+        before_coord = m.coordination(self.store).read()
+        before_p0 = p0_store(self.store).read()
+        with self.assertRaisesRegex(WorkParallelError,
+                                    rf"already has bound lease {first['lease_id']}.*agent-live"):
+            self.call("reserve", {"fork": True}, item_id="item", priority="P1")
+        self.assertEqual(before_ledger, self.store.read())
+        self.assertEqual(before_coord, m.coordination(self.store).read())
+        self.assertEqual(before_p0, p0_store(self.store).read())
+
     def test_closing_an_ended_intent_with_a_reacquire_send_keeps_the_p0_store_valid(self):
         # Celly 2026-11-20 n1041: the ended lease's bound intent had an open
         # reacquire send; closing the intent was refused as "P0 reacquire parent
