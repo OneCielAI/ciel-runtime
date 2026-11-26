@@ -24,6 +24,7 @@ class ChannelCursorRecoveryPorts:
     clamp_to_clear_floor: Callable[[int], int]
     now: Callable[[], float]
     log: Callable[[str, str], None]
+    is_terminal: Callable[[int], bool] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,8 +81,11 @@ class ChannelCursorRecoveryService:
             message_id for message_id in self.ports.queued_command_ids(text) if message_id <= last_id
         )
         states = self.ports.wake_states(candidates, text) if candidates else {}
+        is_terminal = self.ports.is_terminal
         for message_id in candidates:
             if states.get(message_id) == "missing":
+                if is_terminal is not None and is_terminal(message_id):
+                    continue
                 recovered = max(0, message_id - 1)
                 self.ports.log(
                     "WARN",

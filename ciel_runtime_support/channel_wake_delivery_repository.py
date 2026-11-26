@@ -105,6 +105,20 @@ class ChannelWakeDeliveryRepository:
             return str(status.get("reason") or "submission_failed")
         return ""
 
+    def is_terminal(self, message_id: int) -> bool:
+        """True once the message is durably terminal or permanently failed/quarantined."""
+        with self.lock:
+            if (self.failed or {}).get(message_id):
+                return True
+        get = getattr(self.status, "get", None)
+        row = get(message_id) if callable(get) else None
+        return isinstance(row, dict) and str(row.get("status") or "") in {
+            "replied",
+            "skipped",
+            "failed",
+            "interrupted_uncertain",
+        }
+
     def release_stale(self, message_id: int, commit_cursor: bool) -> None:
         if self.interrupted(message_id):
             return

@@ -632,6 +632,7 @@ class ChannelWakeContext:
                 clamp_to_clear_floor=self.cursor.clamp_to_clear_floor,
                 now=self.transcript.now,
                 log=self.transcript_policy.log,
+                is_terminal=self.pending_delivery.lifecycle.is_terminal,
             ),
         )
 
