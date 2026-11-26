@@ -379,7 +379,16 @@ await scenario('fork_model_side_retry_uses_main_model', async () => {
   const plain = world({ rows: [row], forkModels: MODELS })
   const inherit = await step(gate2, plain, { agentId: 's10', index: 0, model: ALIAS_MAIN })
   const bash = await call(gate2, plain, { tool: 'Bash', tool_use_id: 't1', agentId: 's10', command: 'echo' })
-  return { withMain: withMain?.model, inherit: inherit?.model, sideBashNext: bash.nextCalled }
+  // Fresh-session side actor ("ciel-work:side-fresh") retry also routes to main's model.
+  const freshRow = { id: 's11', type: 'ciel-work:side-fresh', status: 'running', spawnedBy: 'ciel-work', description: 'Side SSE 0123456789ab main-model' }
+  const gate3 = await load()
+  const freshChosen = world({ rows: [freshRow], forkModels: { ...MODELS, main: { model: 'ciel-runtime-p-chosen', upstream: 'up-chosen', id: 'chosen' } } })
+  const freshWithMain = await step(gate3, freshChosen, { agentId: 's11', index: 0, model: ALIAS_MAIN })
+  const gate4 = await load()
+  const freshPlain = world({ rows: [freshRow], forkModels: MODELS })
+  const freshInherit = await step(gate4, freshPlain, { agentId: 's11', index: 0, model: ALIAS_MAIN })
+  return { withMain: withMain?.model, inherit: inherit?.model, sideBashNext: bash.nextCalled,
+    freshWithMain: freshWithMain?.model, freshInherit: freshInherit?.model }
 })
 await scenario('fork_model_inherit_and_others', async () => {
   const gate = await load()

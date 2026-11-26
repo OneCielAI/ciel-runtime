@@ -9,6 +9,8 @@ from .work_plan_tree import WorkPlanError
 from .channel_message_repository import exclusive_file_lock
 
 NATIVE_FORK_FINGERPRINT = 'native-fork'
+FRESH_SESSION_FINGERPRINT = 'fresh-session'
+NATIVE_SIDE_FINGERPRINTS = (NATIVE_FORK_FINGERPRINT, FRESH_SESSION_FINGERPRINT)
 NAMES = ('work_side_claim', 'work_side_understanding', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_ack', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_code_read', 'work_side_code_search')
 
 
@@ -550,10 +552,12 @@ def run(name, args, config, state_dir, identity, store):
                 _answer_followup(inbox, key, row['answer'])
             replies.append(reply)
         # Accept the old urgent_only argument for loaded clients, but never
-        # use it to restrict external SSE admission.
+        # use it to restrict external SSE admission. Both native-fork and
+        # fresh-session actors share the same side model slot, so either
+        # fingerprint preserves a recorded use_parent_model retry (Andy 2026-11-26).
         active = claim(
             state_dir, identity, args.get('owner'),
-            model_fingerprint=NATIVE_FORK_FINGERPRINT,
+            model_fingerprint=NATIVE_SIDE_FINGERPRINTS,
             workflow_events=_workflow_on(config))
         recovered = None
         if active:

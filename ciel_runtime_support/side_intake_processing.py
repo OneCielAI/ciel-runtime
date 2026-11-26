@@ -71,6 +71,20 @@ def _source_holder(inbox, key, row, stamp, *, by_event=False):
     return 'claim'
 
 
+def _canonical_fingerprint(model_fingerprint):
+    if isinstance(model_fingerprint, (tuple, list, set, frozenset)):
+        return next(iter(model_fingerprint), '')
+    return model_fingerprint
+
+
+def _fingerprint_matches(stored, current):
+    if not stored:
+        return True
+    if isinstance(current, (tuple, list, set, frozenset)):
+        return stored in current
+    return stored == current
+
+
 def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_seconds=60,
           model_fingerprint=None, urgent_only=False, workflow_events=False):
     if not isinstance(owner, str) or not owner or len(owner) > 200:
@@ -121,7 +135,8 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
                     'category': 'legacy_main_fallback_reclaimed',
                     'attempt_count': int((current.get('side_failure') or {}).get('attempt_count') or 0),
                     'failed_at': stamp, 'retry_not_before': 0, 'quarantined': False,
-                    'retryable': True, 'use_parent_model': True, 'model_fingerprint': model_fingerprint,
+                    'retryable': True, 'use_parent_model': True,
+                    'model_fingerprint': _canonical_fingerprint(model_fingerprint),
                 }
                 inbox._save_file(inbox._event_path('pending', key), current)
             failure = current.get('side_failure') or {}
@@ -172,7 +187,7 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
                     'source_priority': source_priority(current['text']),
                     'use_parent_model': bool(failure.get('use_parent_model') and (
                         failure.get('category') == 'billing_error'
-                        or failure.get('model_fingerprint') == model_fingerprint)),
+                        or _fingerprint_matches(failure.get('model_fingerprint'), model_fingerprint))),
                     'route': {k: v for k, v in current.get('route', {}).items() if k not in ('reply_token', 'authorization', 'token')}}
     return None
 

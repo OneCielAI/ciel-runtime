@@ -66,6 +66,9 @@ class WorkForkGateTests(unittest.TestCase):
         self.assertEqual(ALIAS_MAIN, value["inherit"])
         # Still a side fork for every other gate rule.
         self.assertTrue(value["sideBashNext"])
+        # Fresh-session side actor retry uses main's model the same way.
+        self.assertEqual("ciel-runtime-p-chosen", value["freshWithMain"])
+        self.assertEqual(ALIAS_MAIN, value["freshInherit"])
 
     def test_inherit_main_and_user_agents_keep_their_model(self):
         value = self.scenario("fork_model_inherit_and_others")
