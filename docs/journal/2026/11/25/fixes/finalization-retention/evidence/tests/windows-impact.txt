@@ -1,0 +1,211 @@
+# Windows isolated impact regression for finalization retention, per-file pytest
+== tests/test_prelaunch_work_settings_pin.py
+FAILED tests/test_prelaunch_work_settings_pin.py::PrelaunchWorkSettingsPinTests::test_a_change_made_elsewhere_refuses_the_menu_write
+FAILED tests/test_prelaunch_work_settings_pin.py::PrelaunchWorkSettingsPinTests::test_a_refused_choice_is_the_default_of_the_next_try
+FAILED tests/test_prelaunch_work_settings_pin.py::PrelaunchWorkSettingsPinTests::test_a_refused_typed_value_is_offered_again_and_then_saved
+FAILED tests/test_prelaunch_work_settings_pin.py::PrelaunchWorkSettingsPinTests::test_without_a_concurrent_change_the_choice_is_saved
+4 failed in 3.24s
+exit=1
+== tests/test_restart_unknown_orphan_pointer.py
+2 passed in 13.93s
+exit=0
+== tests/test_review_delivery.py
+5 passed, 2 subtests passed in 24.94s
+exit=0
+== tests/test_router_io_performance.py
+9 passed in 0.78s
+exit=0
+== tests/test_side_actor_failures_hotfix.py
+20 passed, 13 subtests passed in 8.45s
+exit=0
+== tests/test_side_compat_review.py
+3 passed, 4 subtests passed in 14.11s
+exit=0
+== tests/test_side_external_parity.py
+12 passed, 2 skipped, 7 subtests passed in 36.35s
+exit=0
+== tests/test_side_instruction_view.py
+6 passed in 0.24s
+exit=0
+== tests/test_side_intake_mcp.py
+49 passed, 1 skipped in 12.73s
+exit=0
+== tests/test_side_notice_claim.py
+19 passed, 11 subtests passed in 77.99s (0:01:17)
+exit=0
+== tests/test_side_reappend_release.py
+5 passed in 13.46s
+exit=0
+== tests/test_side_running_fork_relay.py
+3 passed in 0.41s
+exit=0
+== tests/test_side_silent_fork.py
+10 passed in 1.07s
+exit=0
+== tests/test_side_stall_watch.py
+8 passed in 0.83s
+exit=0
+== tests/test_side_state_unavailable.py
+5 passed, 7 subtests passed in 10.26s
+exit=0
+== tests/test_wait_boost_lane.py
+13 passed in 2.14s
+exit=0
+== tests/test_work_approval_workflow.py
+25 passed, 22 subtests passed in 7.28s
+exit=0
+== tests/test_work_approval_workflow_review.py
+6 passed, 3 subtests passed in 36.61s
+exit=0
+== tests/test_work_ctl_parity.py
+50 passed in 11.37s
+exit=0
+== tests/test_work_discovery_pickup.py
+12 passed in 8.73s
+exit=0
+== tests/test_work_events_from_ctl.py
+4 passed in 8.31s
+exit=0
+== tests/test_work_fork_api_retry.py
+4 passed, 11 subtests passed in 0.34s
+exit=0
+== tests/test_work_fork_models.py
+13 passed in 0.49s
+exit=0
+== tests/test_work_gate_check.py
+27 passed in 3.79s
+exit=0
+== tests/test_work_gate_parked_forks.py
+9 passed in 0.58s
+exit=0
+== tests/test_work_http_controller.py
+37 passed in 32.97s
+exit=0
+== tests/test_work_http_operator_errors.py
+4 passed in 2.56s
+exit=0
+== tests/test_work_http_operator_receipts.py
+6 passed in 3.55s
+exit=0
+== tests/test_work_http_orphan_release.py
+6 passed in 4.90s
+exit=0
+== tests/test_work_http_parallel_gaps.py
+15 passed, 37 subtests passed in 10.55s
+exit=0
+== tests/test_work_http_parallel_review.py
+23 passed, 12 subtests passed in 13.07s
+exit=0
+== tests/test_work_live_settings.py
+4 passed in 0.95s
+exit=0
+== tests/test_work_mod_write_gate.py
+152 passed, 33 skipped, 63 subtests passed in 57.07s
+exit=0
+== tests/test_work_operation_reconcile.py
+12 passed in 8.17s
+exit=0
+== tests/test_work_p0_lineage.py
+4 passed in 0.59s
+exit=0
+== tests/test_work_parallel_cross_process_ownership.py
+13 passed in 41.01s
+exit=0
+== tests/test_work_parallel_diagnosis.py
+6 passed in 0.23s
+exit=0
+== tests/test_work_parallel_failures.py
+5 passed, 7 subtests passed in 3.01s
+exit=0
+== tests/test_work_parallel_finalization.py
+114 passed, 135 subtests passed in 310.30s (0:05:10)
+exit=0
+== tests/test_work_parallel_finalization_retention.py
+6 passed in 11.47s
+exit=0
+== tests/test_work_parallel_gate_presence.py
+12 passed, 9 subtests passed in 6.66s
+exit=0
+== tests/test_work_parallel_legacy_reviewer.py
+12 passed, 13 subtests passed in 7.25s
+exit=0
+== tests/test_work_parallel_legacy_reviewer_view.py
+6 passed in 1.92s
+exit=0
+== tests/test_work_parallel_legacy_source.py
+14 passed, 14 subtests passed in 0.25s
+exit=0
+== tests/test_work_parallel_mcp.py
+36 passed in 12.74s
+exit=0
+== tests/test_work_parallel_menu.py
+4 passed in 0.33s
+exit=0
+== tests/test_work_parallel_model_facing_ids.py
+5 passed, 5 subtests passed in 8.55s
+exit=0
+== tests/test_work_parallel_native.py
+15 passed, 3 subtests passed in 1.40s
+exit=0
+== tests/test_work_parallel_orphan_sweep.py
+4 passed in 0.67s
+exit=0
+== tests/test_work_parallel_owner_offline.py
+7 passed in 18.18s
+exit=0
+== tests/test_work_parallel_p0_events.py
+48 passed, 12 subtests passed in 16.07s
+exit=0
+== tests/test_work_parallel_p0_outcomes.py
+13 passed in 2.81s
+exit=0
+== tests/test_work_parallel_parked_resume.py
+4 passed in 0.27s
+exit=0
+== tests/test_work_parallel_receipts.py
+17 passed, 8 subtests passed in 29.21s
+exit=0
+== tests/test_work_parallel_restart_terminal.py
+18 passed, 9 subtests passed in 57.72s
+exit=0
+== tests/test_work_parallel_review_pin.py
+15 passed, 3 subtests passed in 34.93s
+exit=0
+== tests/test_work_parallel_rework_worktree.py
+80 passed, 54 subtests passed in 348.20s (0:05:48)
+exit=0
+== tests/test_work_parallel_slot_stall.py
+5 passed in 0.62s
+exit=0
+== tests/test_work_parallel_superseded_visibility.py
+4 passed in 0.50s
+exit=0
+== tests/test_work_parallel_workspace_path.py
+5 passed in 2.79s
+exit=0
+== tests/test_work_parallel_workspace_trust.py
+FAILED tests/test_work_parallel_workspace_trust.py::TrustedRootTests::test_every_git_call_of_a_prepare_carries_the_exact_root
+1 failed, 14 passed in 7.97s
+exit=1
+== tests/test_work_queue_dispatch_order.py
+4 passed in 0.29s
+exit=0
+== tests/test_work_receipt_eviction_57dbfb3.py
+10 passed in 6.61s
+exit=0
+== tests/test_work_settings_cli.py
+6 passed in 0.36s
+exit=0
+== tests/test_work_settings_menu.py
+4 passed, 43 subtests passed in 0.27s
+exit=0
+== tests/test_work_state_unavailable.py
+6 passed, 9 subtests passed in 3.34s
+exit=0
+== tests/test_work_wait_mcp_route.py
+3 passed in 0.20s
+exit=0
+== tests/work_mod_real_backend_server.py
+exit=2
+== tests/work_owner_fixture.py
+exit=5

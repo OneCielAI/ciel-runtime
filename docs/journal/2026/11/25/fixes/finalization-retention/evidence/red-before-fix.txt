@@ -1,0 +1,7 @@
+# HEAD ff24aa6 (work_parallel_finalization.py unchanged), new retention tests
+E           ciel_runtime_support.work_parallel_primitives.WorkParallelError: finalization byte limit
+E           ciel_runtime_support.work_parallel_primitives.WorkParallelError: finalization byte limit
+FAILED tests/test_work_parallel_finalization_retention.py::FinalizationRetentionTests::test_a_stranded_recovered_rows_replacement_is_kept
+FAILED tests/test_work_parallel_finalization_retention.py::FinalizationRetentionTests::test_new_review_trims_oldest_finalized_rows_instead_of_failing
+FAILED tests/test_work_parallel_finalization_retention.py::FinalizationRetentionTests::test_undecided_and_rework_rows_are_never_trimmed
+3 failed, 3 passed in 15.20s

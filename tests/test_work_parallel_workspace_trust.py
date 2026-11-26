@@ -119,13 +119,18 @@ class TrustedRootTests(Base):
     def test_every_git_call_of_a_prepare_carries_the_exact_root(self):
         self.launch_folder(self.repo)
         seen = []
-        real = subprocess.run
+        real_run, real_popen = subprocess.run, subprocess.Popen
 
-        def record(argv, *args, **kwargs):
-            if argv and argv[0] == "git":
-                seen.append(list(argv))
-            return real(argv, *args, **kwargs)
-        with patch.object(ws.subprocess, "run", side_effect=record):
+        def record(real):
+            def call(argv, *args, **kwargs):
+                if argv and argv[0] == "git":
+                    seen.append(list(argv))
+                return real(argv, *args, **kwargs)
+            return call
+        # _git runs through Popen since faa2c7e (whole-tree kill on timeout);
+        # other workspace git calls still use run. Both are recorded.
+        with patch.object(ws.subprocess, "run", side_effect=record(real_run)), \
+                patch.object(ws.subprocess, "Popen", side_effect=record(real_popen)):
             made = ws.prepare(self.repo, "lease-a", config_dir=self.config_dir)
         self.assertTrue(seen)
         for argv in seen:

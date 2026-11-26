@@ -1,0 +1,44 @@
+## Andy copy
+{
+ "error": null,
+ "before_bytes": 2097049,
+ "after_bytes": 1569482,
+ "max_bytes": 2097152,
+ "trim_target": 1572864,
+ "rows_before": 328,
+ "rows_after": 223,
+ "removed": 106,
+ "removed_states": [
+  "finalized"
+ ],
+ "new_row_written": true,
+ "all_non_finalized_kept": true,
+ "all_replacements_kept": true,
+ "newest_removed_updated_at": "2026-11-20T02:37:51Z",
+ "oldest_kept_finalized_updated_at": "2026-11-15T07:38:15Z",
+ "version": [
+  3321,
+  3322
+ ]
+}
+## Celly copy
+{
+ "error": null,
+ "before_bytes": 1925587,
+ "after_bytes": 1930637,
+ "max_bytes": 2097152,
+ "trim_target": 1572864,
+ "rows_before": 342,
+ "rows_after": 343,
+ "removed": 0,
+ "removed_states": [],
+ "new_row_written": true,
+ "all_non_finalized_kept": true,
+ "all_replacements_kept": true,
+ "newest_removed_updated_at": null,
+ "oldest_kept_finalized_updated_at": "2026-11-18T04:22:02Z",
+ "version": [
+  3420,
+  3421
+ ]
+}

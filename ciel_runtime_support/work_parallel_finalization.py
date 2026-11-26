@@ -23,6 +23,13 @@ from .work_parallel import (WorkParallelConflict, WorkParallelError, WorkParalle
 from .work_parallel_primitives import replace_with_retry
 
 MAX_BYTES = 2_097_152
+# A write that would pass MAX_BYTES first removes the oldest finalized rows
+# down to this target (Andy 2026-11-25: 327 finalized rows filled the journal
+# to 2,097,049 bytes and every new review failed with "finalization byte
+# limit"). Same target and protection as the coordination history trim.
+HISTORY_TRIM_TARGET = MAX_BYTES * 3 // 4
+# A finalized row this young may still be replayed by an identical decision.
+FINALIZED_PROTECT_SECONDS = 24 * 60 * 60
 MAX_REVIEWS = 2_000
 MAX_PROJECTION = 24
 SCHEMA = 5
@@ -333,10 +340,60 @@ def _migrate(state):
     return migrated
 
 
+def _canonical_size(value):
+    return len(json.dumps(value, ensure_ascii=False, allow_nan=False,
+                          sort_keys=True, separators=(",", ":")).encode("utf-8"))
+
+
+def _trim_finalized(state, size, *, now, protected):
+    """Remove the oldest finalized rows until the canonical size reaches HISTORY_TRIM_TARGET.
+
+    A finalized row is history: its lease is done, its completion run archived,
+    and no reader re-reviews it (the lease never returns to submitted). Kept:
+    every undecided, deciding, awaiting_capacity and rework_ready row; finalized
+    rows younger than FINALIZED_PROTECT_SECONDS; and any row named as a
+    replacement, here or in the stranded journal (`protected`), because the
+    projection hides a finished predecessor only while its replacement's row
+    exists. `size` is the caller's measured size; the caller measures again.
+    """
+    reviews = state["reviews"]
+    named = {row["replacement_lease_id"] for row in reviews.values() if row["replacement_lease_id"]}
+    named |= protected
+    cutoff = now - FINALIZED_PROTECT_SECONDS
+    queue = sorted((row["updated_at"], key) for key, row in reviews.items()
+                   if row["state"] == "finalized" and row["updated_at"] < cutoff and key not in named)
+    for _, key in queue:
+        if size <= HISTORY_TRIM_TARGET:
+            break
+        # The entry's own bytes plus its separator: "key":row,
+        size -= _canonical_size(key) + _canonical_size(reviews.pop(key)) + 2
+
+
+def _stranded_replacements(path):
+    """Replacement leases the stranded journal still names, or None when unreadable.
+
+    Read without its lock: that store replaces its file atomically, and a
+    reader that cannot parse it keeps today's refusal instead of trimming.
+    """
+    try:
+        rows = json.loads(path.read_text(encoding="utf-8")).get("rows")
+    except FileNotFoundError:
+        return set()
+    except (OSError, ValueError, AttributeError):
+        return None
+    if type(rows) is not dict:
+        return None
+    return {row.get("replacement_lease_id") for row in rows.values()
+            if type(row) is dict and type(row.get("replacement_lease_id")) is str}
+
+
 class WorkParallelFinalizationStore:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, protected_replacements=None):
         self.path = Path(path).resolve()
         self._lock = threading.RLock()
+        # Callable returning the replacement leases another journal still names
+        # (None: unknown, so nothing is trimmed). Absent: no trimming at all.
+        self._protected_replacements = protected_replacements
 
     def _read(self):
         try:
@@ -379,6 +436,13 @@ class WorkParallelFinalizationStore:
                 validate(state)
                 raw = json.dumps(state, ensure_ascii=False, allow_nan=False,
                                  sort_keys=True, separators=(",", ":")).encode("utf-8")
+                if len(raw) > MAX_BYTES and self._protected_replacements is not None:
+                    protected = self._protected_replacements()
+                    if protected is not None:
+                        _trim_finalized(state, len(raw), now=time.time(), protected=protected)
+                        validate(state)
+                        raw = json.dumps(state, ensure_ascii=False, allow_nan=False,
+                                         sort_keys=True, separators=(",", ":")).encode("utf-8")
                 require(len(raw) <= MAX_BYTES, "finalization byte limit")
                 self.path.parent.mkdir(parents=True, exist_ok=True)
                 tmp = self.path.with_name(self.path.name + "." + uuid.uuid4().hex + ".tmp")
@@ -831,4 +895,6 @@ class WorkParallelFinalizationStore:
 
 
 def finalization_store(store):
-    return WorkParallelFinalizationStore(Path(store.path).with_name("work-parallel-finalization.json"))
+    stranded = Path(store.path).with_name("work-parallel-stranded-v1.json")
+    return WorkParallelFinalizationStore(Path(store.path).with_name("work-parallel-finalization.json"),
+                                         protected_replacements=lambda: _stranded_replacements(stranded))
