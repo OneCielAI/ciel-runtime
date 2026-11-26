@@ -760,6 +760,51 @@ function bandBudget(e) {
 function mark(status) {
   return ({ pending: '[ ]', in_progress: '[~]', done: '', blocked: '[!]' })[status] ?? '[?]'
 }
+function parallelDisplaySignature(state) {
+  if (!state || typeof state !== 'object') return ''
+  const failure = parallelPaneFailure(state)
+  return JSON.stringify({
+    version: state.version ?? null,
+    active_device: state.active_device ?? null,
+    policy: state.policy ? [state.policy.enabled, state.policy.paused, state.policy.max_active,
+      state.policy.priority_limits] : null,
+    forks: state.forks ? [state.forks.available, state.forks.confirmed_count, state.forks.evidence_version,
+      (state.forks.confirmed || []).slice(0, 3).map(r => [r.item_id, r.effective_priority || r.priority,
+        r.agent_name || r.agent_id, r.native?.status])] : null,
+    review: parallelReviewQueue(state).version,
+    reviews: parallelPresentedReviews(parallelReviews(state)).slice(0, 8)
+      .map(r => [parallelReviewId(r), parallelReviewState(r), r?.decision ?? null, r?.blocked?.code ?? null,
+        r?.launch?.state ?? null, r?.item_id ?? null]),
+    diagnosis: state.priority_diagnosis?.attention_digest ?? state.priority_diagnosis?.summary ?? null,
+    priorities: Array.isArray(state.root_priorities)
+      ? state.root_priorities.map(r => [r?.root_id, r?.effective_priority]) : null,
+    failure: failure ? [failure.code, failure.count, failure.at] : null,
+  })
+}
+// Keep the docked observatory's parallel snapshot current whenever the host reads
+// work_parallel_status (Stop, pump, review decision, idle/native observation), not
+// only on pane open or manual Refresh (Andy 2026-11-26: finalized n2866/n2871
+// stayed displayed as "Awaiting main review"). Never regress to an older version.
+function syncObservatoryParallel(state, explicit = false) {
+  if (!state || typeof state !== 'object') return false
+  const prev = observatoryParallel
+  let next = state
+  if (prev && typeof prev === 'object') {
+    const prevVer = Number.isInteger(prev.version) ? prev.version : null
+    const nextVer = Number.isInteger(state.version) ? state.version : null
+    const prevRev = parallelReviewQueue(prev).version
+    const nextRev = parallelReviewQueue(state).version
+    if ((nextVer !== null && prevVer !== null && nextVer < prevVer)
+        || (nextRev !== null && prevRev !== null && nextRev < prevRev)) return false
+    if (!explicit && prevRev !== null && nextRev === prevRev
+        && parallelReviews(prev).length > 0 && parallelReviews(state).length === 0) {
+      next = { ...state, review: prev.review, parallel_reviews: prev.parallel_reviews }
+    }
+  }
+  const changed = parallelDisplaySignature(prev) !== parallelDisplaySignature(next)
+  observatoryParallel = next
+  return changed
+}
 async function observatoryRefresh($, identity) {
   try { await parallelObserveNative($) } catch { /* The pane still shows the last projection. */ }
   const [settings, parallel] = await Promise.all([
@@ -768,7 +813,7 @@ async function observatoryRefresh($, identity) {
   ])
   if (await sessionId($) !== identity) return
   if (settings) observatorySettings = settings
-  if (parallel) observatoryParallel = parallel
+  if (parallel) syncObservatoryParallel(parallel, true)
   try {
     const mailbox = await sideMailboxCall($, 'work_side_status')
     if (await sessionId($) === identity) showSideReceipts($, identity, mailbox)
@@ -2243,6 +2288,7 @@ async function projectParallelReviews($, state, wakeMode = 'event') {
   noteReviewsSeen(rows.map(parallelReviewId))
   pendingParallelReviewVersion = queue.version
   observatoryReviews = parallelPresentedReviews(queue.rows).slice(0, 24).map(row => ({ ...parallelReviewView(row, queue.version), label:parallelReviewLabel(row) }))
+  syncObservatoryParallel(state)
   for (const source of rows) {
     const review = parallelReviewView(source, queue.version)
     await scheduleParallelWake($, source, review, wakeMode)
@@ -2612,6 +2658,7 @@ async function parallelCall($, name, args = {}, observed = {}, scope = null) {
 // without _host). R2 B2: it carries this process's nonce, so each lease row's
 // owner_process can read own.
 async function hostStatus($) {
+  const lifecycle = starts
   const writes = hostWrites
   const state = await parallelCall($, 'work_parallel_status', {}, await hostProcess($))
   if (state && typeof state === 'object') {
@@ -2619,6 +2666,9 @@ async function hostStatus($) {
     routerCapabilities = new Set(Array.isArray(state.capabilities)
       ? state.capabilities.filter(name => typeof name === 'string') : [])
     routerQuestionWait = routerCapabilities.has('question_wait')
+    if (lifecycle === starts && syncObservatoryParallel(state)) {
+      try { $.ui.invalidate('ui.render') } catch {}
+    }
   }
   return state
 }
@@ -3848,7 +3898,7 @@ function resetParallelHostState() {
   // so a late notification from a fork of the previous lifecycle stays out of main.
   for (const id of retiredParallelAgents) ownParallelAgent(id)
   parallelExitAttempts.clear(); retiredParallelAgents.clear(); parallelAbsentSince.clear()
-  noticedParallelReviews.clear(); parallelWakeFlights.clear(); pendingParallelReviews = []; pendingParallelReviewVersion = null; observatoryReviews = []
+  noticedParallelReviews.clear(); parallelWakeFlights.clear(); pendingParallelReviews = []; pendingParallelReviewVersion = null; observatoryReviews = []; observatoryParallel = null
   parallelFailures.length = 0; parallelPumpRunning = false; parallelPumpAgain = false; parallelPumpResendTried = null
   nativeObserving = null; lastNativeConfirmed = null
 }

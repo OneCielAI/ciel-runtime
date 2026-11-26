@@ -38,4 +38,7 @@ timestamp: 2026-11-26T05:56:00Z
 
 ## 발행·설치
 
-DEPLOY_PENDING
+- 커밋 `b0cabd17f6d6726b1e2c016007884bd5b0a1b441`, npm `@beta` = `0.2.51-beta.20261126-060930.b0cabd1`(gitHead 일치).
+- tarball 안 `ciel_runtime_support/side_intake_processing.py`가 커밋과 SHA-256 일치(`bfc20b7b3d0f` → `5ad087dfeb7c`).
+- 승인된 7개 루트(로컬 4곳, KOBE `u24`, Prody `u41`, Betty `u42`)에 해시 확인 설치(`check` 7/7 `base` → `apply` 7/7 `ok=True`). `.cmd` 래퍼와 버전 메타데이터는 건드리지 않았다.
+- **라이브 효과 구분:** 이 수정은 라우터 Python 코드이므로 파일 설치만 완료된 상태다. 모니터링 규칙에 따라 라우터 재시작을 하지 않아 실행 중 라우터에는 아직 반영되지 않았다(재시작 후 라이브 반영).

@@ -131,6 +131,28 @@ class WorkObservatoryTests(unittest.TestCase):
         self.assertTrue(race['opened'])
         self.assertIn('Work & SSE pane', race['text'])
 
+    def test_pane_updates_reviews_and_slots_on_host_status_without_manual_refresh(self):
+        # Andy 2026-11-26: n2866 and n2871 were finalized but stayed shown as
+        # "Awaiting main review" because observatoryParallel only updated on open/Refresh.
+        sync = self.result['liveReviewSync']
+        self.assertEqual(2, sync['before']['active'])
+        self.assertEqual(
+            [('n2866', 'Awaiting main review'), ('n2871', 'Awaiting main review'), ('n2777', 'Rework')],
+            [(r['item'], r['status']) for r in sync['before']['reviews']],
+        )
+        self.assertTrue(sync['invalidated'])
+        self.assertEqual(1, sync['after']['active'])
+        self.assertEqual(
+            [('n2777', 'Rework')],
+            [(r['item'], r['status']) for r in sync['after']['reviews']],
+        )
+        # An out-of-order older host status must not regress the pane back to stale reviews.
+        self.assertEqual(1, sync['stale']['active'])
+        self.assertEqual(
+            [('n2777', 'Rework')],
+            [(r['item'], r['status']) for r in sync['stale']['reviews']],
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

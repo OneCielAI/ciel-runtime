@@ -40,7 +40,11 @@ const receipts = [
 let rootPriorities = []
 let forks = null
 let diagnosis = null
+let parallelVersion = 1
+let activeDevice = 1
+let reviewQueue = null
 const calls = [], toasts = [], opens = []
+let invalidations = 0
 let asks = []
 const el = type => props => ({ type, props })
 const $ = {
@@ -54,14 +58,16 @@ const $ = {
       if (args.key) settings = settings.map(s => s.key === args.key ? { ...s, value: args.value } : s)
       value = { settings, provider: 'cielairouter', ui: {} }
     }
-    if (tool === 'work_parallel_status') value = { version: 1, active_device: 1, leases: {},
+    if (tool === 'work_parallel_status') value = { version: parallelVersion, active_device: activeDevice, leases: {},
       policy: { enabled: true, paused: false, priority_limits: { P1: 5, P2: 3, P3: 1, P4: 1, P5: 1 }, launches_per_minute: 4, max_rework: 2 },
-      root_priorities: rootPriorities, ...(forks ? { forks } : {}), ...(diagnosis ? { priority_diagnosis: diagnosis } : {}) }
+      root_priorities: rootPriorities, ...(forks ? { forks } : {}), ...(diagnosis ? { priority_diagnosis: diagnosis } : {}),
+      ...(reviewQueue ? { review: reviewQueue } : {}) }
     if (tool === 'work_side_status') value = { side_inbox_receipts: receipts }
     if (tool === 'work_side_claim') value = { claim: null, settings: {}, handoff_replies: [] }
+    if (tool === 'work_parallel_event') value = { recorded: true }
     return { content: [{ type: 'text', text: JSON.stringify(value) }] }
   } },
-  ui: { invalidate() {}, log() {}, toast: t => toasts.push(t), open: async args => { opens.push(args); return { isPlaced: true } },
+  ui: { invalidate() { invalidations++ }, log() {}, toast: t => toasts.push(t), open: async args => { opens.push(args); return { isPlaced: true } },
     close: async () => {}, ask: async () => asks.shift(), resolve: () => ({ Box: el('Box'), Text: el('Text'), Button: el('Button'), Client: el('Client') }) },
   clock: { after: () => ({ cancel() {} }) },
   tool: { list: async () => [], call: async () => ({}) },
@@ -169,4 +175,52 @@ await press(tree, 'detail-refresh')
 const graphicDiag = walk(await render('terminal', 110)).find(n => n.props?.key === 'obs-graphic')?.props?.props
 out.dispatch = { pane: graphicDiag?.parallel?.dispatch || null,
   text: (await hook('command.run', { command: 'work-mode' })($, { args: 'parallel', origin: { kind: 'composer' } })).text }
+// Andy 2026-11-26: reviews finalized after opening the pane must clear on the
+// next host status read without requiring manual Refresh, and an out-of-order
+// older status must not regress the pane back to finalized rows.
+parallelVersion = 10
+activeDevice = 2
+reviewQueue = {
+  version: 100,
+  pending: [
+    { lease_id: 'l-2866', item_id: 'n2866', item_title: 'Contract map', priority: 'P3', state: 'pending', decision: null },
+    { lease_id: 'l-2871', item_id: 'n2871', item_title: 'Runner metrics', priority: 'P3', state: 'pending', decision: null },
+    { lease_id: 'l-2777', item_id: 'n2777', item_title: 'Older rework', priority: 'P1', state: 'rework_ready', decision: 'rework' },
+  ],
+}
+tree = await render('desktop', 110)
+await press(tree, 'detail-refresh')
+await landed()
+const revBefore = walk(await render('terminal', 110)).find(n => n.props?.key === 'obs-graphic')?.props?.props?.parallel
+parallelVersion = 12
+activeDevice = 1
+reviewQueue = {
+  version: 104,
+  pending: [
+    { lease_id: 'l-2777', item_id: 'n2777', item_title: 'Older rework', priority: 'P1', state: 'rework_ready', decision: 'rework' },
+  ],
+}
+const invBefore = invalidations
+await hook('classic.Stop', {})($, { session_id: 'S1', stop_hook_active: false }, async () => ({}))
+await landed()
+const revAfter = walk(await render('terminal', 110)).find(n => n.props?.key === 'obs-graphic')?.props?.props?.parallel
+const invDelta = invalidations - invBefore
+// Out-of-order older status read must not regress the pane.
+parallelVersion = 9
+activeDevice = 3
+reviewQueue = {
+  version: 99,
+  pending: [
+    { lease_id: 'l-2866', item_id: 'n2866', item_title: 'Contract map', priority: 'P3', state: 'pending', decision: null },
+  ],
+}
+await hook('classic.Stop', {})($, { session_id: 'S1', stop_hook_active: false }, async () => ({}))
+await landed()
+const revStale = walk(await render('terminal', 110)).find(n => n.props?.key === 'obs-graphic')?.props?.props?.parallel
+out.liveReviewSync = {
+  before: { active: revBefore?.active, reviews: revBefore?.reviews },
+  after: { active: revAfter?.active, reviews: revAfter?.reviews },
+  stale: { active: revStale?.active, reviews: revStale?.reviews },
+  invalidated: invDelta > 0,
+}
 console.log(JSON.stringify(out))

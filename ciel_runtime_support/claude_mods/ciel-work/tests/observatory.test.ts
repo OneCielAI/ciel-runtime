@@ -220,3 +220,70 @@ for (const [surface, columns] of [['terminal', 100], ['mobile', 40]] as const) {
     await ui.unmount()
   })
 }
+
+test('graphical pane clears finalized reviews on host status updates without manual refresh', async ($, on) => {
+  // Andy 2026-11-26: n2866 and n2871 were approved and finalized, but the docked
+  // observatory pane kept rendering the opening observatoryParallel snapshot
+  // ("REVIEW 8 · Awaiting main review · n2866 / n2871") until manual Refresh.
+  let parallelReply: Record<string, unknown> = {
+    version: 1, active_device: 2, leases: {},
+    policy: { enabled: true, paused: false, priority_limits: { P1: 2, P2: 1, P3: 1, P4: 1, P5: 1 } },
+    review: {
+      version: 10,
+      pending: [
+        { lease_id: 'l-2866', item_id: 'n2866', item_title: 'Contract map', priority: 'P3', state: 'pending', decision: null },
+        { lease_id: 'l-2871', item_id: 'n2871', item_title: 'Runner metrics', priority: 'P3', state: 'pending', decision: null },
+        { lease_id: 'l-2777', item_id: 'n2777', item_title: 'Older rework', priority: 'P1', state: 'rework_ready', decision: 'rework' },
+      ],
+    },
+  }
+  on('session.id', () => ({ value: 'session-a' }))
+  on('env.get', (_, e) => ({ value: e.key === 'CLAUDE_CODE_SUBAGENT_MODEL_FORCE' ? '0' : 'fixture-host-token' }))
+  on('mcp.call', async (_, e) => {
+    let value: unknown = {}
+    if (e.tool === 'work_status') value = e.args.detail ? DETAIL : SNAPSHOT
+    if (e.tool === 'work_live_settings') value = { settings: SETTINGS, provider: 'p' }
+    if (e.tool === 'work_parallel_status') value = parallelReply
+    if (e.tool === 'work_side_status') value = { side_inbox_receipts: [] }
+    if (e.tool === 'work_side_claim') value = { claim: null, settings: {}, handoff_replies: [] }
+    if (e.tool === 'work_parallel_event') value = { recorded: true }
+    return { value: { isError: false, content: [{ type: 'text', text: JSON.stringify(value) }] } }
+  })
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.close', () => ({}))
+  on('session.start', () => ({ cwd: '/isolated' }))
+  on('classic.Stop', () => ({}))
+
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  await $.command.run({ command: 'work-mode', args: 'view all' })
+  await new Promise(resolve => setTimeout(resolve, 40))
+  const ui = await $.ui.mount(pane('terminal', 100) as any)
+  await ui.resize({ columns: 100, rows: 30, in: 'obs-graphic' })
+  const graphic = async () => (await ui.findAll({ type: 'Text', in: 'obs-graphic' })).map(x => x.text).join('\n')
+
+  const before = await graphic()
+  expect(before).toContain('DEVICE 2/6 slots · REVIEW 3')
+  expect(before).toContain('Awaiting main review · n2866')
+  expect(before).toContain('Awaiting main review · n2871')
+
+  // Main finalizes n2866 and n2871; the next host status read (Stop) advances review.version without manual Refresh.
+  parallelReply = {
+    version: 2, active_device: 1, leases: {},
+    policy: { enabled: true, paused: false, priority_limits: { P1: 2, P2: 1, P3: 1, P4: 1, P5: 1 } },
+    review: {
+      version: 12,
+      pending: [
+        { lease_id: 'l-2777', item_id: 'n2777', item_title: 'Older rework', priority: 'P1', state: 'rework_ready', decision: 'rework' },
+      ],
+    },
+  }
+  await $.classic.Stop({ session_id: 'session-a', stop_hook_active: false } as any)
+  const after = await graphic()
+  expect(after).toContain('DEVICE 1/6 slots · REVIEW 1')
+  expect(after).not.toContain('Awaiting main review')
+  expect(after).not.toContain('n2866')
+  expect(after).not.toContain('n2871')
+  expect(after).toContain('Rework · n2777')
+  await ui.unmount()
+})
