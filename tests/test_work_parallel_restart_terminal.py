@@ -514,6 +514,43 @@ class RestartSubmittedTerminalTests(unittest.TestCase):
         self.assertEqual("terminal", self.runs()[first["lease_id"]]["state"])
         self.assertEqual("finalized", self.approve(first)["state"])
 
+    def test_late_absent_reconcile_cannot_clobber_published_review_idle_proof(self):
+        # Andy 2026-11-26 n2790 (c15200e7): restart_submitted_terminal published
+        # the review with RESTART_TERMINAL_PROOF, then a late turn-end reconcile
+        # with proof="Native agent.list row absent" hit a transient workspace
+        # error (git/IO) after mutating ledger.idle_proof, leaving the ledger
+        # and workspace manifest diverged so approve failed with
+        # "positive matching idle workspace proof required".
+        _, second = self.checkpoint_a()
+        self.call("event", {}, event="native_observation", rows=[], complete=True,
+                  expected_evidence_version=m.native_evidence(self.store).read()["version"])
+        self.restart(second)
+        self.assertEqual((m.RESTART_TERMINAL_PROOF, m.RESTART_TERMINAL_PROOF), self.proofs(second))
+        from ciel_runtime_support import work_parallel_workspace as ws
+        lease_id = second["lease_id"]
+        with patch.object(ws, "set_activity", side_effect=ws.WorkspaceError("git timed out")):
+            with self.assertRaisesRegex(ValueError, "git timed out"):
+                self.call("event", {"state": "idle", "proof": "Native agent.list row absent"},
+                          event="reconcile", lease_id=lease_id)
+        # Prior ledger proof must be rolled back so ledger and workspace proofs
+        # stay converged and main's approve succeeds.
+        self.assertEqual((m.RESTART_TERMINAL_PROOF, m.RESTART_TERMINAL_PROOF), self.proofs(second))
+        # A succeeding idle reconcile on a submitted lease must also only run
+        # set_activity once (not twice).
+        calls = []
+        real_set_activity = ws.set_activity
+
+        def counted(*args, **kwargs):
+            calls.append(kwargs.get("proof"))
+            return real_set_activity(*args, **kwargs)
+
+        with patch.object(ws, "set_activity", side_effect=counted):
+            self.call("event", {"state": "idle", "proof": "Native agent.list status: idle"},
+                      event="reconcile", lease_id=lease_id)
+        self.assertEqual(["Native agent.list status: idle"], calls)
+        self.assertEqual(("Native agent.list status: idle", "Native agent.list status: idle"), self.proofs(second))
+        self.assertEqual("finalized", self.approve(second)["state"])
+
 
 if __name__ == "__main__":
     unittest.main()

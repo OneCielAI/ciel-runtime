@@ -2385,7 +2385,27 @@ def _settle_idle_rework_launch(store, lease):
         return
 
 
-def _observe_idle_and_publish_review(store, identity, lease, proof):
+def _restore_idle_proof(store, lease_id, *, expected_proof, prior_proof):
+    """Best-effort rollback of ledger idle_proof when set_activity fails before updating the manifest."""
+    if not text(prior_proof) or prior_proof == expected_proof:
+        return
+    for _ in range(COORDINATION_BIND_ATTEMPTS):
+        d = store.read()
+        current = d["leases"].get(lease_id)
+        if (current is None or current.get("slot") is not False
+                or current.get("idle_proof") != expected_proof):
+            return
+        try:
+            store.reconcile(lease_id, host_state="idle", proof=prior_proof,
+                            expected_version=d["version"])
+            return
+        except WorkParallelConflict:
+            continue
+        except WorkParallelError:
+            return
+
+
+def _observe_idle_and_publish_review(store, identity, lease, proof, *, prior_idle_proof=None):
     """Converge ledger/workspace idle proof, then idempotently publish review.
 
     The ledger and workspace are separate CAS domains. Another host observation
@@ -2400,6 +2420,8 @@ def _observe_idle_and_publish_review(store, identity, lease, proof):
     """
     require(lease["state"] == "submitted" and text(proof), "submitted idle review observation required")
     if lease.get("idle_proof") != proof:
+        if prior_idle_proof is None and lease.get("slot") is False and text(lease.get("idle_proof")):
+            prior_idle_proof = lease["idle_proof"]
         d, _ = store.reconcile(lease["id"], host_state="idle", proof=proof,
                                expected_version=store.read()["version"])
         lease = d["leases"][lease["id"]]
@@ -2419,6 +2441,9 @@ def _observe_idle_and_publish_review(store, identity, lease, proof):
             # A broken worktree cannot record idle, but the submitted result must
             # not be stranded silently: publish the frozen-schema stranded row.
             if _workspace_unavailable_reason(current) is None:
+                if prior_idle_proof and prior_idle_proof != observed_proof:
+                    _restore_idle_proof(store, current["id"],
+                                        expected_proof=observed_proof, prior_proof=prior_idle_proof)
                 raise
         latest = store.read()["leases"].get(current["id"])
         if latest is not None and latest.get("idle_proof") == observed_proof:
@@ -3548,8 +3573,8 @@ def _restart_submitted_terminal(store, identity, lease_id, generation, receipt_d
     # is repaired without a second row or wake, and matched proofs write nothing.
     current = store.read()["leases"][lease_id]
     reviewed = _has_review_row(store, lease_id)
-    _observe_idle_and_publish_review(store, identity, current,
-                                     current["idle_proof"] if reviewed else RESTART_TERMINAL_PROOF)
+    proof = current.get("idle_proof") if reviewed and text(current.get("idle_proof")) else RESTART_TERMINAL_PROOF
+    _observe_idle_and_publish_review(store, identity, current, proof)
     return {**result, "review_pending": _has_review_row(store, lease_id)}
 
 
@@ -4550,6 +4575,7 @@ def run(name, args, board_store, identity, config, save_config, log=None):
         return json.dumps({"state": row["state"], "outcome": "failed", "terminal": True,
                            "slot_rolled_back": True, "recovery_required": False,
                            "retry": "new_child"}, ensure_ascii=False)
+    prior_idle_proof = None
     if event in ("bind", "reconcile", "release", "wait", "reacquire", "p0_reacquire", "unreported"):
         if actor is not None:
             raise WorkParallelError("coordinator host observation required")
@@ -4680,6 +4706,9 @@ def run(name, args, board_store, identity, config, save_config, log=None):
                 side.transition_intent(intent["intent_id"], "bound",
                                        expected_version=side.read()["version"])
         else:
+            prior_idle_proof = lease.get("idle_proof") if (
+                host.get("state") == "idle" and lease["slot"] is False and text(lease.get("idle_proof"))
+            ) else None
             d, _ = store.reconcile(ident, host_state=host.get("state", "unknown"),
                                    proof=host.get("proof"), expected_version=version)
     else:
@@ -4737,24 +4766,29 @@ def run(name, args, board_store, identity, config, save_config, log=None):
         from .work_parallel_workspace import WorkspaceError, bind, set_activity
         if event == "bind":
             bind(workspace["repo"], ident, current["host_id"])
-        elif host.get("state") == "idle":
+        elif host.get("state") == "idle" and current.get("state") != "submitted":
             try:
                 set_activity(workspace["repo"], ident, current["host_id"], idle=True,
                              proof=current["idle_proof"])
             except WorkspaceError:
-                # A submitted result in a broken worktree goes on to the stranded
-                # review below; anything else keeps the error.
-                if current.get("state") != "submitted" or _workspace_unavailable_reason(current) is None:
-                    raise
+                if prior_idle_proof and prior_idle_proof != current.get("idle_proof"):
+                    _restore_idle_proof(store, ident, expected_proof=current["idle_proof"],
+                                        prior_proof=prior_idle_proof)
+                raise
     projected = None
     if event == "reconcile" and host.get("state") == "idle" and current.get("state") == "submitted":
-        # The idle workspace write above is the positive observation that the
-        # review projection requires. The reconcile itself is already durable;
-        # an incomplete review fact is reported, then retried on the next idle
-        # observation or by the main review call. The restart observation uses
-        # this same readiness path (_observe_idle_and_publish_review).
+        # Converge the workspace idle proof once inside _observe_idle_and_publish_review
+        # (avoiding a duplicate set_activity git verification pass) and restore any
+        # prior ledger proof if a transient WorkspaceError prevents the manifest write.
+        from .work_parallel_workspace import WorkspaceError
         try:
-            _observe_idle_and_publish_review(store, identity, current, current["idle_proof"])
+            _observe_idle_and_publish_review(store, identity, current, current["idle_proof"],
+                                             prior_idle_proof=prior_idle_proof)
+        except WorkspaceError:
+            if _workspace_unavailable_reason(current) is None:
+                raise
+            projected = project(store, identity, _board_or_none(board_store), host_view=_internal_host(host))
+            projected["review_publication_error"] = "workspace unavailable"
         except ValueError as error:
             projected = project(store, identity, _board_or_none(board_store), host_view=_internal_host(host))
             projected["review_publication_error"] = str(error)[:300]

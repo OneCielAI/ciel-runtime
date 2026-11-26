@@ -4991,6 +4991,94 @@ Object.assign(scenarios, {
     return { firstStepPumped: afterFirst > started, throttled: withinWindow === afterFirst,
              nextWindowPumped: afterWindow > withinWindow, childStepPumped: pumps.length > afterWindow }
   },
+  // Andy 2026-11-26 n2790 (c15200e7): review was already pending, but ledger
+  // and workspace idle_proof diverged (approve failed with "positive matching
+  // idle workspace proof required"). recover_submitted_review returned early
+  // because reviewed(target) was truthy and never called restart_submitted_terminal
+  // to converge the proofs.
+  async 'recover-submitted-pending-review-converges-proofs'() {
+    const lease = { id:'L1', item_id:'n2790', priority:'P3', role:'worker', state:'submitted', slot:false,
+      host_id:'fork-a', agent_name:'work-a', owner_process:'own', idle_proof:'Native agent.list row absent' }
+    const run = { lease_id:'L1', generation:1, agent_id:'fork-a', exit:{ kind:'completion', digest:'e'.repeat(64) } }
+    let reviewRow = { lease_id:'L1', item_id:'n2790', priority:'P3', state:'pending', decision:null }
+    const events = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:20, active_device:0,
+        policy:{ enabled:true, paused:false, priority_limits:{ P1:2, P2:1, P3:1, P4:1, P5:1 }, launches_per_minute:4, max_rework:2 },
+        leases:{ L1:lease }, coordination:{ runs:[run] },
+        review:{ version:3580, pending:[reviewRow] },
+        forks:{ schema:'native-fork-evidence/1', available:true, evidence_version:7, confirmed_count:0,
+          confirmed:[], waiting:[], reservation:[], uncertain:[], validating:[], ended:[] } })
+      if (tool === 'work_parallel_event') {
+        events.push({ event:args.event, lease_id:args.lease_id, absent:args._host?.absent_agent_id,
+          complete:args._host?.absent_from_complete_list, state:args._host?.state, proof:args._host?.proof })
+        return text({ lease_id:'L1', generation:1, completion_receipt:'e'.repeat(64), observed_terminal:true, review_pending:true })
+      }
+      return text(snapshot())
+    })
+    const recover = () => handlers['tool.call']($, { tool:'mcp__ciel-runtime-router__work_parallel_event',
+      event:'recover_submitted_review', lease_id:'L1' }, next({}))
+    // 1. Absent fork with already-pending review calls restart_submitted_terminal to repair diverged proofs.
+    state.agents = []
+    const recovered = await recover()
+    const absentEvents = [...events]
+    events.length = 0
+    // 2. Listed terminal fork with already-pending review converges via reconcile using existing idle_proof.
+    state.agents = [{ id:'fork-a', status:'idle', type:'fork' }]
+    const listed = await recover()
+    const listedEvents = [...events]
+    events.length = 0
+    // 3. Decided review (deciding) still short-circuits without calling backend.
+    reviewRow = { lease_id:'L1', item_id:'n2790', priority:'P3', state:'deciding', decision:'approve' }
+    state.agents = []
+    const decided = await recover()
+    const decidedEvents = [...events]
+    return { recovered, absentEvents, listed, listedEvents, decided, decidedEvents }
+  },
+  // Andy 2026-11-26 n2790: turn.complete ran parallelRestartSubmitted without
+  // refreshing s, then immediately ran parallelReconcileAtTurnEnd on stale s,
+  // firing a conflicting reconcile("Native agent.list row absent") right after
+  // restart_submitted_terminal published the review.
+  async 'turn-complete-does-not-clobber-restart-published-review'() {
+    const leases = {
+      L1: { id:'L1', item_id:'n2790', priority:'P3', role:'worker', state:'running', slot:true,
+        host_id:'fork-a', agent_name:'work-a', owner_process:'own' } }
+    const runs = [{ lease_id:'L1', generation:1, agent_id:'fork-a', exit:null }]
+    const pending = []
+    const events = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:20, active_device:0,
+        policy:{ enabled:true, paused:false, priority_limits:{ P1:2, P2:1, P3:1, P4:1, P5:1 }, launches_per_minute:4, max_rework:2 },
+        leases, coordination:{ runs, receipts:[] }, review:{ version:pending.length ? 2 : 1, pending },
+        forks:{ schema:'native-fork-evidence/1', available:true, evidence_version:7 } })
+      if (tool === 'work_parallel_event') {
+        events.push({ event:args.event, lease_id:args.lease_id, state:args._host?.state, proof:args._host?.proof })
+        if (args.event === 'restart_submitted_terminal') {
+          leases.L1.idle_proof = 'Submitted completion fork absent from agent.list after restart'
+          pending.push({ lease_id:'L1', item_id:'n2790', priority:'P3', state:'pending', decision:null })
+          return text({ lease_id:'L1', review_pending:true })
+        }
+        return text({})
+      }
+      return text(snapshot())
+    })
+    state.agents = [{ id:'fork-a', status:'running', type:'fork' }]
+    await handlers['session.start']($, { isInteractive:false }, next(undefined))
+    // Fork commits completion and leaves native agent list before turn.complete.
+    leases.L1.state = 'submitted'; leases.L1.slot = false
+    runs[0].exit = { kind:'completion', digest:'e'.repeat(64) }
+    state.agents = []
+    events.length = 0
+    await handlers['turn.complete']($, { reason:'answer' }, next(undefined))
+    const mainEvents = [...events]
+    events.length = 0
+    // Also verify a late fork-attributed turn.complete for the absent reviewed fork does not clobber idle_proof.
+    await handlers['turn.complete']($, { reason:'answer', agentId:'fork-a' }, next(undefined))
+    const forkEvents = [...events]
+    return { mainEvents, forkEvents }
+  },
 })
 
 const name = process.argv[2]

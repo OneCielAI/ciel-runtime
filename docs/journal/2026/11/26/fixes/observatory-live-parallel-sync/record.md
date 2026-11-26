@@ -45,4 +45,7 @@ timestamp: 2026-11-26T07:15:00Z
 
 ## 발행·설치
 
-- `feature/priority-models`·`beta` 푸시 및 npm `@beta` 확인 후 승인된 7개 루트 해시 확인 설치 예정(실행 중 Claude CLI는 세션 재시작·모드 재로드 전까지 메모리 내 구 `register.js`를 유지하므로 파일 설치와 라이브 효과를 구분한다).
+- 커밋 `f9546ddee55aba40c388f692b288eef79035cb01`, npm `@beta` = `0.2.51-beta.20261126-074010.f9546dd`(gitHead 일치).
+- tarball 안 `ciel_runtime_support/claude_mods/ciel-work/hooks/register.js`가 커밋과 SHA-256 일치(`2ee53557e63b` → `10fcdb2d0227`, 372,612 B).
+- 승인된 7개 루트(로컬 4곳, KOBE `u24`, Prody `u41`, Betty `u42`)에 해시 확인 설치(`check` 7/7 `base` → `apply` 7/7 `ok=True ['register.js:10fcdb2d0227']`). `.cmd` 래퍼와 버전 메타데이터는 건드리지 않았고, 원격 임시 오버레이 디렉터리를 정리했다.
+- **라이브 효과 구분:** 이 수정은 `ciel-work` 모드 JS 파일(`register.js`)이므로 파일 설치만 완료된 상태다. 모니터링 규칙에 따라 실행 중 Claude CLI 세션·라우터를 재시작하지 않았으며, 이미 떠 있는 CLI 세션은 세션 재시작 또는 모드 재로드 전까지 기존 메모리의 `register.js`를 유지한다.

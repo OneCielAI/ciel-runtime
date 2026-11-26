@@ -1331,6 +1331,34 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(["restart_submitted_terminal"], result["events"], result)
         self.assertTrue(json.loads(result["recovered"]["result"])["review_pending"])
 
+    def test_recover_submitted_review_converges_already_pending_absent_fork(self):
+        # Andy 2026-11-26 n2790 (c15200e7): review was already pending, but its
+        # ledger and workspace idle_proof had diverged. recover_submitted_review
+        # returned early without calling restart_submitted_terminal to repair them.
+        result = self.run_scenario("recover-submitted-pending-review-converges-proofs")
+        self.assertEqual([{"event": "restart_submitted_terminal", "lease_id": "L1",
+                           "absent": "fork-a", "complete": True}],
+                         [{k: v for k, v in row.items() if v is not None} for row in result["absentEvents"]], result)
+        self.assertTrue(json.loads(result["recovered"]["result"])["review_pending"])
+        self.assertEqual([{"event": "reconcile", "lease_id": "L1", "state": "idle",
+                           "proof": "Native agent.list row absent"}],
+                         [{k: v for k, v in row.items() if v is not None} for row in result["listedEvents"]], result)
+        self.assertTrue(json.loads(result["listed"]["result"])["review_pending"])
+        self.assertEqual([], result["decidedEvents"], result)
+        self.assertFalse(json.loads(result["decided"]["result"])["review_pending"])
+
+    def test_turn_complete_does_not_clobber_restart_published_review(self):
+        # Andy 2026-11-26 n2790: parallelTurnComplete must refresh s after
+        # parallelRestartSubmitted publishes a review and skip a conflicting
+        # reconcile("Native agent.list row absent") for that reviewed lease,
+        # on both main turn.complete and a late fork-attributed turn.complete.
+        result = self.run_scenario("turn-complete-does-not-clobber-restart-published-review")
+        main_names = [e["event"] for e in result["mainEvents"]]
+        fork_names = [e["event"] for e in result["forkEvents"]]
+        self.assertIn("restart_submitted_terminal", main_names, result)
+        self.assertNotIn("reconcile", main_names, result)
+        self.assertNotIn("reconcile", fork_names, result)
+
     def test_submitted_fork_held_waiting_is_stopped_by_host_after_grace(self):
         # Celly n1267 2026-11-22: completion receipt 07:28:50Z, fork then held
         # waiting by a background task it owned; no idle row, no review.

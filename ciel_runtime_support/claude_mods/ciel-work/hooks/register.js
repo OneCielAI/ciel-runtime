@@ -2980,7 +2980,11 @@ async function recoverSubmittedReview($, leaseId) {
     const same = (before, after) => before.lease.host_id === after.lease.host_id
       && before.run.generation === after.run.generation && before.run.exit.digest === after.run.exit.digest
     const reviewed = target => parallelReviews(target.state).find(row => parallelReviewId(row) === leaseId)
-    if (reviewed(target)) return {lease_id:leaseId, review_pending:parallelReviewPending(reviewed(target))}
+    const decided = target => { const row = reviewed(target); return !!row && !parallelReviewPending(row) }
+    // A decided review (deciding/rework_ready/finalized) is owned by its saga.
+    // A pending review still proceeds so backend proof-convergence repair runs
+    // when ledger and workspace idle proofs diverged (Andy 2026-11-26 n2790).
+    if (decided(target)) return {lease_id:leaseId, review_pending:false}
     if (target.agent?.status === 'waiting') {
       if (target.lease.owner_process !== 'own') throw new Error('Only the owning host may stop this fork')
       // Main reviews Work results; nobody answers a question in an unattended
@@ -2988,8 +2992,8 @@ async function recoverSubmittedReview($, leaseId) {
       // call for hours). The completion receipt is final, so the stop below
       // only ends a fork that already finished; it approves nothing.
       const confirmed = await inspect()
-      if (same(target, confirmed) && reviewed(confirmed))
-        return {lease_id:leaseId, review_pending:parallelReviewPending(reviewed(confirmed))}
+      if (same(target, confirmed) && decided(confirmed))
+        return {lease_id:leaseId, review_pending:false}
       if (!same(target, confirmed) || confirmed.lease.owner_process !== 'own' || confirmed.agent?.status !== 'waiting')
         throw new Error('Recovery target changed; reread Work status')
       const stopped = await $.tool.call({tool:'TaskStop',task_id:confirmed.lease.host_id})
@@ -3003,6 +3007,11 @@ async function recoverSubmittedReview($, leaseId) {
     if (!agent) return parallelEvent($, {event:'restart_submitted_terminal', lease_id:leaseId,
       generation:run.generation, receipt_digest:run.exit.digest}, await hostProcess($, {internal:true,
       absent_agent_id:lease.host_id, absent_from_complete_list:true}))
+    if (reviewed(target)) {
+      await parallelEvent($, {event:'reconcile', lease_id:leaseId},
+        {state:'idle', proof:(typeof lease.idle_proof === 'string' && lease.idle_proof) || ('Native agent.list status: ' + agent.status)})
+      return {lease_id:leaseId, review_pending:parallelReviewPending(reviewed(await inspect()) || {state:'unknown'})}
+    }
     const observed = await parallelCall($, 'work_parallel_event', {event:'native_observation', complete:false,
       rows:[{lease_id:leaseId, agent_id:lease.host_id, status:agent.status}],
       generation:run.generation, receipt_digest:run.exit.digest,
@@ -4850,9 +4859,17 @@ async function parallelReconcileAtTurnEnd($, e, s, agents, id, binding) {
     return
   }
   const idle = terminal && ['submitted', 'verifying', 'reviewing', 'accepted', 'cleanup_pending'].includes(lease?.state)
-  if (lease) await parallelEvent($, { event:'reconcile', lease_id:binding.lease_id },
-    { state:idle ? 'idle' : row?.status === 'running' ? 'running' : 'unknown',
-      proof:row ? 'Native agent.list status: ' + row.status : 'Native agent.list row absent' })
+  if (lease) {
+    const existingProof = lease.state === 'submitted' && !lease.slot
+      && typeof lease.idle_proof === 'string' && lease.idle_proof
+    const alreadyReviewed = existingProof && row?.status !== 'running'
+      && parallelReviews(s).some(r => parallelReviewId(r) === lease.id)
+    if (!alreadyReviewed) {
+      await parallelEvent($, { event:'reconcile', lease_id:binding.lease_id },
+        { state:idle ? 'idle' : row?.status === 'running' ? 'running' : 'unknown',
+          proof:(idle && existingProof) || (row ? 'Native agent.list status: ' + row.status : 'Native agent.list row absent') })
+    }
+  }
   if (idle) await stopParallelAgent($, id)
 }
 // A lease that is refused at every turn end is logged each time, as before, but
@@ -4877,7 +4894,7 @@ async function parallelTurnComplete($, e, next) {
   // waiting_input with a native waiting/idle row is parked, not processing.
   try {
     const scope = await sessionId($)
-    const s = await hostStatus($)
+    let s = await hostStatus($)
     await projectParallelReviews($, s)
     // Replay an unresolved bind of a ledger-bound replacement before this
     // boundary observes its fork. The restart observation and the idle
@@ -4886,7 +4903,10 @@ async function parallelTurnComplete($, e, next) {
     const resendTried = await parallelSettleBoundRework($, s)
     const agents = await listNativeAgents($)
     // A session.start attempt that failed is retried at the next boundary.
-    await parallelRestartSubmitted($, s, agents)
+    // Refresh status when restart_submitted_terminal published a review so
+    // parallelReconcileAtTurnEnd sees the recorded idle_proof and review row
+    // instead of clobbering it with a conflicting "Native agent.list row absent".
+    if (await parallelRestartSubmitted($, s, agents) > 0) s = await hostStatus($)
     for (const [id, binding] of [...parallelBound]) {
       if (binding.scope !== scope) continue
       // One lease's refusal (for example a retained worktree that is gone) must
