@@ -108,7 +108,7 @@ class SideModTests(unittest.TestCase):
                          [r['decision']['action'] for r in fresh['resolveCalls']])
         self.assertEqual(['actor1','actor2','actor3'],fresh['stopped'])
 
-    def test_fresh_side_runs_single_active_actor_and_recovers_missing_closing_brace_and_priority(self):
+    def test_fresh_side_dispatches_without_priority_and_recovers_invalid_answers(self):
         # KOBE & Celly 2026-11-25:
         # 1) fresh mode ran 2-3 side-fresh actors concurrently (overlapping work,
         #    burning tokens and stalling the queue). Fresh mode keeps 1 ordinary
@@ -119,10 +119,10 @@ class SideModTests(unittest.TestCase):
         #    understanding or reply, or emitted invalid priority/queue_position
         #    — quarantining and dumping raw originals into main's context.
         row=self.run_harness('side_fresh_reliability_harness.mjs', timeout=10)
-        self.assertEqual(1, row['freshConcurrentSpawns'])
-        self.assertEqual(2, row['freshUrgentWhileBusySpawns'])
-        self.assertEqual(2, row['freshFullSpawns'])
-        self.assertEqual([False, True, True], row['freshClaims'])
+        self.assertEqual(2, row['freshConcurrentSpawns'])
+        self.assertEqual(3, row['freshUrgentWhileBusySpawns'])
+        self.assertEqual(3, row['freshFullSpawns'])
+        self.assertEqual([False]*4, row['freshClaims'])
         # Missing closing brace repaired without losing the decision or sending a correction turn.
         self.assertEqual('answer', row['missingBrace']['decision']['action'])
         self.assertEqual('게이트 유지', row['missingBrace']['decision']['reply'])
@@ -1074,7 +1074,7 @@ class SideModTests(unittest.TestCase):
         self.assertEqual((1,0),(row['firstIssue']['payloadRows'],row['firstIssue']['payloadPrompts']))
         self.assertEqual((2,0,None),(row['after']['payloadRows'],row['after']['payloadPrompts'],row['after']['notice']))
 
-    def test_p1_uses_reserved_slot_and_is_shared_with_main(self):
+    def test_unranked_side_dispatch_preserves_work_p1(self):
         with tempfile.TemporaryDirectory() as raw:
             path=Path(raw)
             (path/'package.json').write_text('{"type":"module"}')
@@ -1085,8 +1085,8 @@ class SideModTests(unittest.TestCase):
         row=json.loads(done.stdout)
         # Two ordinary slots full: one reserved claim for P1 only, then none
         # until the reserved actor finishes.
-        self.assertEqual([False,False,True],row['whileFull'])
-        self.assertEqual([False,False,True,True],row['claims'])
+        self.assertEqual([False]*4,row['whileFull'])
+        self.assertEqual([False]*5,row['claims'])
         self.assertEqual(['a','b','c','d'],row['spawned'])
         self.assertEqual(['P3',None,'P1','P1'],row['sourcePriority'])
         self.assertEqual([7,7],row['resolveVersions'])
@@ -1124,15 +1124,13 @@ class SideModTests(unittest.TestCase):
         self.assertTrue(any('nobody has sent input since' in text for text in row['logs']))
         self.assertEqual(2,sum('Side actors resumed' in text for text in row['logs']))
 
-    def test_fresh_mode_keeps_the_reserved_p0_p1_slot(self):
-        # Andy 2026-11-25: with one side-fresh actor allowed, a P0 waited 10 min
-        # behind a 14-min gate re-check (user 2026-11-14: P1 events go first).
+    def test_fresh_mode_does_not_reserve_side_slots(self):
         row=self.run_harness('side_stop_hold_harness.mjs','fresh')
         self.assertEqual([],row['fails'])
-        self.assertEqual([False,True],row['urgent'])
-        self.assertEqual(['a','b'],[s['event'] for s in row['spawned']])
+        self.assertEqual([False]*3,row['urgent'])
+        self.assertEqual(['a','b','c'],[s['event'] for s in row['spawned']])
         self.assertEqual({'ciel-work:side-fresh'},{s['type'] for s in row['spawned']})
-        self.assertEqual(2,row['steps'][-1]['claims'])
+        self.assertEqual(3,row['steps'][-1]['claims'])
 
     def run_p0(self, activation):
         with tempfile.TemporaryDirectory() as raw:

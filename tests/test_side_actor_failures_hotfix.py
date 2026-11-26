@@ -48,7 +48,7 @@ class ClaimOrderTests(unittest.TestCase):
         self.inbox._save_file(self.inbox._event_path('pending', row['receipt_id']), current)
         return row['receipt_id']
 
-    def test_new_events_interleave_with_old_retries_after_p0_and_p1(self):
+    def test_new_events_interleave_with_old_retries_without_priority(self):
         # Andy: the only claim after a restart was a 2-day-old page-limit failure
         # while 408 new events waited. 40 old retrying rows, 6 new ones, a P1
         # and a P0 (all new rows already aged past the 60 s window).
@@ -57,21 +57,21 @@ class ClaimOrderTests(unittest.TestCase):
         fresh = {self.received('new request %d' % n, 'new-%d' % n, age=120 - n) for n in range(6)}
         p1 = self.received('{"data":{"priority":"P1","text":"urgent"}}', 'p1', age=90)
         p0 = self.received('{"data":{"priority":"P0","text":"emergency"}}', 'p0', age=30)
-        picked = [claim(self.root, IDENTITY, 'actor', now=self.now + 1)['receipt_id'] for _ in range(14)]
-        self.assertEqual([p0, p1], picked[:2])
-        lanes = ['fresh' if key in fresh else 'retry' if key in retries else 'other' for key in picked[2:]]
-        self.assertEqual(['fresh', 'retry'] * 6, lanes)
+        picked = [claim(self.root, IDENTITY, 'actor', now=self.now + 1)['receipt_id'] for _ in range(16)]
+        fresh.update((p0, p1))
+        lanes = ['fresh' if key in fresh else 'retry' if key in retries else 'other' for key in picked]
+        self.assertEqual(['fresh', 'retry'] * 8, lanes)
         # Each event has one actor: a claimed row is never claimed again while leased.
         self.assertEqual(len(picked), len(set(picked)))
         # With the new events used up, retries continue one after another.
         rest = [claim(self.root, IDENTITY, 'actor', now=self.now + 1)['receipt_id'] for _ in range(3)]
         self.assertTrue(set(rest) <= retries)
 
-    def test_urgent_only_takes_p0_and_p1_alone(self):
+    def test_legacy_priority_flag_does_not_exclude_retry(self):
         self.received('old request', 'old', age=86400, failed=True)
         p1 = self.received('{"data":{"priority":"P1","text":"urgent"}}', 'p1', age=90)
         self.assertEqual(p1, claim(self.root, IDENTITY, 'reserved', urgent_only=True, now=self.now + 1)['receipt_id'])
-        self.assertIsNone(claim(self.root, IDENTITY, 'reserved', urgent_only=True, now=self.now + 1))
+        self.assertEqual('old', claim(self.root, IDENTITY, 'reserved', urgent_only=True, now=self.now + 1)['event_key'])
 
 
 class SideNoteFieldTests(unittest.TestCase):

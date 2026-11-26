@@ -523,7 +523,6 @@ def run(name, args, config, state_dir, identity, store):
                       owner_nonce=args.get('owner_nonce'), receipt=args.get('receipt'),
                       conversation_id=args.get('seen_receipt'))
     if name == 'work_side_claim':
-        waiting_reason = None
         document = store.read_snapshot()
         # Acknowledged handoffs are durable history, not a per-poll payload.
         # Prody 2026-11-10: returning all 30 answered rows made every empty claim
@@ -550,29 +549,11 @@ def run(name, args, config, state_dir, identity, store):
             if followup_missing:
                 _answer_followup(inbox, key, row['answer'])
             replies.append(reply)
-        # Fresh side mode (KOBE 2026-11-25): one live fresh claim at the router
-        # boundary as well, so an older loaded JS mod or a concurrent poll never
-        # runs 2-3 side-fresh actors at once. The reserved P0/P1 claim stays
-        # (user 2026-11-14: P1 events go first; Andy 2026-11-25 a P0 waited
-        # 10 min behind a 14-min gate re-check): with one live claim only an
-        # urgent_only claim, which takes P0/P1 alone, may start a second.
-        fresh_busy = False
-        if runtime_side.get('session') == 'fresh':
-            import time as _time
-            _now = _time.time()
-            _live = 0
-            for _row in inbox.pending(200, skip=inbox.quarantined_keys()):
-                _proc = _row.get('processing') or {}
-                if float(_proc.get('lease_until') or 0) > _now and _row.get('stage') == 'received':
-                    _live += 1
-                    if _live >= 2:
-                        break
-            fresh_busy = _live >= 2 or (_live == 1 and args.get('urgent_only') is not True)
-        active = None if (waiting_reason or fresh_busy) else claim(
+        # Accept the old urgent_only argument for loaded clients, but never
+        # use it to restrict external SSE admission.
+        active = claim(
             state_dir, identity, args.get('owner'),
-            aging_seconds=config.get('work_side_intake',{}).get('aging_seconds',60),
             model_fingerprint=NATIVE_FORK_FINGERPRINT,
-            urgent_only=args.get('urgent_only') is True,
             workflow_events=_workflow_on(config))
         recovered = None
         if active:
@@ -670,7 +651,7 @@ def run(name, args, config, state_dir, identity, store):
         # main_forwards: originals of events the side could not process; each is
         # claimed through notice_prepare, so one host appends it to main once.
         from .side_ack_outbox import pending as acks_owed
-        return {'claim': active, 'waiting_reason': waiting_reason, 'recovered_receipt': recovered,
+        return {'claim': active, 'waiting_reason': None, 'recovered_receipt': recovered,
                 'settings': settings, 'handoff_replies': replies, 'main_wakes': main_wakes,
                 'main_notices': side_notice.offered(inbox),
                 'main_forwards': forwards_offered(inbox),

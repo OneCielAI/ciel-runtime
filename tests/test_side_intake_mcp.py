@@ -32,6 +32,7 @@ class SideMcpTests(unittest.TestCase):
             respond=lambda _id,text,error=False:{'text':text,'error':error})
 
     def test_claim_prepares_operator_owned_walkie_prefetch(self):
+        self._claim()  # Consume the earlier fixture event.
         event_text=json.dumps({'type':'com.ciel.walkie.support.message','data':{'conversation':'34886995-4a66-4527-a618-814e9cb0a5bf','message_id':'118635'}})
         self.inbox=SideIntakeInbox(self.root,self.identity)
         self.inbox.receive(event_text,'walkie',route={'source_kind':'external_event',
@@ -437,7 +438,7 @@ class SideMcpTests(unittest.TestCase):
         self.assertEqual('Urgent external task',pending[0]['title'])
         self.assertEqual('P1',pending[0]['priority'])
 
-    def test_resolve_from_older_snapshot_commits_and_reserved_claim_takes_only_p1(self):
+    def test_resolve_from_older_snapshot_commits(self):
         from ciel_runtime_support import work_plan_tree as tree
         store=session_work_plan_store(self.root,self.identity)
         store.transaction(lambda doc: tree.add_node(doc,None,'active',priority='P3'))
@@ -453,14 +454,8 @@ class SideMcpTests(unittest.TestCase):
         data=json.loads(result['text'])['result']
         self.assertEqual((seen,'P1','Urgent'),(data['based_on_version'],data['priority'],data['title']))
         self.assertEqual(data['item_id'],tree.queued_roots(store.read())[0]['id'])
-        self.inbox.receive('{"data":{"message_context":{"thread_task":{"priority":3}}}}','ordinary')
-        reserved=json.loads(self.invoke('work_side_claim',{'owner':'actor','urgent_only':True})['text'])
-        self.assertIsNone(reserved['claim'])
-        self.inbox.receive('{"data":{"message_context":{"thread_task":{"priority":1}}}}','urgent')
-        reserved=json.loads(self.invoke('work_side_claim',{'owner':'actor','urgent_only':True})['text'])
-        self.assertEqual('P1',reserved['claim']['source_priority'])
 
-    def test_walkie_emergency_is_p0_and_claimed_before_p1(self):
+    def test_walkie_emergency_is_p0_metadata(self):
         from ciel_runtime_support.side_intake_inbox import source_priority
         # Observed 2026-11-15 on Walkie thread #131698: the person's P0 arrived
         # as thread_task {priority: 1, emergency: true} and was indexed P1.
@@ -473,11 +468,11 @@ class SideMcpTests(unittest.TestCase):
         self.assertEqual('P0', source_priority(json.dumps({'data': {'emergency': True, 'priority': 3}})))
         self.inbox.receive(json.dumps({'data': {'message_context': {'thread_task': {'priority': 1}}}}), 'p1')
         self.inbox.receive(json.dumps(emergency), 'p0')
-        # The urgent-only lane (a side slot reserved for urgent events) takes P0 too.
+        self.assertIsNotNone(self._claim())  # Earlier fixture event.
         reserved = json.loads(self.invoke('work_side_claim', {'owner': 'actor', 'urgent_only': True})['text'])
-        self.assertEqual('P0', reserved['claim']['source_priority'])
+        self.assertEqual('P1', reserved['claim']['source_priority'])
 
-    def test_fresh_session_allows_only_one_live_claim_at_router_and_recovers_omissions(self):
+    def test_fresh_session_recovers_omissions(self):
         # KOBE 2026-11-25: fresh side mode stacked 2-3 concurrent actors and
         # quarantined valid no_reply / missing-understanding proposals at prepare.
         self.config['work_side_intake']['session'] = 'fresh'
@@ -485,12 +480,6 @@ class SideMcpTests(unittest.TestCase):
         self.inbox.receive('second event', 'fresh:2')
         first = json.loads(self.invoke('work_side_claim', {'owner': 'side-1'})['text'])
         self.assertIsNotNone(first['claim'])
-        # While the first fresh claim holds an active lease, a second claim
-        # (including urgent_only) returns None instead of stacking another actor.
-        second = json.loads(self.invoke('work_side_claim', {'owner': 'side-1'})['text'])
-        self.assertIsNone(second['claim'])
-        urgent = json.loads(self.invoke('work_side_claim', {'owner': 'side-1', 'urgent_only': True})['text'])
-        self.assertIsNone(urgent['claim'])
         # Proposal with omitted understanding and omitted reply (with no_reply=True)
         # is recovered from summary at prepare instead of quarantining to main.
         host = {'token': 'x' * 40, 'receipt_id': first['claim']['receipt_id'],
@@ -513,22 +502,15 @@ class SideMcpTests(unittest.TestCase):
         self.assertIsNotNone(after['claim'])
         self.assertNotEqual(first['claim']['receipt_id'], after['claim']['receipt_id'])
 
-    def test_fresh_session_keeps_the_reserved_p0_p1_claim_behind_one_live_claim(self):
-        # Andy 2026-11-25: a P0 waited 10 min behind a 14-min gate re-check
-        # because a live fresh lease refused even the reserved urgent claim.
+    def test_fresh_sse_dispatch_does_not_wait_for_priority_or_live_claims(self):
         self.config['work_side_intake']['session'] = 'fresh'
-        self.inbox.receive('gate re-check', 'fresh:ordinary')
-        first = json.loads(self.invoke('work_side_claim', {'owner': 'side-1'})['text'])
-        self.assertIsNotNone(first['claim'])
-        self.inbox.receive(json.dumps({'data': {'message_context': {'thread_task': {'priority': 1, 'emergency': True}}}}), 'fresh:p0')
-        self.inbox.receive(json.dumps({'data': {'message_context': {'thread_task': {'priority': 1}}}}), 'fresh:p1')
-        ordinary = json.loads(self.invoke('work_side_claim', {'owner': 'side-1'})['text'])
-        self.assertIsNone(ordinary['claim'])
-        urgent = json.loads(self.invoke('work_side_claim', {'owner': 'side-1', 'urgent_only': True})['text'])
-        self.assertEqual('P0', urgent['claim']['source_priority'])
-        # Two live claims: nothing more, not even the next urgent event.
-        third = json.loads(self.invoke('work_side_claim', {'owner': 'side-1', 'urgent_only': True})['text'])
-        self.assertIsNone(third['claim'])
+        self.assertIsNotNone(self._claim())  # A live actor already holds the fixture event.
+        for priority in (3, 4, 5, 0):
+            receipt = self.inbox.receive(json.dumps({'data': {'priority': priority}}), f'fresh:sse:{priority}')
+            result = json.loads(self.invoke('work_side_claim', {'owner': 'side-1'})['text'])
+            self.assertIsNotNone(result['claim'], priority)
+            self.assertEqual(receipt['receipt_id'], result['claim']['receipt_id'])
+            self.assertEqual(f'P{priority}', result['claim']['source_priority'])
 
     def _resolve_event(self, event, decision):
         host = {'token': 'x'*40, 'receipt_id': event['receipt_id'], 'generation': event['generation']}
@@ -546,6 +528,7 @@ class SideMcpTests(unittest.TestCase):
         self.store.transaction(lambda doc: tree.add_node(doc, None, 'active', priority='P3'))
         _, item = self.store.transaction(lambda doc: tree.add_node(doc, None, 'approval display', priority='P3'))
         _, step = self.store.transaction(lambda doc: tree.add_node(doc, item, 'display approval button'))
+        self._claim()  # Consume the earlier fixture event.
         for i in range(2):
             # The observed Walkie shape of a P0 root (thread_task priority 1 plus
             # emergency). The model returned P1 for such a follow-up in production.

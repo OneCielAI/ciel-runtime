@@ -33,7 +33,7 @@ export function sideReceipts(identity) { return [...(displayedReceipts.get(ident
 export function sideActors(identity) {
   return [...actors.values()].filter(actor => actor.identity === identity && actor.current && !actor.retired)
     .map(actor => ({ id: actor.id, receipt_id: actor.current.receipt_id, model: actor.model || 'inherit',
-      reserved: actor.reserved === true, lease_until: actor.current.lease_until }))
+      reserved: false, lease_until: actor.current.lease_until }))
 }
 export function sideMcpParity() { return {...mcpParity} }
 async function recoverReply($,identity,event) {
@@ -45,8 +45,6 @@ async function recoverReply($,identity,event) {
 }
 let lifecycle = 0
 let busy = false
-let maxActive = 2
-let sessionMode = 'fork'
 // After a Stop, Claude Code refuses $.agent.spawn until a person sends input:
 // "the session was stopped and nobody has sent input since" (engine 2.1.332;
 // plugin-authoring types: agent.spawn "past a Stop ... nothing is spawned",
@@ -898,7 +896,7 @@ function retire($,actor) {
   if (actor.id) scheduleSideStop($, actor.id, trackRetiredSide(actor.id), 10)
 }
 export async function startSide($) {
-  lifecycle++; busy = false; sessionMode = 'fork'; spawnHold = null; pending.clear()
+  lifecycle++; busy = false; spawnHold = null; pending.clear()
   // Hydrate the host-held keys that survived this start (a hot reload keeps
   // $.state; /clear and a fresh process do not). Prompts this module itself
   // issued stay marked until their own resolution or idle-window release.
@@ -2118,31 +2116,11 @@ export async function pollSide($, identity) {
   }
   // A completed or killed actor never holds a slot; stop any that lost its event.
   for (const actor of [...actors.values()]) if (!actor.current && !actor.retired) retire($,actor)
-  // Ordinary events use max_active slots. One more slot is reserved for a P1
-  // event, so an urgent message never waits for two long ordinary forks.
-  // Fresh side mode (KOBE 2026-11-25): one side-fresh actor at a time, so fresh
-  // actors do not stack. The reserved P0/P1 slot stays (user 2026-11-14: P1
-  // events go first): on Andy 2026-11-25 a P0 waited 10 min, and a P1 28 min,
-  // behind a 14-min gate re-check. The router allows the same (side_intake_mcp).
-  const running = [...actors.values()].filter(a => a.current)
-  const fresh = sessionMode === 'fresh'
-  const full = fresh ? running.length >= 2
-    : running.length > maxActive || (running.length === maxActive && running.some(a => a.reserved))
-  if (busy || full) {
-    // Every slot is busy: the receipt ACK still goes out at once (status lists
-    // the events owed one). Claiming waits for a slot; the ACK does not.
-    if (!busy && !ackSweep) {
-      ackSweep = (async () => {
-        try { await sendOwedAcks($,identity,(await callRouter($,'work_side_status',{},{},identity)).pending_acks) }
-        catch {} finally { ackSweep = null }
-      })()
-    }
-    return false
-  }
+  // Serialize admission itself, not the actors already processing events.
+  if (busy) return false
   // A Stop hold refuses every spawn: claim nothing until a person's input or
   // the next probe (see STOP_HOLD).
   if (spawnHold && Date.now() < spawnHold.probeAt) return false
-  const urgentOnly = fresh ? running.length === 1 : running.length === maxActive
   busy = true
   const generation = lifecycle
   let pendingName
@@ -2155,10 +2133,10 @@ export async function pollSide($, identity) {
     const held = spawnHold?.held
     if (spawnHold) spawnHold.held = null
     const reuse = held && held.identity === identity && held.generation === generation
-      && held.event.lease_until*1000 - Date.now() > 10000 && (!urgentOnly || /^P[01]$/.test(held.event.source_priority || ''))
+      && held.event.lease_until*1000 - Date.now() > 10000
       ? held : null
     const answer = reuse ? {claim:reuse.event,settings:reuse.settings}
-      : await callRouter($,'work_side_claim',{owner:'side-'+generation,...(urgentOnly ? {urgent_only:true} : {})},{},identity)
+      : await callRouter($,'work_side_claim',{owner:'side-'+generation},{},identity)
     claimSettings = answer.settings || null
     // Receipt ACKs first: every event that arrived, claimed or still waiting.
     await sendOwedAcks($,identity,answer.pending_acks)
@@ -2233,16 +2211,6 @@ export async function pollSide($, identity) {
     // It was normally sent above; this covers an event received meanwhile.
     await sendOwedAcks($,identity,[event.receipt_id])
     const settings = answer.settings || {}
-    maxActive = Number.isInteger(settings.max_active) ? Math.max(1,Math.min(16,settings.max_active)) : 2
-    sessionMode = settings.session === 'fresh' ? 'fresh' : 'fork'
-    const live = [...actors.values()].filter(a => a.current).length
-    if (sessionMode === 'fresh' && (live >= 2 || (live === 1 && !urgentOnly))) {
-      // The session switched to fresh mid-flight with actors live: leave the
-      // newly claimed receipt unspawned for its lease expiry rather than run
-      // more than one side-fresh actor plus the reserved urgent one.
-      claimed = null
-      return false
-    }
     if (event.proposal) {
       // Its model answer survived a restart: commit it, never ask the model again.
       claimed = null
@@ -2341,7 +2309,6 @@ export async function pollSide($, identity) {
     ownedSideActors.add(spawned.agentId)
     actor = actors.get(spawned.agentId) || {id:spawned.agentId,identity,conversation,generation,current:event}
     claimedActor = actor
-    actor.reserved = urgentOnly
     actor.resolved = false
     actor.model = 'inherit'
     actor.modelFingerprint = fingerprint
@@ -2421,7 +2388,6 @@ export async function sideTool($,e,next) { return null }
 // is still acknowledged at once. One send at a time per receipt; the router's
 // outbox makes a repeat a no-op and never resends an uncertain one.
 const ackInFlight = new Set()
-let ackSweep = null
 export async function sendOwedAcks($,identity,receiptIds) {
   for (const receiptId of (Array.isArray(receiptIds) ? receiptIds : []).slice(0,20)) {
     if (typeof receiptId !== 'string' || !/^[0-9a-f]{64}$/.test(receiptId) || ackInFlight.has(receiptId)) continue

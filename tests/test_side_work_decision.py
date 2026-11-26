@@ -492,14 +492,7 @@ class SideDecisionTests(unittest.TestCase):
         with self.assertRaises(tree.WorkPlanError):
             review(self.store, ['0' * 64], verdict='ok', note='', expected_version=self.store.read()['version'])
 
-    def test_structured_p1_is_picked_before_ordinary_backlog(self):
-        inbox=SideIntakeInbox(self.root,'claude:test')
-        inbox.receive('ordinary request','ordinary')
-        urgent=inbox.receive('{"data":{"priority":"P1","text":"urgent"}}','urgent')
-        picked=claim(self.root,'claude:test','actor')
-        self.assertEqual(urgent['receipt_id'],picked['receipt_id'])
-
-    def test_p1_precedes_aged_backlog_and_aged_precedes_fresh_ranks(self):
+    def test_claim_keeps_arrival_order_regardless_of_priority(self):
         # Observed 2026-11-07: urgent #116793 waited behind every aged event.
         import time
         inbox=SideIntakeInbox(self.root,'claude:test')
@@ -511,7 +504,7 @@ class SideDecisionTests(unittest.TestCase):
         fresh=inbox.receive('{"data":{"priority":"P2","text":"soon"}}','fresh-p2')
         urgent=inbox.receive('{"data":{"priority":"P1","text":"urgent"}}','urgent')
         picked=[claim(self.root,'claude:test','actor',now=stamp+1)['receipt_id'] for _ in range(3)]
-        self.assertEqual([urgent['receipt_id'],ordinary['receipt_id'],fresh['receipt_id']],picked)
+        self.assertEqual([ordinary['receipt_id'],fresh['receipt_id'],urgent['receipt_id']],picked)
 
     def test_walkie_thread_task_priority_indexes_source_urgency(self):
         from ciel_runtime_support.side_intake_inbox import source_priority
@@ -531,11 +524,9 @@ class SideDecisionTests(unittest.TestCase):
         ordinary=inbox.receive(walkie(3),'ordinary')
         urgent=inbox.receive(walkie(1),'urgent')
         self.assertTrue((inbox.directory/'priority'/'P1'/urgent['receipt_id'][:2]/(urgent['receipt_id']+'.json')).exists())
-        # Both slots full: the reserved claim takes only P1, and none is left.
-        first=claim(self.root,'claude:test','reserved',urgent_only=True)
-        self.assertEqual((urgent['receipt_id'],'P1'),(first['receipt_id'],first['source_priority']))
-        self.assertIsNone(claim(self.root,'claude:test','reserved',urgent_only=True))
-        self.assertEqual(ordinary['receipt_id'],claim(self.root,'claude:test','actor')['receipt_id'])
+        first=claim(self.root,'claude:test','actor',urgent_only=True)
+        self.assertEqual((ordinary['receipt_id'],'P3'),(first['receipt_id'],first['source_priority']))
+        self.assertEqual(urgent['receipt_id'],claim(self.root,'claude:test','actor')['receipt_id'])
 
     def test_missing_priority_index_recovers_from_durable_pending(self):
         from unittest.mock import patch
@@ -549,6 +540,7 @@ class SideDecisionTests(unittest.TestCase):
         marker = inbox.directory / 'priority' / 'P1' / key[:2] / (key + '.json')
         self.assertFalse(marker.exists())
         self.assertEqual(text, inbox._load(key)['text'])
+        picked = claim(self.root, 'claude:test', 'restarted-actor')
         picked = claim(self.root, 'claude:test', 'restarted-actor')
         self.assertEqual(key, picked['receipt_id'])
         self.assertTrue(marker.exists())

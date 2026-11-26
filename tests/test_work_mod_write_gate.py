@@ -956,9 +956,9 @@ class WorkModWriteGateTests(unittest.TestCase):
     def test_one_tick_drains_a_burst_into_every_free_side_slot(self):
         result = self.run_scenario('side-pump-drains-burst-into-free-slots')
         # Two ordinary slots, then the reserved P1-only slot, then no slot left.
-        self.assertEqual([{'urgent_only': False}, {'urgent_only': False}, {'urgent_only': True}], result['claims'])
-        self.assertEqual(3, len(result['spawned']))
-        self.assertEqual(1, result['left'])
+        self.assertEqual([{'urgent_only': False}]*5, result['claims'])
+        self.assertEqual(4, len(result['spawned']))
+        self.assertEqual(0, result['left'])
 
     def test_side_retry_after_side_model_failure_is_spawned_for_main_model(self):
         row = self.run_scenario('side-parent-model-retry-is-marked-for-the-gate')

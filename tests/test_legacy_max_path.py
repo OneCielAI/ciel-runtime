@@ -116,14 +116,14 @@ class LegacyMaxPathTests(unittest.TestCase):
         self.assertFalse(inbox._event_path('pending', key).exists())
         self.assertEqual([], [p for p in state.rglob('*.tmp')])
 
-    def test_p1_reserved_claim_works_at_aap_depth(self):
+    def test_fifo_claim_works_at_aap_depth(self):
         state = self.side_state()
         with legacy_max_path():
             inbox = SideIntakeInbox(state, SESSION)
-            inbox.receive('ordinary request', 'walkie:ordinary')
-            urgent = inbox.receive(json.dumps({'data': {'priority': 'P1', 'text': 'now'}}), 'walkie:urgent')
+            ordinary = inbox.receive('ordinary request', 'walkie:ordinary')
+            inbox.receive(json.dumps({'data': {'priority': 'P1', 'text': 'now'}}), 'walkie:urgent')
             picked = claim(state, SESSION, 'reserved', urgent_only=True)
-        self.assertEqual((urgent['receipt_id'], 'P1'), (picked['receipt_id'], picked['source_priority']))
+        self.assertEqual((ordinary['receipt_id'], None), (picked['receipt_id'], picked['source_priority']))
 
 
 if __name__ == '__main__':
