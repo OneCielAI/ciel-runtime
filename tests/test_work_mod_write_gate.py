@@ -1359,6 +1359,19 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertNotIn("reconcile", main_names, result)
         self.assertNotIn("reconcile", fork_names, result)
 
+    def test_running_lease_with_host_salvage_exit_is_not_killed_early_and_releases_slot(self):
+        # Andy 2026-11-26 n2728 (521a8d85): parallelHasReceipt treated host_salvage
+        # as a worker exit report, immediately TaskStopping a resumed worker on
+        # turn 1 and returning true without calling unreported (permanent slot leak).
+        result = self.run_scenario("parallel-host-salvage-exit-still-completes-unreported")
+        self.assertEqual(1, result["first"]["sent"], result)
+        self.assertEqual(0, result["first"]["tools"], result)
+        self.assertNotIn("host_salvage", result["first"]["calls"], result)
+        self.assertEqual(["host_salvage", "unreported"],
+                         [e for e in result["calls"] if e in ("host_salvage", "unreported")], result)
+        self.assertEqual(("unreported", False), (result["lease"]["state"], result["lease"]["slot"]), result)
+        self.assertEqual(1, len(result["tools"]), result)
+
     def test_submitted_fork_held_waiting_is_stopped_by_host_after_grace(self):
         # Celly n1267 2026-11-22: completion receipt 07:28:50Z, fork then held
         # waiting by a background task it owned; no idle row, no review.

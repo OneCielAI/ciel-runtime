@@ -60,4 +60,10 @@ timestamp: 2026-11-26T12:15:00Z
 
 ## 발행·설치
 
-- 커밋·npm `@beta`·7개 루트 해시 설치 완료 후 아래에 SHA 및 검증 결과를 기록한다.
+- 커밋 `537a2ea8236534172c6dc005ee78063147c047f9`, GitHub Actions `Publish to npm` (`45822309530`) 성공, npm `@beta` = `0.2.51-beta.20261126-124338.537a2ea`(`gitHead` 일치).
+- npm tarball 내부 2개 파일 SHA-256과 커밋 `537a2ea` 일치 확인:
+  - `ciel_runtime_support/work_parallel_mcp.py`: `e79190a73e74` → `5dbe504d5cd4` (279,761 B).
+  - `ciel_runtime_support/claude_mods/ciel-work/hooks/register.js`: `10fcdb2d0227` → `28b679f54bd3` (373,874 B).
+- 승인된 7개 루트(로컬 4곳, KOBE `u24`, Prody `u41`, Betty `u42`) 해시 확인 설치 완료(`check` 7/7 `base` → `apply` 7/7 `ok=True`, `.cmd` 래퍼·버전 메타 미변경, 원격 임시 오버레이 폴더/tar 정리 완료).
+- **라이브 효과 구분:** 파일 설치만 완료된 상태다. 모니터링 규칙상 실행 중 Claude CLI 세션과 라우터는 재시작하지 않았으므로, 이미 기동된 라우터(`work_parallel_mcp.py`)와 CLI 세션(`register.js`)은 각각 재시작/모드 재로드 전까지 이전 메모리 코드를 유지한다. CLI 세션이 재로드/재시작되면 `parallelRestartSubmitted` 또는 `recover_submitted_review`가 기존 `n2790` 불일치도 자동 수렴한다.
+

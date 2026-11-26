@@ -3921,11 +3921,16 @@ async function stopParallelAgent($, id) {
 // Only a running lease asks this. A question parks its lease and only a resume
 // returns it to running, so a question exit or receipt there is the answered
 // one, not the exit this run still owes (Celly n1229/n1241 2026-11-21: resumed
-// workers ended without a report and kept their slots).
+// workers ended without a report and kept their slots). A host_salvage receipt
+// is also never a worker exit report: if unreported failed transiently after
+// host_salvage, or an older build salvaged a parked lease before resume (Andy
+// n2728 2026-11-26), treating it as a worker receipt skipped unreported (leaking
+// the slot) and immediately killed the live resumed fork on turn 1.
 function parallelHasReceipt(state, lease) {
+  const workerExit = kind => Boolean(kind) && kind !== 'question' && kind !== 'host_salvage'
   const run = (state?.coordination?.runs || []).find(row => row.lease_id === lease.id)
-  if (run?.exit && run.exit.kind !== 'question') return true
-  return (state?.coordination?.receipts || []).some(row => row.lease_id === lease.id && row.kind !== 'question')
+  if (workerExit(run?.exit?.kind)) return true
+  return (state?.coordination?.receipts || []).some(row => row.lease_id === lease.id && workerExit(row.kind))
 }
 // A fork spawned by this plugin never triggers this plugin's own turn.complete,
 // and the engine drops an ended subagent from $.agent.list() between polls

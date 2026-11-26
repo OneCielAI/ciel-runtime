@@ -4438,6 +4438,13 @@ def run(name, args, board_store, identity, config, save_config, log=None):
         if not lease or lease["scope"] != identity or (lease.get("workspace") is not None
                                                        and not lease["workspace"]):
             raise WorkParallelError("unknown salvage workspace")
+        # Only a running lease may be salvaged (or an already-unreported lease
+        # replaying its idempotent host_salvage receipt). Allowing host_salvage
+        # on a parked waiting_input lease poisoned run.exit while unreported
+        # failed, so resuming the worker later triggered an immediate kill and
+        # leaked the slot (Andy 2026-11-26 n2728).
+        if lease["state"] not in ("running", "unreported"):
+            raise WorkParallelError("worker is not running")
         from .work_parallel_workspace import salvage_observe
         coord = coordination(store)
         _repair_lost_coordination_bind(store, lease)
@@ -4456,6 +4463,8 @@ def run(name, args, board_store, identity, config, save_config, log=None):
                                   if detail["workspace"] is not None
                                   and str(detail["workspace"]["diff_stat"]).startswith("workspace unavailable: ")
                                   else {})}, ensure_ascii=False)
+        if lease["state"] != "running":
+            raise WorkParallelError("worker is not running")
         if lease.get("workspace") is None:
             detail = {"done": [], "remaining": list(run_row.get("assigned_todos") or [lease["item_id"]]),
                       "blockers": [str(args.get("reason") or "native fork ended without report")[:2000]],

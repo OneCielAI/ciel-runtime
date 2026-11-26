@@ -305,6 +305,45 @@ class WorkParallelMCPTests(unittest.TestCase):
             lease = store.read()["leases"][reserved["lease_id"]]
             self.assertEqual(("unreported", False), (lease["state"], lease["slot"]))
 
+    def test_host_salvage_refuses_parked_waiting_input_and_preserves_question_receipt(self):
+        # Andy 2026-11-26 n2728 (521a8d85): worker parked via question at 12:22:41Z,
+        # then a late host_salvage at 12:24:22Z succeeded on waiting_input,
+        # overwriting run.exit with host_salvage while unreported failed; after
+        # main resumed the worker, parallelHasReceipt saw host_salvage and killed
+        # the running fork while leaking the slot.
+        store, board, config, run = self.env
+        from ciel_runtime_support import runtime_paths
+        with patch.object(runtime_paths, "CONFIG_DIR", self.tmp_path / "cfg"):
+            reserved = run("event", {"fork": True}, event="reserve", item_id="n1", priority="P1")
+            lease_id = reserved["lease_id"]
+            run("event", {"host_id": "native-worker"}, event="bind", lease_id=lease_id)
+            class Board:
+                def read(_self):
+                    return board
+            with patch.object(m, "ledger", return_value=store):
+                m.report({"lease_id": lease_id, "worker_token": reserved["worker_token"],
+                          "event": "question", "plan_version": 7, "evidence": "need input",
+                          "detail": {"question": "clarify?", "blocking_todos": ["n1"],
+                                     "decision_needed": "choose option"}}, Board(), config)
+            self.assertEqual("waiting_input", store.read()["leases"][lease_id]["state"])
+            run_before = m.coordination(store).read()["runs"][lease_id]
+            self.assertEqual(("waiting", "question"), (run_before["state"], run_before["exit"]["kind"]))
+            with self.assertRaisesRegex(WorkParallelError, "worker is not running"):
+                run("event", {"proof": "stale turn end"}, event="host_salvage",
+                    lease_id=lease_id, reason="answer")
+            run_after = m.coordination(store).read()["runs"][lease_id]
+            self.assertEqual(("waiting", "question"), (run_after["state"], run_after["exit"]["kind"]))
+            self.assertEqual(run_before["exit"]["digest"], run_after["exit"]["digest"])
+            # Idempotent replay on already-unreported lease remains valid after a real salvage.
+            run("event", {}, event="reacquire", lease_id=lease_id)
+            run("event", {}, event="resume", lease_id=lease_id, plan_version=7, evidence="input received")
+            salvaged = run("event", {"proof": "native terminal"}, event="host_salvage",
+                           lease_id=lease_id, reason="native ended without report")
+            run("event", {"proof": "salvage " + salvaged["receipt_digest"]},
+                event="unreported", lease_id=lease_id)
+            self.assertEqual(salvaged, run("event", {"proof": "native terminal"}, event="host_salvage",
+                                           lease_id=lease_id, reason="native ended without report"))
+
     def test_failed_workspace_preparation_releases_its_reservation(self):
         store, board, config, run = self.env
         not_root = self.tmp_path / "plain"

@@ -5079,6 +5079,42 @@ Object.assign(scenarios, {
     const forkEvents = [...events]
     return { mainEvents, forkEvents }
   },
+  // Andy 2026-11-26 n2728 (521a8d85): a running lease that still has a
+  // host_salvage exit (either from an earlier stale salvage before resume, or
+  // because unreported failed transiently after host_salvage) must NOT be
+  // treated by parallelHasReceipt as a worker exit report: turn 1 must nudge
+  // instead of immediately TaskStopping the live fork, and after grace it must
+  // finish host_salvage + unreported to release the slot instead of leaking it.
+  async 'parallel-host-salvage-exit-still-completes-unreported'() {
+    const leases = { L1: { id:'L1', item_id:'n2728', priority:'P4', role:'worker', state:'running',
+      host_id:'agent-old', slot:true, plan_version:7 } }
+    const calls = [], tools = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:9, active_device:1,
+        policy:{ enabled:true, paused:false, priority_limits:{ P1:5, P2:3, P3:1, P4:1, P5:1 } }, leases,
+        coordination:{ runs:[{ lease_id:'L1', exit:{ kind:'host_salvage', digest:'c'.repeat(64) } }],
+          receipts:[{ lease_id:'L1', kind:'host_salvage', digest:'c'.repeat(64) }] } })
+      if (tool === 'work_parallel_event') {
+        calls.push(args.event)
+        if (args.event === 'host_salvage') return text({ receipt_digest:'c'.repeat(64), salvaged:true })
+        if (args.event === 'unreported') { leases.L1.state = 'unreported'; leases.L1.slot = false; return text({ state:'unreported' }) }
+        return text({})
+      }
+      return text({})
+    })
+    $.tool.call = async args => { tools.push(args); return {} }
+    state.agents = [{ id:'agent-old', status:'running' }]
+    await handlers['session.start']($, { isInteractive:false }, next(undefined))
+    state.sent = []; calls.length = 0; tools.length = 0
+    state.agents[0].status = 'idle'
+    await handlers['turn.complete']($, { reason:'answer' }, next(undefined))
+    const first = { sent:state.sent.length, tools:tools.length, calls:[...calls], lease:{ ...leases.L1 } }
+    calls.length = 0
+    later(31000)
+    await handlers['turn.complete']($, { reason:'answer' }, next(undefined))
+    return { first, calls, tools, sent:state.sent.length, lease:leases.L1 }
+  },
 })
 
 const name = process.argv[2]
