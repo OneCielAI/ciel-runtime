@@ -107,6 +107,21 @@ class NativeEvidenceTests(unittest.TestCase):
         self.assertIsNone(row["bound_at"])
         self.assertIsNotNone(row["reserved_at"])
 
+    def test_fork_projection_includes_root_goal_id_for_nested_child_items(self):
+        self.env.board["nodes"].append({
+            "id": "n1-child", "parent_id": "n1", "title": "Nested step", "ref": "R-1C",
+            "status": "in_progress", "updated_at": 2,
+        })
+        lease_id = self.env.launch("n1-child", "agent-nested")
+        self.env.observe([{"lease_id": lease_id, "agent_id": "agent-nested", "agent_name": "work-nested",
+                           "status": "running"}])
+        projected = self.env.project()
+        public = m.public_projection(projected, SCOPE)
+        for view in (projected, public):
+            row = next(r for r in view["forks"]["confirmed"] if r["item_id"] == "n1-child")
+            self.assertEqual("n1", row.get("goal_id"))
+            self.assertEqual("Item 1", row["goal_title"])
+
     def test_reservation_waiting_and_slot_alone_are_never_confirmed(self):
         r = self.env.run("event", {"fork": True}, event="reserve", item_id="n3", priority="P2")
         forks = self.env.project()["forks"]

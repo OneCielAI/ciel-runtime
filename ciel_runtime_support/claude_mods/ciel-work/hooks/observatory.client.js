@@ -189,10 +189,27 @@ export default function Observatory(props, surface) {
   const active = Math.max(0, props.parallel?.active || 0)
   const forks = Math.max(0, props.parallel?.forks || 0)
   const forkText = props.parallel?.evidence === false ? 'FORKS ? ' : 'FORKS ' + forks + ' running '
+  const uncertain = Math.max(0, props.parallel?.uncertain || 0)
   children.push(boxLine('lanes', [
-    Text({ color: C.blue, children: forkText }),
+    Text({ color: forks > 0 ? C.green : C.blue, weight: forks > 0 ? 'bold' : undefined, children: forkText }),
+    ...(uncertain ? [Text({ color: C.red, children: '(?' + uncertain + ') ' })] : []),
     Text({ color: C.dim, children: '· DEVICE ' + active + '/' + max + ' slots · REVIEW ' + (props.parallel?.reviews?.length || 0) + ' · SIDE ' + (props.parallel?.side || 0) }),
   ]))
+  // Always show all six priority lanes P0–P5 with confirmed running items so every
+  // tier's live status is immediately readable at a glance.
+  const laneRows = Array.isArray(props.parallel?.lanes) ? props.parallel.lanes : []
+  if (laneRows.length) {
+    const laneParts = laneRows.map(l => {
+      const cap = l.priority === 'P0' ? (l.confirmed ? '●' + l.confirmed : '0')
+        : l.confirmed > 0 ? '●' + l.confirmed + '/' + (l.limit ?? '?')
+        : l.uncertain > 0 ? '?' + l.uncertain + '/' + (l.limit ?? '?')
+        : l.active + '/' + (l.limit ?? '?')
+      const items = l.items?.length ? '[' + l.items.slice(0, 2).join(',') + ']' : ''
+      const color = l.confirmed > 0 ? C.green : l.uncertain > 0 ? C.red : l.attention ? C.yellow : C.dim
+      return { key: 'lane-' + l.priority, text: l.priority + ' ' + cap + items + ' ', color, bold: l.confirmed > 0 || l.priority === 'P0' && l.active > 0 }
+    })
+    children.push(boxLine('priority-lanes', laneParts.map(p => Text({ key: p.key, color: p.color, weight: p.bold ? 'bold' : undefined, children: p.text }))))
+  }
   // Per priority use/limit and the first priority that needs attention (the
   // router's diagnosis, the same rows web, REST and ctl show; Stage 3).
   const dispatch = props.parallel?.dispatch
@@ -205,24 +222,29 @@ export default function Observatory(props, surface) {
     + failure.message, C.red))
   for (const [index, review] of (props.parallel?.reviews || []).slice(0, 2).entries())
     children.push(line('review-' + index, '  ◆ ' + [review.status, review.item, review.title].filter(Boolean).join(' · '), C.yellow))
-  for (const [index, fork] of (props.parallel?.confirmed || []).entries()) {
+  const confirmedList = Array.isArray(props.parallel?.confirmed) ? props.parallel.confirmed : []
+  const maxForkLines = Math.max(3, Math.min(8, height - 16))
+  for (const [index, fork] of confirmedList.slice(0, maxForkLines).entries()) {
     const age = typeof fork.seen === 'number' ? Math.max(0, Math.round(Date.now() / 1000 - fork.seen)) + 's ago' : ''
-    children.push(line('fork-' + index, clip('  ▸ ' + [fork.item, fork.priority, fork.title, fork.agent, fork.status, age]
+    children.push(line('fork-' + index, clip('  ▸ ' + [fork.priority, fork.item, fork.title, fork.agent, fork.status, age]
       .filter(Boolean).join(' · '), width), C.green))
   }
+  if (confirmedList.length > maxForkLines)
+    children.push(line('fork-more', '  ▸ +' + (confirmedList.length - maxForkLines) + ' more confirmed forks', C.green))
   children.push(line('rule', '─'.repeat(width), C.line))
 
+  const headerLines = children.length
   // At the requested 90-column dock, match the reviewed overview: Work tree
   // and SSE flow are visible together. The active tab only chooses which side
   // owns ↑↓/Enter and the shared inspector; it never hides the other half.
   if (width >= 48) {
     const workWidth = Math.floor(width * .58)
     const sideWidth = width - workWidth - 1
-    const bodyRows = Math.max(7, height - 13)
+    const bodyRows = Math.max(5, height - headerLines - 6)
     const workChildren = [Box({ key: 'work-head', height: 1, overflow: 'hidden', flexDirection: 'row', children: [
       Text({ color: C.cyan, weight: 'bold', children: 'WORK ' + workRows.length + ' ' }),
       Text({ color: C.yellow, weight: 'bold', children: '[' + VIEW_LABEL[view] + '] ' }),
-      Text({ color: C.green, children: '●실행 ' + forkCount + ' ' }),
+      Text({ color: C.green, children: '●실행 ' + Math.max(forkCount, forks) + ' ' }),
       Text({ color: C.cyan, children: '▶' + classCounts.run + ' ' }),
       Text({ color: C.red, children: '!' + classCounts.wait + ' ' }),
       Text({ color: C.dim, children: '✓' + classCounts.done }),
@@ -232,20 +254,23 @@ export default function Observatory(props, surface) {
       const index = scroll + offset
       const selectedRow = props.tab === 'work' && index === selected
       const indent = '  '.repeat(Math.min(3, node.depth || 0))
-      // An item a Work fork is running now: its own mark, colour and tag.
+      // An item a Work fork is running now (or an ancestor goal whose child runs in a fork).
       const running = node.fork === true
-      const left = (selectedRow ? '▸ ' : '  ') + indent + (running ? '●' : statusGlyph(node.status, node.waiting_on)) + ' '
+      const hasChildFork = !running && Number(node.forkChildren) > 0
+      const uncertainRow = !running && !hasChildFork && node.forkGroup === 'uncertain'
+      const glyph = running ? '●' : hasChildFork ? '◉' : uncertainRow ? '?' : statusGlyph(node.status, node.waiting_on)
+      const left = (selectedRow ? '▸ ' : '  ') + indent + glyph + ' '
       const priority = node.priority || ''
       const count = node.total ? node.done + '/' + node.total : ''
-      const tag = running ? ' 실행중' : ''
+      const tag = running ? ' ●포크실행' : hasChildFork ? ' ●포크×' + node.forkChildren : uncertainRow ? ' ?미확인' : ''
       const room = Math.max(4, workWidth - cells(left) - (priority ? 4 : 0) - cells(count) - cells(tag) - 1)
       workChildren.push(Box({ key: 'wide-work-' + node.id, height: 1, overflow: 'hidden',
-        flexDirection: 'row', backgroundColor: selectedRow ? C.selected : running ? '#12301f' : undefined, children: [
-          Text({ color: running ? C.green : statusColor(node.status), weight: running ? 'bold' : undefined, children: left }),
+        flexDirection: 'row', backgroundColor: selectedRow ? C.selected : running ? '#12301f' : hasChildFork ? '#0f241b' : undefined, children: [
+          Text({ color: running || hasChildFork ? C.green : uncertainRow ? C.red : statusColor(node.status), weight: running || hasChildFork ? 'bold' : undefined, children: left }),
           ...(priority ? [Text({ color: priorityColor(priority), weight: 'bold', children: priority + ' ' })] : []),
           Text({ color: running ? C.green : selectedRow ? C.cyan : C.text, weight: running ? 'bold' : undefined,
             children: pad(node.title, room) }),
-          ...(running ? [Text({ color: C.green, weight: 'bold', children: tag })] : []),
+          ...(tag ? [Text({ color: uncertainRow ? C.red : C.green, weight: 'bold', children: tag })] : []),
           Text({ color: C.dim, children: count }),
         ] }))
     }
@@ -305,9 +330,13 @@ export default function Observatory(props, surface) {
     if (chosen) children.push(line('wide-inspector-meta', props.tab === 'side'
       ? stage(chosen) + (chosen.actor ? ' · fork ' + chosen.actor : '') + (chosen.item_id ? ' → ' + chosen.item_id : '')
         + (chosen.bounded ? ' · thread bounded: ' + chosen.bounded + ' older replies left out' : '')
-      : (chosen.priority || '--') + ' · ' + (chosen.fork ? '실행중(포크) · ' : '') + chosen.status
+      : (chosen.priority || '--') + ' · '
+        + (chosen.fork ? '●실행중(포크 ' + (chosen.forkPriority || chosen.priority || '') + (chosen.forkAgent ? ' ' + chosen.forkAgent : '') + ') · '
+          : Number(chosen.forkChildren) > 0 ? '◉하위포크 ' + chosen.forkChildren + '개(' + (chosen.forkItems || []).join(',') + ') · '
+          : chosen.forkGroup ? '리스(' + chosen.forkGroup + ') · ' : '')
+        + chosen.status
         + (chosen.waiting_on ? ' · waiting ' + chosen.waiting_on : ''),
-      props.tab === 'side' ? stageColor(stage(chosen)) : statusColor(chosen.status)))
+      props.tab === 'side' ? stageColor(stage(chosen)) : chosen.fork || Number(chosen.forkChildren) > 0 ? C.green : statusColor(chosen.status)))
     children.push(line('footer', FOOTER, C.dim))
     return Box({ flexDirection: 'column', backgroundColor: C.panel, children })
   }
@@ -356,29 +385,37 @@ export default function Observatory(props, surface) {
       Text({ color: C.cyan, weight: 'bold', children: 'WORK ' + workRows.length + ' [' + VIEW_LABEL[view] + '] ●' + forkCount }),
       Text({ color: p1 ? C.red : C.dim, children: p1 ? ' P1 ONLY' : ' ALL · P P1' }),
     ], { justifyContent: 'space-between' }))
-    const visible = Math.max(3, height - 12)
+    const visible = Math.max(3, height - headerLines - 6)
     const page = workRows.slice(scroll, scroll + visible)
     for (const [offset, node] of page.entries()) {
       const index = scroll + offset
       const selectedRow = index === selected
       const indent = '  '.repeat(Math.min(4, node.depth || 0))
-      const left = (selectedRow ? '▸ ' : '  ') + indent + (node.fork ? '●' : statusGlyph(node.status, node.waiting_on)) + ' '
+      const running = node.fork === true
+      const hasChildFork = !running && Number(node.forkChildren) > 0
+      const uncertainRow = !running && !hasChildFork && node.forkGroup === 'uncertain'
+      const glyph = running ? '●' : hasChildFork ? '◉' : uncertainRow ? '?' : statusGlyph(node.status, node.waiting_on)
+      const left = (selectedRow ? '▸ ' : '  ') + indent + glyph + ' '
       const priority = node.priority || ''
-      const room = Math.max(3, width - cells(left) - (priority ? 4 : 0) - 7)
+      const tag = running ? ' 포크' : hasChildFork ? ' 포크×' + node.forkChildren : uncertainRow ? ' ?미확인' : ''
       const count = node.total ? ' ' + node.done + '/' + node.total : ''
+      const room = Math.max(3, width - cells(left) - (priority ? 4 : 0) - cells(tag) - Math.min(7, cells(count)))
       children.push(boxLine('node-' + node.id, [
-        Text({ color: statusColor(node.status), children: left }),
+        Text({ color: running || hasChildFork ? C.green : uncertainRow ? C.red : statusColor(node.status), children: left }),
         ...(priority ? [Text({ color: priorityColor(priority), weight: 'bold', children: priority + ' ' })] : []),
-        Text({ color: selectedRow ? C.cyan : C.text, children: clip(node.title, room) }),
+        Text({ color: running ? C.green : selectedRow ? C.cyan : C.text, weight: running ? 'bold' : undefined, children: clip(node.title, room) }),
+        ...(tag ? [Text({ color: uncertainRow ? C.red : C.green, weight: 'bold', children: tag })] : []),
         Text({ color: C.dim, children: clip(count, 7) }),
-      ], selectedRow ? { backgroundColor: C.selected } : {}))
+      ], selectedRow ? { backgroundColor: C.selected } : running ? { backgroundColor: '#12301f' } : {}))
     }
     const node = workRows[selected]
     if (node) {
       children.push(line('inspect-rule', '─ INSPECTOR WORK ' + clip(node.id, 10) + ' ' + '─'.repeat(width), C.line))
       children.push(boxLine('inspect-tags', [
         Text({ color: priorityColor(node.priority), children: (node.priority || '--') + '  ' }),
-        Text({ color: statusColor(node.status), children: node.status + (node.waiting_on ? ' · waiting' : '') }),
+        Text({ color: node.fork || Number(node.forkChildren) > 0 ? C.green : statusColor(node.status),
+          children: (node.fork ? '●포크실행 · ' : Number(node.forkChildren) > 0 ? '◉하위포크×' + node.forkChildren + ' · ' : '')
+            + node.status + (node.waiting_on ? ' · waiting' : '') }),
       ]))
       children.push(line('inspect-title', node.title, C.text, { weight: 'bold' }))
       if (node.waiting_on) children.push(line('inspect-wait', 'waiting: ' + node.waiting_on, C.yellow))

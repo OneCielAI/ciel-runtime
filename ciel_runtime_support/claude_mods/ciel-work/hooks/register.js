@@ -769,8 +769,9 @@ function parallelDisplaySignature(state) {
     policy: state.policy ? [state.policy.enabled, state.policy.paused, state.policy.max_active,
       state.policy.priority_limits] : null,
     forks: state.forks ? [state.forks.available, state.forks.confirmed_count, state.forks.evidence_version,
-      (state.forks.confirmed || []).slice(0, 3).map(r => [r.item_id, r.effective_priority || r.priority,
-        r.agent_name || r.agent_id, r.native?.status])] : null,
+      (state.forks.confirmed || []).slice(0, 12).map(r => [r.item_id, r.goal_id || '', r.effective_priority || r.priority,
+        r.agent_name || r.agent_id, r.native?.status]),
+      (state.forks.uncertain || []).slice(0, 8).map(r => [r.item_id, r.effective_priority || r.priority, r.native?.status])] : null,
     review: parallelReviewQueue(state).version,
     reviews: parallelPresentedReviews(parallelReviews(state)).slice(0, 8)
       .map(r => [parallelReviewId(r), parallelReviewState(r), r?.decision ?? null, r?.blocked?.code ?? null,
@@ -947,13 +948,93 @@ function workView(state, nodes = null) {
   if (WORK_VIEWS.includes(state?.obsView)) return state.obsView
   return !nodes || nodes.some(row => row.cls === 'run') ? 'run' : 'all'
 }
+function forkNodeIndex(view) {
+  const confirmed = new Map()
+  const other = new Map()
+  const ancestors = new Map()
+  const byId = new Map((Array.isArray(view?.nodes) ? view.nodes : []).map(n => [n.id, n]))
+  const addAnc = (id, row) => {
+    const seen = new Set([id])
+    let cur = byId.get(id)
+    if (cur) {
+      cur = byId.get(cur.parent_id)
+      while (cur && !seen.has(cur.id)) {
+        seen.add(cur.id)
+        if (!ancestors.has(cur.id)) ancestors.set(cur.id, [])
+        ancestors.get(cur.id).push(row)
+        cur = byId.get(cur.parent_id)
+      }
+    }
+    if (row?.goal_id && !seen.has(row.goal_id)) {
+      if (!ancestors.has(row.goal_id)) ancestors.set(row.goal_id, [])
+      ancestors.get(row.goal_id).push(row)
+    }
+  }
+  const forks = observatoryParallel?.forks
+  for (const row of (Array.isArray(forks?.confirmed) ? forks.confirmed : [])) {
+    if (!row?.item_id) continue
+    const entry = { item: row.item_id, goal_id: row.goal_id || '', priority: row.effective_priority || row.priority || '',
+      agent: row.agent_name || row.agent_id || '', status: row.native?.status || 'running' }
+    confirmed.set(row.item_id, entry)
+    addAnc(row.item_id, entry)
+  }
+  for (const group of ['uncertain', 'waiting', 'reservation', 'validating']) {
+    for (const row of (Array.isArray(forks?.[group]) ? forks[group] : [])) {
+      if (!row?.item_id || confirmed.has(row.item_id) || other.has(row.item_id)) continue
+      other.set(row.item_id, { group, priority: row.effective_priority || row.priority || '',
+        status: row.native?.status || 'not observed' })
+    }
+  }
+  return { confirmed, other, ancestors }
+}
+function parallelLanes(state) {
+  const tiers = ['P0', 'P1', 'P2', 'P3', 'P4', 'P5']
+  const forks = state?.forks || {}
+  const limits = state?.policy?.priority_limits || {}
+  const diagRows = new Map((Array.isArray(state?.priority_diagnosis?.rows) ? state.priority_diagnosis.rows : [])
+    .map(r => [r.priority, r]))
+  const attention = new Set(Array.isArray(state?.priority_diagnosis?.attention) ? state.priority_diagnosis.attention : [])
+  const byTier = group => {
+    const m = new Map(tiers.map(t => [t, []]))
+    for (const row of (Array.isArray(forks[group]) ? forks[group] : [])) {
+      const p = row?.effective_priority || row?.priority || ''
+      if (m.has(p)) m.get(p).push(row)
+    }
+    return m
+  }
+  const confirmed = byTier('confirmed'), uncertain = byTier('uncertain'), waiting = byTier('waiting')
+  return tiers.map(priority => {
+    const dr = diagRows.get(priority) || null
+    const limit = priority === 'P0' ? null : (dr && dr.limit !== undefined ? dr.limit : (limits[priority] ?? null))
+    const active = dr && typeof dr.active === 'number' ? dr.active : Number(state?.active_by_priority?.[priority] || 0)
+    const live = confirmed.get(priority)
+    return {
+      priority, limit, active,
+      confirmed: live.length,
+      uncertain: uncertain.get(priority).length,
+      waiting: waiting.get(priority).length,
+      candidates: dr?.candidates ?? null,
+      state: dr?.state || (live.length ? 'running' : 'no_work'),
+      attention: attention.has(priority),
+      items: live.slice(0, 4).map(r => r.item_id).filter(Boolean),
+    }
+  })
+}
 function classedNodes(view) {
-  const running = new Set((observatoryParallel?.forks?.confirmed || []).map(row => row?.item_id).filter(Boolean))
+  const index = forkNodeIndex(view)
   return graphicNodes(view, cached).map(row => {
-    const fork = running.has(row.id)
-    const cls = fork ? 'run' : row.status === 'done' ? 'done'
+    const direct = index.confirmed.get(row.id) || null
+    const under = index.ancestors.get(row.id) || []
+    const other = index.other.get(row.id) || null
+    const fork = Boolean(direct)
+    const forkChildren = under.length
+    const cls = (fork || forkChildren > 0) ? 'run' : row.status === 'done' ? 'done'
       : row.status === 'blocked' || row.waiting_on ? 'wait' : row.status === 'in_progress' ? 'run' : 'todo'
-    return { ...row, cls, fork }
+    return { ...row, cls, fork, forkChildren,
+      forkItems: under.slice(0, 4).map(r => r.item),
+      forkAgent: direct?.agent || '',
+      forkPriority: direct?.priority || '',
+      forkGroup: direct ? 'confirmed' : other?.group || '' }
   })
 }
 function graphicRows(identity, view, state) {
@@ -969,18 +1050,21 @@ function graphicSelected(state) {
 }
 function graphicProps(identity, view, state) {
   const policy = observatoryParallel?.policy || {}
+  const nodes = classedNodes(view)
   return { tab: state?.tab === 'side' ? 'side' : 'work', selected: graphicSelected(state), p1: state?.obsP1 === true,
     version: cached?.version,
     active: cached?.active_root?.title || '', done: cached?.done || 0, total: cached?.total || 0,
-    nodes: classedNodes(view), view: workView(state, classedNodes(view)), receipts: graphicReceipts(identity),
+    nodes, view: workView(state, nodes), receipts: graphicReceipts(identity),
     actors: sideActors(identity).map(actor => ({ id: actor.id, receipt: actor.receipt_id,
       runtime: 'native fork (main context)', reserved: actor.reserved, lease_until: actor.lease_until })),
     parallel: { active: observatoryParallel?.active_device || 0, max: parallelCapacity(policy),
       // Only a fresh native observation counts as a running fork.
       forks: observatoryParallel?.forks?.confirmed_count || 0,
+      uncertain: (observatoryParallel?.forks?.uncertain || []).length,
       evidence: observatoryParallel?.forks?.available !== false && !!observatoryParallel?.forks,
-      confirmed: (observatoryParallel?.forks?.confirmed || []).slice(0, 3).map(r => ({
-        item: r.item_id, title: r.item_title, priority: r.effective_priority || r.priority, agent: r.agent_name || r.agent_id,
+      lanes: observatoryParallel ? parallelLanes(observatoryParallel) : [],
+      confirmed: (observatoryParallel?.forks?.confirmed || []).slice(0, 12).map(r => ({
+        item: r.item_id, goal: r.goal_id || '', title: r.item_title, priority: r.effective_priority || r.priority, agent: r.agent_name || r.agent_id,
         status: r.native?.status, seen: r.native?.last_seen_at })),
       reviews: parallelPresentedReviews(parallelReviews(observatoryParallel)).slice(0, 8).map(r => ({ item:r.item_id, title:r.item_title || r.title || '',
         status:parallelReviewLabel(r) })),
@@ -2584,8 +2668,9 @@ function parallelStatusText(state, scope) {
       const native = r.native?.status || 'not observed'
       const agent = r.agent_name || r.agent_id || '(native fork not observed)'
       const owner = (state?.leases?.[r.lease_id || r.id] || r).owner_process
+      const prio = r.effective_priority || r.priority || ''
       lines.push('  ' + label + ' → ' + clipped(agent, 120)
-        + ' · ' + clipped(r.priority || '', 8) + ' ' + clipped(r.role || '', 16)
+        + ' · ' + clipped(prio, 8) + ' ' + clipped(r.role || '', 16)
         + ' · lease ' + clipped(r.state || '', 32) + ' · native ' + native
         + (r.slot ? ' · slot held' : ' · slot released')
         + (typeof owner === 'string' && owner !== 'own' ? ' · owner ' + clipped(owner, 16) : ''))
@@ -5912,6 +5997,14 @@ export function register(on) {
         text('Queue ' + queueOf(cached).length + ' · Side ' + sidePanelReceipts.length
           + (observatoryParallel ? ' · Forks ' + (observatoryParallel.forks ? observatoryParallel.forks.confirmed_count : '?')
             + ' · Device ' + observatoryParallel.active_device + '/' + parallelCapacity(observatoryParallel.policy) : ''), { dimColor: true }),
+        ...(observatoryParallel ? [(() => {
+          const lanes = parallelLanes(observatoryParallel)
+          const laneLine = lanes.map(l => {
+            const cap = l.priority === 'P0' ? (l.confirmed ? '●' + l.confirmed : '0') : l.active + '/' + (l.limit ?? '?')
+            return l.priority + ' ' + cap + (l.items.length ? '(' + l.items.join(',') + ')' : '')
+          }).join(' · ')
+          return text('LANES: ' + laneLine, { color: lanes.some(l => l.confirmed > 0) ? 'success' : 'subtle' })
+        })()] : []),
         ...(forkGateState.ok === false ? [text(T('mod_fork_gate_missing'), { color: 'error', weight: 'bold' })] : []),
       ] })
 
@@ -5919,6 +6012,16 @@ export function register(on) {
     const controls = [...common]
     if (section === 'work') {
       const workTab = state?.workTab || 'progress'
+      const plainIndex = forkNodeIndex(view)
+      const forkTagFor = node => {
+        const direct = plainIndex.confirmed.get(node.id)
+        if (direct) return ' [●FORK ' + (direct.priority || '') + ']'
+        const under = plainIndex.ancestors.get(node.id) || []
+        if (under.length) return ' [●FORK ×' + under.length + ']'
+        const other = plainIndex.other.get(node.id)
+        if (other) return ' [' + other.group + ']'
+        return ''
+      }
       rows.push(Box({ flexDirection: 'row', gap: 1, children: ['progress','queue','completed'].map(name => Button({
         key: 'detail-tab-' + name, plain: true, label: (name === workTab ? '[' : '') + name[0].toUpperCase() + name.slice(1) + (name === workTab ? ']' : ''),
         onPress: () => displayState($, origin, old => ({ ...old, workTab: name, page: 0, detailPage: 0, detailList: true })) })) }))
@@ -5927,19 +6030,23 @@ export function register(on) {
       if (listing) {
         for (const row of panelRows(cached, workTab)) rows.push(statusButton(Box, Button, Text, row.node, {
           key: 'detail-' + row.key, plain: true,
-          label: (shownPriority(row.node) ? shownPriority(row.node) + ' ' : '') + rowLabel(row.prefix, row.node, width - 4, row.suffix),
+          label: (shownPriority(row.node) ? shownPriority(row.node) + ' ' : '') + rowLabel(row.prefix, row.node, width - 4, row.suffix + forkTagFor(row.node)),
           onPress: () => openDetails($, row.node.id, origin) }))
         if (!rows.length) rows.push(text('No ' + workTab + ' items', { dimColor: true }))
       } else if (!fresh || view.error || !selected) rows.push(text(!fresh ? 'Plan changed — refresh.' : view.error || 'No active goal.', { color: 'warning' }))
       else {
         const visit = (node, depth) => {
           if (selected.status !== 'done' && node.status === 'done') return
-          const color = node.status === 'blocked' ? 'error' : node.waiting_on ? 'warning' : node.status === 'done' ? 'success' : node.id === selected.id ? 'suggestion' : ''
+          const direct = plainIndex.confirmed.get(node.id)
+          const color = direct ? 'success' : node.status === 'blocked' ? 'error' : node.waiting_on ? 'warning' : node.status === 'done' ? 'success' : node.id === selected.id ? 'suggestion' : ''
           rows.push(row('node-' + node.id,
-            '  '.repeat(Math.min(depth, 5)) + (shownPriority(node) ? shownPriority(node) + ' ' : '') + rowLabel('', node, width - depth * 2),
+            '  '.repeat(Math.min(depth, 5)) + (shownPriority(node) ? shownPriority(node) + ' ' : '') + rowLabel('', node, width - depth * 2, forkTagFor(node)),
             color, () => openDetails($, node.id, origin)))
-          if (node.id === selected.id) for (const [label, value] of [['Title',node.title],['Waiting',node.waiting_on],['Note',node.note],['Evidence',node.evidence]])
-            if (value) for (const line of detailLines(label + ': ' + value, width)) rows.push(Text({ color: label === 'Evidence' ? 'success' : 'subtle', children: line }))
+          if (node.id === selected.id) {
+            if (direct) rows.push(Text({ color: 'success', children: cellClipped('Running fork: ' + direct.priority + ' · ' + (direct.agent || 'fork') + ' · native ' + direct.status, width) }))
+            for (const [label, value] of [['Title',node.title],['Waiting',node.waiting_on],['Note',node.note],['Evidence',node.evidence]])
+              if (value) for (const line of detailLines(label + ': ' + value, width)) rows.push(Text({ color: label === 'Evidence' ? 'success' : 'subtle', children: line }))
+          }
           for (const child of view.nodes.filter(n => n.parent_id === node.id)) visit(child, depth + 1)
         }
         visit(selected, 0)

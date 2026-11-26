@@ -153,6 +153,27 @@ class WorkObservatoryTests(unittest.TestCase):
             [(r['item'], r['status']) for r in sync['stale']['reviews']],
         )
 
+    def test_pane_and_parallel_surface_all_p0_to_p5_lanes_and_parent_fork_badges(self):
+        p = self.result['p0p5']
+        self.assertEqual(['P0', 'P1', 'P2', 'P3', 'P4', 'P5'], [row['priority'] for row in p['lanes']])
+        by_prio = {row['priority']: row for row in p['lanes']}
+        self.assertEqual((1, ['n5']), (by_prio['P0']['confirmed'], by_prio['P0']['items']))
+        self.assertEqual((1, ['n2']), (by_prio['P1']['confirmed'], by_prio['P1']['items']))
+        self.assertEqual((0, 1), (by_prio['P3']['confirmed'], by_prio['P3']['uncertain']))
+        self.assertEqual((1, ['x5']), (by_prio['P5']['confirmed'], by_prio['P5']['items']))
+        # Not truncated to 3 confirmed forks.
+        self.assertEqual(['P0:n5', 'P1:n2', 'P2:x2', 'P4:x4', 'P5:x5'], p['confirmedItems'])
+        # Parent goal n1 carries forkChildren=1 from child n2, while n3 is tagged uncertain.
+        nodes = {n['id']: n for n in p['nodes']}
+        self.assertTrue(nodes['n2']['fork'])
+        self.assertEqual(1, nodes['n1']['forkChildren'])
+        self.assertEqual('uncertain', nodes['n3']['forkGroup'])
+        # Plain desktop/mobile pane includes the P0-P5 LANES strip.
+        for tier in ('P0', 'P1', 'P2', 'P3', 'P4', 'P5'):
+            self.assertIn(tier, p['desktopLanes'])
+        # /work-mode parallel prints P0 (effective_priority) rather than canonical P1.
+        self.assertIn('n5 Queued goal → work-p0 · P0 ', p['parallelText'])
+
 
 if __name__ == '__main__':
     unittest.main()

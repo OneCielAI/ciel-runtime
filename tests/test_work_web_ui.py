@@ -1224,6 +1224,146 @@ class WorkWebUiTests(unittest.TestCase):
             browser.close()
 
     @unittest.skipUnless(os.environ.get("CIEL_TEST_BROWSER"), "opt-in browser verification")
+    def test_board_and_parallel_visualize_active_forks_and_all_p0_to_p5_lanes(self):
+        from playwright.sync_api import sync_playwright
+        html = self.html
+        now = 1_800_000_000.0
+        nodes = [
+            {"id": "g0", "parent_id": None, "title": "P0 Hotfix outage", "status": "in_progress", "priority": "P1", "effective_priority": "P0", "done": 0, "total": 1},
+            {"id": "n0", "parent_id": "g0", "title": "Patch webhook verifier", "status": "in_progress", "priority": "", "done": 0, "total": 0},
+            {"id": "g1", "parent_id": None, "title": "P1 Checkout reliability", "status": "in_progress", "priority": "P1", "effective_priority": "P1", "done": 0, "total": 1},
+            {"id": "n1", "parent_id": "g1", "title": "Retry payment ledger", "status": "in_progress", "priority": "", "done": 0, "total": 0},
+            {"id": "g2", "parent_id": None, "title": "P2 Analytics pipeline", "status": "in_progress", "priority": "P2", "effective_priority": "P2", "done": 0, "total": 1},
+            {"id": "n2", "parent_id": "g2", "title": "Backfill cohort metrics", "status": "in_progress", "priority": "", "done": 0, "total": 0},
+            {"id": "g3", "parent_id": None, "title": "P3 Docs automation", "status": "in_progress", "priority": "P3", "effective_priority": "P3", "done": 0, "total": 1},
+            {"id": "n3", "parent_id": "g3", "title": "Regenerate API spec", "status": "pending", "priority": "", "done": 0, "total": 0},
+            {"id": "g4", "parent_id": None, "title": "P4 Log hygiene", "status": "in_progress", "priority": "P4", "effective_priority": "P4", "done": 0, "total": 1},
+            {"id": "n4", "parent_id": "g4", "title": "Prune stale debug files", "status": "in_progress", "priority": "", "done": 0, "total": 0},
+            {"id": "g5", "parent_id": None, "title": "P5 Archive sweep", "status": "pending", "priority": "P5", "effective_priority": "P5", "done": 0, "total": 1},
+            {"id": "n5", "parent_id": "g5", "title": "Compress 2025 logs", "status": "pending", "priority": "", "done": 0, "total": 0},
+        ]
+        board = {
+            "session_id": "claude:p0p5", "version": 42, "phase": "executing",
+            "done": 0, "total": 6, "active_root_id": "g0",
+            "queue_ids": ["g1", "g2", "g3", "g4", "g5"], "nodes": nodes,
+        }
+        def fork_row(lease, item, goal_id, goal_title, item_title, prio, eff, group, state="running", native_status="running"):
+            return {
+                "lease_id": lease, "item_id": item, "goal_id": goal_id, "goal_title": goal_title,
+                "item_title": item_title, "item_ref": "REF-" + item, "item_path": [goal_title, item_title],
+                "priority": prio, "effective_priority": eff, "role": "worker", "state": state, "slot": True,
+                "agent_name": "work-" + item, "agent_id": "agent-123456-" + item,
+                "state_changed_at": now - 10,
+                "native": {"status": native_status, "first_seen_at": now - 30, "last_seen_at": now - 2, "missing_since": None},
+                "evidence": group,
+            }
+        parallel = {
+            "schema_version": 2, "version": 15,
+            "policy": {"enabled": True, "paused": False, "priority_limits": {"P1": 3, "P2": 2, "P3": 1, "P4": 1, "P5": 1}},
+            "forks": {
+                "schema": "native-fork-evidence/1", "rule": "Only fresh native agent evidence counts.",
+                "available": True, "observed_at": now - 1, "confirmed_count": 4,
+                "confirmed": [
+                    fork_row("L0", "n0", "g0", "P0 Hotfix outage", "Patch webhook verifier", "P1", "P0", "confirmed"),
+                    fork_row("L1", "n1", "g1", "P1 Checkout reliability", "Retry payment ledger", "P1", "P1", "confirmed"),
+                    fork_row("L2", "n2", "g2", "P2 Analytics pipeline", "Backfill cohort metrics", "P2", "P2", "confirmed"),
+                    fork_row("L4", "n4", "g4", "P4 Log hygiene", "Prune stale debug files", "P4", "P4", "confirmed"),
+                ],
+                "waiting": [],
+                "reservation": [],
+                "uncertain": [
+                    fork_row("L3", "n3", "g3", "P3 Docs automation", "Regenerate API spec", "P3", "P3", "uncertain", state="running", native_status="stale"),
+                ],
+                "validating": [],
+                "ended": [],
+            },
+            "device": {
+                "active_slots": 5, "capacity": 8,
+                "priority_limits": {"P1": 3, "P2": 2, "P3": 1, "P4": 1, "P5": 1},
+                "this_session_by_priority": {"P1": 2, "P2": 1, "P3": 1, "P4": 1, "P5": 0},
+                "other_sessions_by_priority": {"P1": 0, "P2": 0, "P3": 0, "P4": 0, "P5": 0},
+                "paused": False, "enabled": True,
+                "note": "Device-wide lease slots; not fork evidence.",
+            },
+            "priority_diagnosis": {
+                "summary": "P0 1 goals running · P1 1/3 can fill · P2 1/2 can fill · P3 1/1 full · P4 1/1 full · P5 0/1 no candidates",
+                "attention": ["P5"],
+                "rows": [
+                    {"priority": "P0", "limit": None, "active": 1, "free": None, "candidates": 0, "held_for_parked": 0, "state": "goals_running", "reason": "1 P0 goal(s) running"},
+                    {"priority": "P1", "limit": 3, "active": 1, "free": 2, "candidates": 1, "held_for_parked": 0, "state": "can_fill", "reason": "1 runnable"},
+                    {"priority": "P2", "limit": 2, "active": 1, "free": 1, "candidates": 1, "held_for_parked": 0, "state": "can_fill", "reason": "1 runnable"},
+                    {"priority": "P3", "limit": 1, "active": 1, "free": 0, "candidates": 0, "held_for_parked": 0, "state": "full", "reason": "all slots in use"},
+                    {"priority": "P4", "limit": 1, "active": 1, "free": 0, "candidates": 0, "held_for_parked": 0, "state": "full", "reason": "all slots in use"},
+                    {"priority": "P5", "limit": 1, "active": 0, "free": 1, "candidates": 0, "held_for_parked": 0, "state": "no_candidates", "reason": "free slot but no runnable item (goal in planning 1)"},
+                ],
+            },
+        }
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(executable_path=os.environ["CIEL_TEST_BROWSER"], headless=True)
+            for label, viewport in (("desktop", {"width": 1440, "height": 960}),
+                                    ("mobile", {"width": 390, "height": 1100})):
+                with self.subTest(viewport=label):
+                    page = browser.new_page(viewport=viewport)
+                    def route(request):
+                        url = request.request.url
+                        if url.endswith("/ca/work/ui"):
+                            request.fulfill(content_type="text/html", body=html)
+                        elif "/events" in url:
+                            request.fulfill(content_type="text/event-stream", body=": ready\n\n")
+                        elif "/parallel" in url:
+                            request.fulfill(json=parallel)
+                        elif "/board" in url:
+                            request.fulfill(json=board)
+                        else:
+                            request.fulfill(json={})
+                    page.route("http://fixture.test/**", route)
+                    page.goto("http://fixture.test/ca/work/ui")
+                    # Without switching to the Parallel tab, the P0-P5 live strip and tree fork badges load.
+                    strip = page.locator("#priority-lanes")
+                    strip.wait_for()
+                    for prio in ("P0", "P1", "P2", "P3", "P4", "P5"):
+                        cell = strip.locator(f'.lane-card[data-priority="{prio}"]')
+                        self.assertEqual(1, cell.count(), f"missing lane {prio}")
+                    # P0 lane shows n0 as confirmed fork (effective_priority=P0, not mislabeled P1).
+                    self.assertIn("n0", strip.locator('.lane-card[data-priority="P0"]').inner_text())
+                    self.assertNotIn("n0", strip.locator('.lane-card[data-priority="P1"]').inner_text())
+                    # P3 has an uncertain lease, not a confirmed fork — must not be counted as confirmed.
+                    self.assertIn("uncertain", strip.locator('.lane-card[data-priority="P3"]').inner_text().lower())
+                    # Tree rows mark active fork leaves AND their parent goals.
+                    self.assertIn("FORK", page.locator('.tree-row[data-id="n0"]').inner_text())
+                    self.assertIn("FORK", page.locator('.tree-row[data-id="g0"]').inner_text())
+                    self.assertIn("FORK", page.locator('.tree-row[data-id="n4"]').inner_text())
+                    self.assertIn("uncertain", page.locator('.tree-row[data-id="n3"]').inner_text().lower())
+                    # Filter by fork_running keeps confirmed running items + ancestors only.
+                    page.locator("#status-filter").select_option("fork_running")
+                    visible_ids = page.locator("#work-tree .tree-row").evaluate_all("rows => rows.map(r => r.dataset.id)")
+                    self.assertIn("n0", visible_ids)
+                    self.assertIn("n4", visible_ids)
+                    self.assertNotIn("n5", visible_ids)
+                    self.assertNotIn("n3", visible_ids)
+                    page.locator("#status-filter").select_option("")
+                    # Selecting a running item shows its live fork card inside the Node inspector.
+                    page.locator('.tree-row[data-id="n0"]').click()
+                    self.assertIn("work-n0", page.locator("#panel-node").inner_text())
+                    self.assertIn("P0", page.locator("#panel-node").inner_text())
+                    evidence_dir = os.environ.get("CIEL_TEST_EVIDENCE_DIR")
+                    if evidence_dir:
+                        page.screenshot(path=os.path.join(evidence_dir, f"p0p5-board-{label}.png"),
+                                        full_page=label == "mobile")
+                    # Switch to Parallel tab: P0 card carries P0 chip (not P1), P0-P5 matrix is visible at top.
+                    page.get_by_role("tab", name="Parallel").click()
+                    page.locator('[data-group="confirmed"] .fork-card').first.wait_for()
+                    p0_card = page.locator('[data-group="confirmed"] .fork-card[data-item="n0"]')
+                    self.assertEqual("P0", p0_card.locator(".priority-chip").inner_text().strip())
+                    if evidence_dir:
+                        page.screenshot(path=os.path.join(evidence_dir, f"p0p5-parallel-{label}.png"),
+                                        full_page=label == "mobile")
+                    overflow = page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
+                    self.assertLessEqual(overflow, 0)
+                    page.close()
+            browser.close()
+
+    @unittest.skipUnless(os.environ.get("CIEL_TEST_BROWSER"), "opt-in browser verification")
     def test_main_review_browser_approve_and_rework_controls(self):
         from playwright.sync_api import sync_playwright
         html = self.html

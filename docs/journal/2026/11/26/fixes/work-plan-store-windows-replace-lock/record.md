@@ -14,10 +14,11 @@ timestamp: 2026-11-26T15:23:00Z
 - 직후 `14:57:29Z` `work_side_fail` 및 `14:57:30Z` 메인 전사 `Ciel side: original of failed event 3d1f4f19f000 → main (appended)` 폴백으로 이어졌다.
 - Andy `work-plan.json` 파일 크기 확인 결과 **11,726,393 B (11.7 MB)**였으며, `14:57:25–27Z` 동일 초 안에 `work_side_understanding` 쓰기와 `work_side_gate_check` 스냅샷 읽기가 동시 실행됐다.
 
-## 원인 (확인)
+## 원인
 
-- `ciel_runtime_support/work_plan_store.py`에서 `WorkSessionStore.read_snapshot()`은 매 호출마다 새 `WorkPlanStore` 인스턴스를 생성하고, `WorkPlanStore.read_snapshot()`(`L103–124`)은 11.7 MB 파일을 64 KiB 청크(~180회)로 열람하면서 프로세스 내 경로 락 없이 핸들을 유지했다.
-- 반면 `_write_unlocked()`(`L256–263`)은 `os.replace(temporary, self.path)`를 `20 × 2 ms = 40 ms` 동안만 재시도하고 실패 시 `PermissionError`를 그대로 전파해 `/ca/mcp` 미처리 HTTP 500을 일으켰다.
+- **확인(소스·로그):** `_write_unlocked()`(`L256–263`)은 `os.replace(temporary, self.path)`를 `20 × 2 ms = 40 ms` 동안만 재시도하고 실패 시 `PermissionError`를 그대로 전파해 `/ca/mcp` 미처리 HTTP 500을 일으켰다(로그의 `WinError 5`·HTTP 500과 일치).
+- **확인(소스):** `WorkSessionStore.read_snapshot()`은 매 호출마다 새 `WorkPlanStore` 인스턴스를 만들고, `WorkPlanStore.read_snapshot()`(`L103–124`)은 프로세스 내 경로 락 없이 11.7 MB 파일을 64 KiB 청크로 읽는 동안 핸들을 연다. 같은 초(`14:57:25–27Z`)에 동일 라우터에서 `work_side_gate_check`(스냅샷 읽기)와 `work_side_understanding`(쓰기)이 실행됐다.
+- **미확인:** `14:57:27Z`에 대상 파일 핸들을 실제로 잡고 있던 주체가 이 프로세스 내 스냅샷 읽기인지, 다른 프로세스(예: `statusline_script.py`의 `read_snapshot`)인지는 로그로 특정되지 않았다. 수정은 두 경로를 모두 다룬다(프로세스 내 직렬화 + 교차 프로세스 재시도 확대).
 
 ## 수정 (`ciel_runtime_support/work_plan_store.py`)
 
@@ -37,4 +38,8 @@ timestamp: 2026-11-26T15:23:00Z
 
 ## 발행·설치
 
-- 커밋·npm `@beta`·7개 루트 해시 확인 설치 후 결과를 기록한다.
+- 커밋 `0956ebefbf0ed2f4fff313679c78776ed15681e2`, GitHub Actions `Publish to npm` (`45848664333`) 성공, npm `@beta` = `0.2.51-beta.20261126-152357.0956ebe`(`gitHead` 일치).
+- npm tarball 내부 `ciel_runtime_support/work_plan_store.py` SHA-256과 커밋 `0956ebe` 일치 확인(`f9aed568b576` → `8f1a353e1b2c`, 15,058 B).
+- 승인된 7개 루트(로컬 4곳, KOBE `u24`, Prody `u41`, Betty `u42`) 해시 확인 설치 완료(`check` 7/7 `base` → `apply` 7/7 `ok=True`, `.cmd` 래퍼·버전 메타 미변경, 원격 임시 오버레이 정리 완료).
+- **라이브 효과 구분:** Python 라우터 파일 설치만 완료된 상태다. 모니터링 규칙상 실행 중 라우터와 CLI 세션을 재시작하지 않았으므로, 기동 중인 라우터 메모리에는 재시작 전까지 이전 코드가 유지된다.
+

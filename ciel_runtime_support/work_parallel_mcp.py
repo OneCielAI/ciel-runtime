@@ -521,6 +521,7 @@ def _fork_projection(store, identity, leases, details, hidden=frozenset(), *, ho
         item = details.get(lease["item_id"], {})
         row = {"lease_id": lease["id"], "item_id": lease["item_id"],
                "item_title": _clip(item.get("item_title"), 300), "item_ref": _clip(item.get("item_ref"), 100),
+               "goal_id": str(item.get("goal_id") or ""),
                "goal_title": _clip(item.get("goal_title"), 300),
                "item_path": [_clip(t, 120) for t in (item.get("item_path") or [])[:8]],
                "priority": lease["priority"], "role": lease["role"], "state": lease["state"],

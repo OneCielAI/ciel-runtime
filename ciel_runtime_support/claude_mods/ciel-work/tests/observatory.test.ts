@@ -287,3 +287,106 @@ test('graphical pane clears finalized reviews on host status updates without man
   expect(after).toContain('Rework · n2777')
   await ui.unmount()
 })
+
+test('graphical pane shows P0-P5 lanes and all running fork items beyond 3 including parent goals', async ($, on) => {
+  const now = Math.floor(Date.now() / 1000)
+  const snap = {
+    ...SNAPSHOT,
+    version: 9,
+    queue: [
+      { id: 'g2', title: 'P0 incident', status: 'in_progress', priority: 'P1', done: 0, total: 1 },
+      { id: 'g3', title: 'P2 feature', status: 'in_progress', priority: 'P2', done: 0, total: 1 },
+      { id: 'g4', title: 'P3 chore', status: 'in_progress', priority: 'P3', done: 0, total: 1 },
+      { id: 'g5', title: 'P4 cleanup', status: 'in_progress', priority: 'P4', done: 0, total: 1 },
+      { id: 'g6', title: 'P5 backlog', status: 'in_progress', priority: 'P5', done: 0, total: 1 },
+    ],
+    root_index: [
+      { id: 'g1', title: 'Goal', status: 'in_progress', priority: 'P1' },
+      { id: 'g2', title: 'P0 incident', status: 'in_progress', priority: 'P1' },
+      { id: 'g3', title: 'P2 feature', status: 'in_progress', priority: 'P2' },
+      { id: 'g4', title: 'P3 chore', status: 'in_progress', priority: 'P3' },
+      { id: 'g5', title: 'P4 cleanup', status: 'in_progress', priority: 'P4' },
+      { id: 'g6', title: 'P5 backlog', status: 'in_progress', priority: 'P5' },
+    ],
+  }
+  const detail = {
+    version: 9, root_id: 'g1', nodes: [
+      { id: 'g1', parent_id: null, title: 'Goal', status: 'in_progress', priority: 'P1', note: '', evidence: '' },
+      { id: 'a', parent_id: 'g1', title: 'Cache', status: 'in_progress', note: '', evidence: '' },
+    ],
+  }
+  const mk = (lease: string, item: string, goalId: string, title: string, prio: string, eff: string) => ({
+    lease_id: lease, item_id: item, goal_id: goalId, item_title: title, priority: prio, effective_priority: eff,
+    role: 'worker', state: 'running', slot: true, agent_name: 'work-' + item, agent_id: 'ag-' + item,
+    native: { status: 'running', last_seen_at: now - 3 }, evidence: 'confirmed',
+  })
+  const parallelReply = {
+    version: 4, active_device: 6, leases: {},
+    policy: { enabled: true, paused: false, priority_limits: { P1: 2, P2: 2, P3: 1, P4: 1, P5: 1 } },
+    root_priorities: [
+      { root_id: 'g2', effective_priority: 'P0' },
+      { root_id: 'g1', effective_priority: 'P1' },
+      { root_id: 'g3', effective_priority: 'P2' },
+      { root_id: 'g4', effective_priority: 'P3' },
+      { root_id: 'g5', effective_priority: 'P4' },
+      { root_id: 'g6', effective_priority: 'P5' },
+    ],
+    forks: {
+      available: true, confirmed_count: 6, evidence_version: 2,
+      confirmed: [
+        mk('l0', 'n20', 'g2', 'Stop outage', 'P1', 'P0'),
+        mk('l1', 'a', 'g1', 'Cache', 'P1', 'P1'),
+        mk('l2', 'n30', 'g3', 'API schema', 'P2', 'P2'),
+        mk('l3', 'n40', 'g4', 'Docs sync', 'P3', 'P3'),
+        mk('l4', 'n50', 'g5', 'Log trim', 'P4', 'P4'),
+        mk('l5', 'n60', 'g6', 'Archive old', 'P5', 'P5'),
+      ],
+      waiting: [], reservation: [], uncertain: [], validating: [], ended: [],
+    },
+    priority_diagnosis: {
+      summary: 'P0 1 goals running · P1 1/2 can fill · P2 1/2 can fill · P3 1/1 full · P4 1/1 full · P5 1/1 full',
+      attention: [],
+      rows: [
+        { priority: 'P0', limit: null, active: 1, free: null, candidates: 0, state: 'goals_running', reason: '1 P0 goal(s) running' },
+        { priority: 'P1', limit: 2, active: 1, free: 1, candidates: 1, state: 'can_fill', reason: '1 runnable' },
+        { priority: 'P2', limit: 2, active: 1, free: 1, candidates: 1, state: 'can_fill', reason: '1 runnable' },
+        { priority: 'P3', limit: 1, active: 1, free: 0, candidates: 0, state: 'full', reason: 'all slots in use' },
+        { priority: 'P4', limit: 1, active: 1, free: 0, candidates: 0, state: 'full', reason: 'all slots in use' },
+        { priority: 'P5', limit: 1, active: 1, free: 0, candidates: 0, state: 'full', reason: 'all slots in use' },
+      ],
+    },
+  }
+  on('session.id', () => ({ value: 'session-a' }))
+  on('env.get', (_, e) => ({ value: e.key === 'CLAUDE_CODE_SUBAGENT_MODEL_FORCE' ? '0' : 'fixture-host-token' }))
+  on('mcp.call', async (_, e) => {
+    let value: unknown = {}
+    if (e.tool === 'work_status') value = e.args.detail ? detail : snap
+    if (e.tool === 'work_live_settings') value = { settings: SETTINGS, provider: 'p' }
+    if (e.tool === 'work_parallel_status') value = parallelReply
+    if (e.tool === 'work_side_status') value = { side_inbox_receipts: [] }
+    if (e.tool === 'work_side_claim') value = { claim: null, settings: {}, handoff_replies: [] }
+    if (e.tool === 'work_parallel_event') value = { recorded: true }
+    return { value: { isError: false, content: [{ type: 'text', text: JSON.stringify(value) }] } }
+  })
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.close', () => ({}))
+  on('session.start', () => ({ cwd: '/isolated' }))
+
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  await $.command.run({ command: 'work-mode', args: 'view all' })
+  await new Promise(resolve => setTimeout(resolve, 40))
+  const ui = await $.ui.mount(pane('terminal', 110) as any)
+  await ui.resize({ columns: 110, rows: 36, in: 'obs-graphic' })
+  const text = (await ui.findAll({ type: 'Text', in: 'obs-graphic' })).map(x => x.text).join('\n')
+  // All six priority lanes P0..P5 must be visible with their live fork items (not truncated at 3).
+  for (const marker of ['P0', 'P1', 'P2', 'P3', 'P4', 'P5', 'n20', 'n40', 'n50', 'n60'])
+    expect(text).toContain(marker)
+  // Parent goal rows whose child item runs in a fork (g2->n20, g3->n30, g4->n40, g5->n50, g6->n60) show active fork status.
+  const flat = text.replace(/\n/g, ' ')
+  expect(flat).toMatch(/P0\s+P0 incident\s+●포크×1/)
+  expect(flat).toMatch(/P5\s+P5 backlog\s+●포크×1/)
+  expect(flat).toMatch(/Cache\s+●포크실행/)
+  expect(text).toContain('◉하위포크 1개(a)')
+  await ui.unmount()
+})

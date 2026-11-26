@@ -223,4 +223,46 @@ out.liveReviewSync = {
   stale: { active: revStale?.active, reviews: revStale?.reviews },
   invalidated: invDelta > 0,
 }
+// P0-P5 lanes & active fork propagation across >3 forks (user 2026-11-26).
+parallelVersion = 20
+activeDevice = 5
+reviewQueue = { version: 105, pending: [] }
+forks = {
+  available: true, confirmed_count: 5, evidence_version: 9,
+  confirmed: [
+    { lease_id: 'lp0', item_id: 'n5', goal_id: 'n5', item_title: 'Queued goal', priority: 'P1', effective_priority: 'P0', agent_name: 'work-p0', native: { status: 'running', last_seen_at: 10 } },
+    { lease_id: 'lp1', item_id: 'n2', goal_id: 'n1', item_title: 'Build pane', priority: 'P1', effective_priority: 'P1', agent_name: 'work-p1', native: { status: 'running', last_seen_at: 10 } },
+    { lease_id: 'lp2', item_id: 'x2', goal_id: 'g2', item_title: 'P2 item', priority: 'P2', effective_priority: 'P2', agent_name: 'work-p2', native: { status: 'running', last_seen_at: 10 } },
+    { lease_id: 'lp4', item_id: 'x4', goal_id: 'g4', item_title: 'P4 item', priority: 'P4', effective_priority: 'P4', agent_name: 'work-p4', native: { status: 'running', last_seen_at: 10 } },
+    { lease_id: 'lp5', item_id: 'x5', goal_id: 'g5', item_title: 'P5 item', priority: 'P5', effective_priority: 'P5', agent_name: 'work-p5', native: { status: 'running', last_seen_at: 10 } },
+  ],
+  uncertain: [
+    { lease_id: 'lp3', item_id: 'n3', goal_id: 'n1', item_title: 'Mobile layout', priority: 'P3', effective_priority: 'P3', agent_name: 'work-p3', native: { status: 'stale', last_seen_at: 1 } },
+  ],
+}
+diagnosis = {
+  summary: 'P0 1 · P1 1/5 · P2 1/3 · P3 1/1 · P4 1/1 · P5 1/1',
+  attention: [],
+  rows: [
+    { priority: 'P0', limit: null, active: 1, free: null, candidates: 0, state: 'goals_running', reason: '1 P0 running' },
+    { priority: 'P1', limit: 5, active: 1, free: 4, candidates: 0, state: 'can_fill', reason: 'ok' },
+    { priority: 'P2', limit: 3, active: 1, free: 2, candidates: 0, state: 'can_fill', reason: 'ok' },
+    { priority: 'P3', limit: 1, active: 1, free: 0, candidates: 0, state: 'full', reason: 'full' },
+    { priority: 'P4', limit: 1, active: 1, free: 0, candidates: 0, state: 'full', reason: 'full' },
+    { priority: 'P5', limit: 1, active: 1, free: 0, candidates: 0, state: 'full', reason: 'full' },
+  ],
+}
+tree = await render('desktop', 110)
+await press(tree, 'detail-refresh')
+await landed()
+const p0p5Graphic = walk(await render('terminal', 110)).find(n => n.props?.key === 'obs-graphic')?.props?.props
+const p0p5Desktop = texts(await render('desktop', 110))
+const p0p5Text = (await hook('command.run', { command: 'work-mode' })($, { args: 'parallel', origin: { kind: 'composer' } })).text
+out.p0p5 = {
+  lanes: p0p5Graphic?.parallel?.lanes || [],
+  confirmedItems: (p0p5Graphic?.parallel?.confirmed || []).map(f => f.priority + ':' + f.item),
+  nodes: (p0p5Graphic?.nodes || []).map(n => ({ id: n.id, fork: n.fork, forkChildren: n.forkChildren, forkGroup: n.forkGroup })),
+  desktopLanes: p0p5Desktop.find(t => t.startsWith('LANES:')) || '',
+  parallelText: p0p5Text,
+}
 console.log(JSON.stringify(out))
