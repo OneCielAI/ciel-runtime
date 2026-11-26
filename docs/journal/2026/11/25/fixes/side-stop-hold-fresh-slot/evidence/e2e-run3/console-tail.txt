@@ -1,0 +1,55 @@
+                                              work: plan 0/0  
+
+  ● main                                                                                                                ◯ciel-work:side-fresh  SideSSEd61d0b297d0c0s]0;◑ Claude Code1]0;◐ Claude Code
+⚠Model "fixture-main" isn't recognized · context assumed to be 1m tokens · update Claude Code, or see ]8;id=u-6mdv8p%10319244302621100894;https://code.claude.com/docs/en/model-config#correct-the-window-for-a-gateway-or-custom-model-id\the docs]8;;\
+
+▎Debug mode enabled · logging to <owned>\claude-debug.txt
+
+●ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing 
+ approved Work. Itemsshowabove the prompt · /work-mode help ·turn off: ciel-runime menu → LLM otions → Work moe, or the agent (work_mode_set)
+●ciel-work: Side actors paused: Claude Code refuses to start them since a Stop ("the session was stopped and 
+ nobody hassentinput since").SSE events stay queuedwith no attempt couned; any input you type in thissession resumesthem.
+❯ MAIN-LONG please keep working on the reportresume please                                                                                                                                                                                      ●ok
+
+✻Brewed for 0s · done 3:12 PM
+
+●ciel-work: Side actors resumed: the Stop hold ended; queued SSE events are claimed again
+w: Work 0/0 [ ] Stop hold check [+][-]
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────❯                                                                                                                       ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  ⏸ manual mode on · /tasks to see subagents · ↓ to manage                                              work: plan 0/0                                                                                                                        ● main◯ ciel-work:side-freshSide SSE d61d0b297d0c1sa30e8e17a45400s · ↑ 20 token62 ▝▝   ▝▝ <owned>\workspace
+
+⚠Model "fixture-main" isn't recognized · context assumed to be 1m tokens · update Claude Code, or see ]8;id=u-6mdv8p%10319244302621100894;https://code.claude.com/docs/en/model-config#correct-the-window-for-a-gateway-or-custom-model-id\the docs]8;;\
+
+▎Debug mode enabled · logging to <owned>\claude-debug.txt
+
+●ciel-work: Ciel Workmodeis on: plan and execute by item; newindependent requess queue without ausingapprove Work. Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode, or the agent (work_mode_set)
+
+●ciel-work:Sideactors paused:Claude Code refuses tostart them since a Sop ("the session was stopped and nobody has sentinput since"). SSE events stay queued with no attempt counted; any input you type in this session resumes them.
+                                                                                                                        ❯ MAIN-LONG please keep working on the reportresume please                                                              
+
+●ok
+                                                                                                                        ✻Brewed for 0s · done 3:12 PM
+
+● ciel-work: Side actors resumed: the Stop hold ended; queued SSE events are claimed again    
+w:Work0/0[]Stopholdcheck[+][-]
+                                                                                                                        ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────❯                                                                                                                       ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────⏸ manual mode on · /tasks to see subagents · ↓ to managework: plan 0/0
+● main                                                                                                                d61d0b297d0c122s · ↑ 20 token6225
+ ▐▛███▛█Claude Codev2.1.332
+▝▜██████▀  fixture-main · API Usage Billing
+ ▝▝   ▝▝ <owned>\workspace
+
+⚠Model "fixture-main" isn't recognized · context assumed to be 1m tokens · update Claude Code, or see ]8;id=u-6mdv8p%10319244302621100894;https://code.claude.com/docs/en/model-config#correct-the-window-for-a-gateway-or-custom-model-id\the docs]8;;\
+
+▎Debug mode enabled ·logging toD:\Temp\sop-hold-n2t7ssro\claude-debug.txt
+●ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing 
+ approved Work. Items how above the prompt· /work-mde help · turn off:ciel-runtime menu → LLM options →Wrk mode,or he agent (work_mode_set)
+●ciel-work: Side actors paused: Claude Code refuses to start them since a Stop ("the session was stopped and 
+  nobody has sent input since"). SSE events stay queued with no attempt counted; any input you type in this             session resumes them.
+
+❯ MAIN-LONG please keep working on the reportresume please                                                              
+
+●ok
+
+✻ Brewed for 0s · done 3:12 PM● ciel-work: Side actors resumed: the Stop hold ended; queued SSE events are claimed again                              w: Work0/0[]Stopholdcheck[+][-]
+                                                                                                                        ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────❯  
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────⏸manual mode on · /tasks toseesubagents     work: plan 0/0]0;✳ Claude Code

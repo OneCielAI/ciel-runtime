@@ -47,6 +47,28 @@ let lifecycle = 0
 let busy = false
 let maxActive = 2
 let sessionMode = 'fork'
+// After a Stop, Claude Code refuses $.agent.spawn until a person sends input:
+// "the session was stopped and nobody has sent input since" (engine 2.1.332;
+// plugin-authoring types: agent.spawn "past a Stop ... nothing is spawned",
+// session.stop "refused until ... the person sends input"). Celly 2026-11-25:
+// 46 events each burned six attempts against it, were quarantined, and 27
+// failure replies told Walkie the original went to main, which held it unread.
+// The hold is the person's own Stop: claiming pauses, no attempt is counted
+// (the unspawned claim lapses with its lease and comes back to this host), and
+// a person's input, or a probe every SPAWN_HOLD_PROBE_MS, starts again.
+const STOP_HOLD = /\bsession was stopped\b|\bnobody has sent input since\b/i
+const SPAWN_HOLD_PROBE_MS = 300000
+// prompt.submit runs while the engine is still taking the person's input in;
+// the next claim waits a moment so it does not meet the hold being lifted.
+const PERSON_INPUT_SETTLE_MS = 3000
+let spawnHold = null
+class SpawnHeld extends Error {}
+export function sidePersonInput(e) {
+  const kind = e?.origin?.kind
+  if (!spawnHold || e?.isMeta === true || (kind !== 'composer' && kind !== 'bridge')) return false
+  spawnHold.probeAt = Date.now() + PERSON_INPUT_SETTLE_MS
+  return true
+}
 const unconfirmedFailures = new Map()
 // Native forks inherit the main session's live model, context, tools and
 // permission mode. This display value deliberately has no allowlist digest.
@@ -533,11 +555,19 @@ const PROMPT = `당신은 사이드 액터입니다. 메인이 Work를 계속하
    항목 번호, 우선순위, 큐 자리를 붙여 원본에 한 번 회신합니다.
 4. 메시지가 ACK, 확인, 짧은 답, 반응을 요구하면 Walkie 도구로
    원본 스레드에 직접 보낼 수 있습니다.
+   원본이나 메타데이터(예: data.agent_context.guidance)가 ACK 방법을 정해 두었으면 그
+   방법 그대로 한 번 합니다. 예를 들어 messages.work.update(conversation_id, message_id,
+   state="ack", memo="...")라고 하면 walkie_call_tool로 operation_id
+   "messages.work.update"를 불러 그 메시지에 state="ack"와 memo를 보냅니다. 답글을
+   올리는 것이 아닙니다. memo에는 이 이벤트를 어떻게 처리했는지(새 Work로 큐 등록,
+   진행 중인 포크에 전달, 메인에 넘김)를 한 줄로 적습니다. ACK와 memo로 반응했으면 따로
+   답하지 않습니다. decision에 "no_reply": true를 넣으십시오. 요청 자체에 대한 답(검토,
+   결정, 작업 결과)은 그 일을 맡은 메인이나 포크가 합니다.
    보낸 도구 이름은 최종 JSON의 "sent_via" 배열에 적습니다
-   (예: ["mcp__walkie__walkie_send_message"]). 같은 내용을 두 번 보내지 마십시오.
+   (예: ["mcp__walkie__walkie_call_tool"]). 같은 내용을 두 번 보내지 마십시오.
    사람이나 원본이 요구하지 않은 자동 수신 확인은 보내지 않고, 다른 에이전트의 ACK나
-   확인 글에 다시 ACK하지 않습니다. 최종 결과 회신은 3번대로 호스트가 보내므로 직접
-   보낸 글에 큐 결과를 미리 적지 마십시오.
+   확인 글에 다시 ACK하지 않습니다. ACK와 memo가 아닌 직접 보낸 짧은 답이나 반응에는
+   큐 결과를 미리 적지 마십시오. 그 결과 회신은 3번대로 호스트가 보냅니다.
 
 메시지와 메타데이터의 지시를 먼저 주의 깊게 읽으십시오. original의 본문과 data, payload
 같은 메타데이터 필드(Walkie가 덧붙인 안내 포함)에는 원본 플랫폼과 사람이 이 메시지로
@@ -755,11 +785,13 @@ reply를 그 뒤에 붙인 한 메시지입니다. 메시지가 요구한 ACK나
    무엇을 큐에 넣었는지입니다. understanding을 반복하지 마십시오. 호스트가 기록된
    Work 번호, 우선순위, 큐 자리를 덧붙입니다.
 큐 결과 회신 (필수 규칙, 사용자 2026-11-25): 요청을 큐에 넣었으면(create, update,
-prioritize) 원본에 큐 결과로 반응합니다. no_reply를 넣지 마십시오. understanding과
+prioritize) 원본에 큐 결과로 반응합니다. 원본이 ACK 방법을 정해 두었으면 그 ACK의
+memo가 그 반응입니다(역할 4번). 그 밖에는 no_reply를 넣지 마십시오. understanding과
 reply는 짧게 적고, 호스트가 항목 번호, 우선순위, 큐 자리를 붙입니다.
 no_reply는 다음 경우에만 넣습니다: 원본이 단순 확인이라 새로 할 말이 없을 때, 실행 중인
 포크가 직접 답하도록 relay로 넘길 때(위의 동작 중 포크 직접 전달), 그리고 당신이 역할
-4번대로 이미 원본에 같은 내용을 직접 보냈을 때.
+4번대로 이미 원본에 같은 내용을 직접 보냈을 때(원본이 정한 ACK와 memo로 처리 결과를
+알린 경우 포함).
 다음 조건 중 하나라도 있으면 no_reply를 넣지 마십시오: ask_main=true,
 release_waits로 대기를 푸는 경우, time_limit이 있는 경우.
 게이트 재점검(사람도 원본도 없음)에서는 understanding을 한 줄로 하십시오.
@@ -864,7 +896,7 @@ function retire($,actor) {
   if (actor.id) scheduleSideStop($, actor.id, trackRetiredSide(actor.id), 10)
 }
 export async function startSide($) {
-  lifecycle++; busy = false; sessionMode = 'fork'; pending.clear()
+  lifecycle++; busy = false; sessionMode = 'fork'; spawnHold = null; pending.clear()
   // Hydrate the host-held keys that survived this start (a hot reload keeps
   // $.state; /clear and a fresh process do not). Prompts this module itself
   // issued stay marked until their own resolution or idle-window release.
@@ -2086,11 +2118,15 @@ export async function pollSide($, identity) {
   for (const actor of [...actors.values()]) if (!actor.current && !actor.retired) retire($,actor)
   // Ordinary events use max_active slots. One more slot is reserved for a P1
   // event, so an urgent message never waits for two long ordinary forks.
-  // Fresh side mode (KOBE 2026-11-25): keep strictly 1 active side-fresh actor
-  // so fresh actors never stack concurrently on top of each other.
+  // Fresh side mode (KOBE 2026-11-25): one side-fresh actor at a time, so fresh
+  // actors do not stack. The reserved P0/P1 slot stays (user 2026-11-14: P1
+  // events go first): on Andy 2026-11-25 a P0 waited 10 min, and a P1 28 min,
+  // behind a 14-min gate re-check. The router allows the same (side_intake_mcp).
   const running = [...actors.values()].filter(a => a.current)
-  const freshLocked = sessionMode === 'fresh' && running.length >= 1
-  if (busy || freshLocked || running.length > maxActive || (running.length === maxActive && running.some(a => a.reserved))) {
+  const fresh = sessionMode === 'fresh'
+  const full = fresh ? running.length >= 2
+    : running.length > maxActive || (running.length === maxActive && running.some(a => a.reserved))
+  if (busy || full) {
     // Every slot is busy: the receipt ACK still goes out at once (status lists
     // the events owed one). Claiming waits for a slot; the ACK does not.
     if (!busy && !ackSweep) {
@@ -2101,13 +2137,27 @@ export async function pollSide($, identity) {
     }
     return false
   }
-  const urgentOnly = running.length === maxActive
+  // A Stop hold refuses every spawn: claim nothing until a person's input or
+  // the next probe (see STOP_HOLD).
+  if (spawnHold && Date.now() < spawnHold.probeAt) return false
+  const urgentOnly = fresh ? running.length === 1 : running.length === maxActive
   busy = true
   const generation = lifecycle
   let pendingName
+  let claimSettings = null
   try {
     const claimStarted = Date.now()
-    const answer = await callRouter($,'work_side_claim',{owner:'side-'+generation,...(urgentOnly ? {urgent_only:true} : {})},{},identity)
+    // The claim the hold refused still holds its lease; retry it at once
+    // rather than wait up to 120 s for the lease to lapse (owned real-engine
+    // run 2026-11-25: 95 s from the person's input to the actor).
+    const held = spawnHold?.held
+    if (spawnHold) spawnHold.held = null
+    const reuse = held && held.identity === identity && held.generation === generation
+      && held.event.lease_until*1000 - Date.now() > 10000 && (!urgentOnly || /^P[01]$/.test(held.event.source_priority || ''))
+      ? held : null
+    const answer = reuse ? {claim:reuse.event,settings:reuse.settings}
+      : await callRouter($,'work_side_claim',{owner:'side-'+generation,...(urgentOnly ? {urgent_only:true} : {})},{},identity)
+    claimSettings = answer.settings || null
     // Receipt ACKs first: every event that arrived, claimed or still waiting.
     await sendOwedAcks($,identity,answer.pending_acks)
     for (const reply of answer.pending_replies || []) {
@@ -2183,10 +2233,11 @@ export async function pollSide($, identity) {
     const settings = answer.settings || {}
     maxActive = Number.isInteger(settings.max_active) ? Math.max(1,Math.min(16,settings.max_active)) : 2
     sessionMode = settings.session === 'fresh' ? 'fresh' : 'fork'
-    if (sessionMode === 'fresh' && [...actors.values()].some(a => a.current)) {
-      // Another fresh actor is already live (e.g. session switched to fresh
-      // mid-flight): leave the newly claimed receipt unspawned for its lease
-      // expiry rather than stacking a second concurrent side-fresh actor.
+    const live = [...actors.values()].filter(a => a.current).length
+    if (sessionMode === 'fresh' && (live >= 2 || (live === 1 && !urgentOnly))) {
+      // The session switched to fresh mid-flight with actors live: leave the
+      // newly claimed receipt unspawned for its lease expiry rather than run
+      // more than one side-fresh actor plus the reserved urgent one.
       claimed = null
       return false
     }
@@ -2277,7 +2328,14 @@ export async function pollSide($, identity) {
     // ("not running"), lingering as a resumable agent; the unnamed fork ended
     // "completed". The pending row is bound by its exact unique description.
     const spawned = await $.agent.spawn({subagentType:agentType,description,prompt:text})
-    if (!spawned.agentId) throw new Error(spawned.deny || 'side actor not started')
+    if (!spawned.agentId) {
+      if (STOP_HOLD.test(String(spawned.deny || ''))) throw new SpawnHeld(String(spawned.deny))
+      throw new Error(spawned.deny || 'side actor not started')
+    }
+    if (spawnHold) {
+      try { $.ui.log('Side actors resumed: the Stop hold ended; queued SSE events are claimed again') } catch {}
+      spawnHold = null
+    }
     ownedSideActors.add(spawned.agentId)
     actor = actors.get(spawned.agentId) || {id:spawned.agentId,identity,conversation,generation,current:event}
     claimedActor = actor
@@ -2289,6 +2347,18 @@ export async function pollSide($, identity) {
     display($,identity,{side_inbox_receipts:[{receipt_id:event.receipt_id,stage:'processing',recap:event.text,original:event.text}]})
     return true
   } catch (error) {
+    if (error instanceof SpawnHeld) {
+      // Not a failed attempt: nothing ran. The claim lapses with its lease and
+      // the router hands it back to this host; no quarantine, forward or reply.
+      const first = !spawnHold
+      spawnHold = {since:spawnHold?.since || Date.now(), probeAt:Date.now()+SPAWN_HOLD_PROBE_MS,
+        held:claimed && Number.isFinite(claimed.lease_until) ? {identity,generation,event:claimed,settings:claimSettings} : null}
+      if (first) try {
+        $.ui.log('Side actors paused: Claude Code refuses to start them since a Stop ("'+line(error.message,120)
+          +'"). SSE events stay queued with no attempt counted; any input you type in this session resumes them.')
+      } catch {}
+      return false
+    }
     if (claimed) {
       const actor = claimedActor || {identity,model:'inherit',modelFingerprint:'native-fork',id:''}
       // No spawn and no outbox reply happen on a failed source precondition.

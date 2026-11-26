@@ -1,0 +1,190 @@
+# Windows isolated impact regression (CIEL_RUNTIME_* removed, TEMP config, CIEL_RUNTIME_TEST_ISOLATED=1), per-file pytest
+== tests/test_claude_network_retry.py
+2 passed in 0.20s
+exit=0
+== tests/test_kobe_hooks_worker_hotfix.py
+9 passed, 4 subtests passed in 1.67s
+exit=0
+== tests/test_legacy_max_path.py
+3 passed in 0.29s
+exit=0
+== tests/test_router_io_performance.py
+9 passed in 0.64s
+exit=0
+== tests/test_side_ack_outbox.py
+9 passed in 0.68s
+exit=0
+== tests/test_side_actor_failures_hotfix.py
+20 passed, 13 subtests passed in 5.71s
+exit=0
+== tests/test_side_background_prompts.py
+9 passed, 14 subtests passed in 0.16s
+exit=0
+== tests/test_side_claim_latency.py
+4 passed in 11.01s
+exit=0
+== tests/test_side_code_read.py
+2 passed, 4 subtests passed in 0.16s
+exit=0
+== tests/test_side_compat_review.py
+3 passed, 4 subtests passed in 10.88s
+exit=0
+== tests/test_side_context_router_boundary.py
+3 passed, 3 subtests passed in 0.64s
+exit=0
+== tests/test_side_decision_capacity.py
+8 passed, 6 subtests passed in 0.27s
+exit=0
+== tests/test_side_discard_failed.py
+7 passed in 2.16s
+exit=0
+== tests/test_side_drain_limit.py
+3 passed, 10 subtests passed in 0.52s
+exit=0
+== tests/test_side_event_capacity.py
+16 passed in 0.49s
+exit=0
+== tests/test_side_external_parity.py
+12 passed, 2 skipped, 7 subtests passed in 29.03s
+exit=0
+== tests/test_side_fork_answers.py
+8 passed in 1.01s
+exit=0
+== tests/test_side_forward.py
+7 passed in 1.69s
+exit=0
+== tests/test_side_handoff_flow.py
+4 passed, 1 skipped in 4.19s
+exit=0
+== tests/test_side_inbox_summaries.py
+3 passed in 0.36s
+exit=0
+== tests/test_side_instruction_view.py
+6 passed in 0.39s
+exit=0
+== tests/test_side_intake_inbox.py
+5 passed in 1.79s
+exit=0
+== tests/test_side_intake_mailbox.py
+9 passed in 4.98s
+exit=0
+== tests/test_side_intake_mcp.py
+49 passed, 1 skipped in 9.42s
+exit=0
+== tests/test_side_intake_mod.py
+75 passed, 89 subtests passed in 46.57s
+exit=0
+== tests/test_side_notice_claim.py
+19 passed, 11 subtests passed in 76.08s (0:01:16)
+exit=0
+== tests/test_side_operator_redaction.py
+5 passed in 5.76s
+exit=0
+== tests/test_side_queue_starvation.py
+15 passed in 1.19s
+exit=0
+== tests/test_side_real_backend.py
+8 passed, 3 subtests passed in 19.28s
+exit=0
+== tests/test_side_reappend_release.py
+5 passed in 19.60s
+exit=0
+== tests/test_side_receipt_projection.py
+11 passed in 5.61s
+exit=0
+== tests/test_side_relay_notice.py
+15 passed in 16.59s
+exit=0
+== tests/test_side_release_notice.py
+6 passed, 3 skipped in 1.22s
+exit=0
+== tests/test_side_reply_connector.py
+11 passed, 17 subtests passed in 0.32s
+exit=0
+== tests/test_side_reply_outbox.py
+9 passed, 2 subtests passed in 1.25s
+exit=0
+== tests/test_side_request_outcome.py
+2 passed in 0.20s
+exit=0
+== tests/test_side_retry_pins.py
+7 passed, 15 subtests passed in 4.77s
+exit=0
+== tests/test_side_running_fork_relay.py
+3 passed in 0.40s
+exit=0
+== tests/test_side_settings_status.py
+2 passed, 6 subtests passed in 0.19s
+exit=0
+== tests/test_side_silent_fork.py
+10 passed in 1.03s
+exit=0
+== tests/test_side_stall_watch.py
+8 passed in 0.72s
+exit=0
+== tests/test_side_state_unavailable.py
+5 passed, 7 subtests passed in 11.17s
+exit=0
+== tests/test_side_understanding_flow.py
+9 passed in 1.67s
+exit=0
+== tests/test_side_wake_protocol.py
+17 passed, 16 subtests passed in 15.57s
+exit=0
+== tests/test_side_work_decision.py
+34 passed, 12 skipped in 1.61s
+exit=0
+== tests/test_work_approval_workflow.py
+25 passed, 22 subtests passed in 6.08s
+exit=0
+== tests/test_work_approval_workflow_mod.py
+3 passed in 0.27s
+exit=0
+== tests/test_work_approval_workflow_recheck.py
+9 passed in 2.06s
+exit=0
+== tests/test_work_approval_workflow_review.py
+6 passed, 3 subtests passed in 33.02s
+exit=0
+== tests/test_work_approval_workflow_surfaces.py
+8 passed in 1.94s
+exit=0
+== tests/test_work_ctl_parity.py
+50 passed in 11.91s
+exit=0
+== tests/test_work_fork_gate.py
+34 passed in 0.30s
+exit=0
+== tests/test_work_gate_check.py
+27 passed in 3.83s
+exit=0
+== tests/test_work_gate_parked_forks.py
+9 passed in 0.63s
+exit=0
+== tests/test_work_http_side_receipts.py
+10 passed in 7.75s
+exit=0
+== tests/test_work_mcp_read_reconnect.py
+1 passed in 0.20s
+exit=0
+== tests/test_work_mod_write_gate.py
+152 passed, 33 skipped, 63 subtests passed in 55.71s
+exit=0
+== tests/test_work_mode_packaging.py
+5 passed in 0.13s
+exit=0
+== tests/test_work_observatory.py
+9 passed in 0.28s
+exit=0
+== tests/test_work_parallel_finalization.py
+114 passed, 135 subtests passed in 293.07s (0:04:53)
+exit=0
+== tests/test_work_parallel_model_facing_ids.py
+5 passed, 5 subtests passed in 8.49s
+exit=0
+== tests/test_work_parallel_rework_worktree.py
+80 passed, 54 subtests passed in 340.19s (0:05:40)
+exit=0
+== tests/test_work_texts.py
+9 passed, 29 subtests passed in 0.21s
+exit=0

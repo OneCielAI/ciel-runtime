@@ -1,0 +1,13 @@
+2026-11-25T21:11:28.105Z [DEBUG] hooks module ciel-work@inline loaded (worker, environment 1, tier user); events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,session.compact,classic.Stop,session.receive,prompt.submit,command.run,tool.call,session.send,tool.check,session.end,ui.render,ui.message
+2026-11-25T21:11:28.404Z [DEBUG] hooks module ciel-work@inline session.start settled in 93.0ms (worker hop, next() included)
+2026-11-25T21:12:11.729Z [DEBUG] $.agent.register (ciel-work): ciel-work:side-fresh listed
+2026-11-25T21:12:11.745Z [DEBUG] $.agent.spawn (ciel-work): refused: the session was stopped and nobody has sent input since
+2026-11-25T21:12:11.770Z [DEBUG] [ciel-work] $.ui.log: Side actors paused: Claude Code refuses to start them since a Stop ("the session was stopped and nobody has sent input since"). SSE events stay queued with no attempt counted; any input you type in this session resumes them.
+2026-11-25T21:12:41.874Z [DEBUG] [ciel-work] $.ui.log: Side actors resumed: the Stop hold ended; queued SSE events are claimed again
+2026-11-25T21:12:42.127Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-25T21:12:42.234Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-25T21:12:42.281Z [INFO] [Stall] agent_completion agentId=a964e5eedb9a4f4a7 agentType=ciel-work:side-fresh exitPath=completed durationMs=423 turns=2 finalStopReason=end_turn lastChunkAgeMs=12 lastToolUseId=toolu_2a552e08fb8b499e89b7 lastToolResultSeen=toolu_2a552e08fb8b499e89b7
+2026-11-25T21:12:54.533Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-25T21:12:56.757Z [DEBUG] [API REQUEST] /v1/messages source=agent:custom:ciel-work:side-fresh
+2026-11-25T21:12:56.804Z [INFO] [Stall] agent_completion agentId=ab56ea750e23caf58 agentType=ciel-work:side-fresh exitPath=completed durationMs=294 turns=1 finalStopReason=end_turn lastChunkAgeMs=4 lastToolUseId=none lastToolResultSeen=none
+2026-11-25T21:12:57.147Z [INFO] [Stall] agent_completion agentId=a85f85b153aa11fb1 agentType=ciel-work:side-fresh exitPath=completed durationMs=2843 turns=1 finalStopReason=end_turn lastChunkAgeMs=3 lastToolUseId=none lastToolResultSeen=none

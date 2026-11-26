@@ -111,15 +111,18 @@ class SideModTests(unittest.TestCase):
     def test_fresh_side_runs_single_active_actor_and_recovers_missing_closing_brace_and_priority(self):
         # KOBE & Celly 2026-11-25:
         # 1) fresh mode ran 2-3 side-fresh actors concurrently (overlapping work,
-        #    burning tokens and stalling the queue). Fresh mode keeps 1 active
-        #    side-fresh actor at a time unless P0/P1 urgent slot is needed.
+        #    burning tokens and stalling the queue). Fresh mode keeps 1 ordinary
+        #    side-fresh actor at a time; the reserved P0/P1 slot adds one more
+        #    (Andy 2026-11-25: a P0 waited 10 min behind a gate re-check).
         # 2) side models repeatedly dropped the outer closing brace '}' on
         #    {"understanding":"...","decision":{...}}, failed on missing
         #    understanding or reply, or emitted invalid priority/queue_position
         #    — quarantining and dumping raw originals into main's context.
         row=self.run_harness('side_fresh_reliability_harness.mjs', timeout=10)
         self.assertEqual(1, row['freshConcurrentSpawns'])
-        self.assertEqual(1, row['freshUrgentWhileBusySpawns'])
+        self.assertEqual(2, row['freshUrgentWhileBusySpawns'])
+        self.assertEqual(2, row['freshFullSpawns'])
+        self.assertEqual([False, True, True], row['freshClaims'])
         # Missing closing brace repaired without losing the decision or sending a correction turn.
         self.assertEqual('answer', row['missingBrace']['decision']['action'])
         self.assertEqual('게이트 유지', row['missingBrace']['decision']['reply'])
@@ -1094,6 +1097,43 @@ class SideModTests(unittest.TestCase):
         self.assertEqual('Side P1 queued n9 · Fix outage',row['appends'][0]['text'])
         self.assertNotIn('customer down',row['appends'][0]['text'])
 
+    def test_stop_hold_pauses_claims_without_counting_attempts(self):
+        # Celly 2026-11-25: after a Stop, Claude Code refused every $.agent.spawn
+        # ("the session was stopped and nobody has sent input since"). 46 events
+        # each burned six attempts, were quarantined, and 27 failure replies told
+        # Walkie the original went to main, which held it unread.
+        row=self.run_harness('side_stop_hold_harness.mjs','stop')
+        steps={step['label']:step for step in row['steps']}
+        self.assertEqual([],row['fails'])
+        self.assertEqual((1,0),(steps['denied']['claims'],steps['denied']['spawned']))
+        self.assertEqual(1,steps['held']['claims'])
+        self.assertFalse(row['notPerson'])
+        self.assertEqual(1,steps['notice-no-resume']['claims'])
+        self.assertTrue(row['person'])
+        self.assertEqual(1,steps['person-settling']['claims'])
+        # The refused claim's lease is still live: it is retried without a new
+        # claim (owned real-engine run: 95 s waiting for the lease otherwise).
+        self.assertEqual((1,1),(steps['person-resumed']['claims'],steps['person-resumed']['spawned']))
+        self.assertEqual((2,1),(steps['denied-again']['claims'],steps['denied-again']['spawned']))
+        # Its lease lapsed by the probe: a fresh claim, which the router hands back.
+        self.assertEqual((3,1),(steps['probe-still-held']['claims'],steps['probe-still-held']['spawned']))
+        self.assertEqual(3,steps['held-after-probe']['claims'])
+        self.assertEqual((4,2),(steps['probe-resumed']['claims'],steps['probe-resumed']['spawned']))
+        self.assertEqual(['a','b'],row['spawned'])
+        self.assertEqual(2,sum('Side actors paused' in text for text in row['logs']))
+        self.assertTrue(any('nobody has sent input since' in text for text in row['logs']))
+        self.assertEqual(2,sum('Side actors resumed' in text for text in row['logs']))
+
+    def test_fresh_mode_keeps_the_reserved_p0_p1_slot(self):
+        # Andy 2026-11-25: with one side-fresh actor allowed, a P0 waited 10 min
+        # behind a 14-min gate re-check (user 2026-11-14: P1 events go first).
+        row=self.run_harness('side_stop_hold_harness.mjs','fresh')
+        self.assertEqual([],row['fails'])
+        self.assertEqual([False,True],row['urgent'])
+        self.assertEqual(['a','b'],[s['event'] for s in row['spawned']])
+        self.assertEqual({'ciel-work:side-fresh'},{s['type'] for s in row['spawned']})
+        self.assertEqual(2,row['steps'][-1]['claims'])
+
     def run_p0(self, activation):
         with tempfile.TemporaryDirectory() as raw:
             path=Path(raw)
@@ -1224,6 +1264,16 @@ class SideModTests(unittest.TestCase):
                          '메타데이터',
                          '원문을 함께 전달'):
                 self.assertIn(role,instruction)
+            # User 2026-11-25 (Celly #161250): a source that names its ACK method
+            # (messages.work.update state=ack, memo) gets exactly that, with the
+            # handling in the memo and no separate answer.
+            for rule in ('data.agent_context.guidance',
+                         'operation_id\n   "messages.work.update"',
+                         'state="ack"',
+                         'memo에는 이 이벤트를 어떻게 처리했는지',
+                         'ACK와 memo로 반응했으면 따로\n   답하지 않습니다',
+                         '["mcp__walkie__walkie_call_tool"]'):
+                self.assertIn(rule,instruction)
             self.assertIn('최종 답은 아래에 설명한 decision JSON 그대로여야 합니다',instruction)
             self.assertIn('{"understanding":"...","decision":{...},"expected_version":N}.',instruction)
             self.assertIn('target_message_id',instruction)

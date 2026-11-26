@@ -513,6 +513,23 @@ class SideMcpTests(unittest.TestCase):
         self.assertIsNotNone(after['claim'])
         self.assertNotEqual(first['claim']['receipt_id'], after['claim']['receipt_id'])
 
+    def test_fresh_session_keeps_the_reserved_p0_p1_claim_behind_one_live_claim(self):
+        # Andy 2026-11-25: a P0 waited 10 min behind a 14-min gate re-check
+        # because a live fresh lease refused even the reserved urgent claim.
+        self.config['work_side_intake']['session'] = 'fresh'
+        self.inbox.receive('gate re-check', 'fresh:ordinary')
+        first = json.loads(self.invoke('work_side_claim', {'owner': 'side-1'})['text'])
+        self.assertIsNotNone(first['claim'])
+        self.inbox.receive(json.dumps({'data': {'message_context': {'thread_task': {'priority': 1, 'emergency': True}}}}), 'fresh:p0')
+        self.inbox.receive(json.dumps({'data': {'message_context': {'thread_task': {'priority': 1}}}}), 'fresh:p1')
+        ordinary = json.loads(self.invoke('work_side_claim', {'owner': 'side-1'})['text'])
+        self.assertIsNone(ordinary['claim'])
+        urgent = json.loads(self.invoke('work_side_claim', {'owner': 'side-1', 'urgent_only': True})['text'])
+        self.assertEqual('P0', urgent['claim']['source_priority'])
+        # Two live claims: nothing more, not even the next urgent event.
+        third = json.loads(self.invoke('work_side_claim', {'owner': 'side-1', 'urgent_only': True})['text'])
+        self.assertIsNone(third['claim'])
+
     def _resolve_event(self, event, decision):
         host = {'token': 'x'*40, 'receipt_id': event['receipt_id'], 'generation': event['generation']}
         response = self.invoke('work_side_resolve', {'decision': decision,

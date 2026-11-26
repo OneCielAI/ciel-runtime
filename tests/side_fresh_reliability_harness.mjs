@@ -1,15 +1,17 @@
 import {startSide,pollSide,completeSide,decisionOf} from './side-intake.js'
 
-// 1. Fresh mode concurrency: at most 1 non-urgent side-fresh actor at a time even
-// when settings.max_active is 2. Urgent P0/P1 does not launch a second fresh
-// actor either — strictly 1 side-fresh actor at a time so fresh actors never stack.
+// 1. Fresh mode concurrency: at most 1 ordinary side-fresh actor at a time even
+// when settings.max_active is 2 (KOBE 2026-11-25: fresh actors stacked 2-3 deep).
+// The reserved P0/P1 slot stays (user 2026-11-14: P1 events go first; Andy
+// 2026-11-25: a P0 waited 10 min behind a 14-min gate re-check), and nothing
+// starts beyond those two. The claim stub honours urgent_only as the router does.
 {
-  let idx = 0
   const events = [
     {receipt_id:'1'.repeat(64),generation:'a'.repeat(32),text:'ev1',event_key:'s:1',lease_until:Date.now()/1000+120,route:{source_kind:'external_event'},workload:{version:1,truncated:false,nodes:[],queue_order:[]}},
     {receipt_id:'2'.repeat(64),generation:'b'.repeat(32),text:'ev2',event_key:'s:2',lease_until:Date.now()/1000+120,route:{source_kind:'external_event'},workload:{version:1,truncated:false,nodes:[],queue_order:[]}},
-    {receipt_id:'3'.repeat(64),generation:'c'.repeat(32),text:'ev3',event_key:'s:3',source_priority:'P1',lease_until:Date.now()/1000+120,route:{source_kind:'external_event'},workload:{version:1,truncated:false,nodes:[],queue_order:[]}},
   ]
+  const urgentEvent = {receipt_id:'3'.repeat(64),generation:'c'.repeat(32),text:'ev3',event_key:'s:3',source_priority:'P1',lease_until:Date.now()/1000+120,route:{source_kind:'external_event'},workload:{version:1,truncated:false,nodes:[],queue_order:[]}}
+  const claims = []
   const spawns = []
   const hostStore = new Map()
   const $ = {
@@ -20,7 +22,9 @@ import {startSide,pollSide,completeSide,decisionOf} from './side-intake.js'
     mcp:{connect:async()=>({}),call:async(server,name,args)=>{
       const text = v => ({content:[{type:'text',text:JSON.stringify(v)}]})
       if (name === 'work_side_claim') {
-        const claim = idx < events.length ? events[idx++] : null
+        const index = args.urgent_only ? events.findIndex(e => e.source_priority === 'P0' || e.source_priority === 'P1') : (events.length ? 0 : -1)
+        const claim = index >= 0 ? events.splice(index,1)[0] : null
+        claims.push(args.urgent_only === true)
         return text({claim,settings:{max_active:2,session:'fresh'},handoff_replies:[],main_wakes:[]})
       }
       if (name === 'work_side_status') return text({pending_acks:[]})
@@ -33,11 +37,15 @@ import {startSide,pollSide,completeSide,decisionOf} from './side-intake.js'
     clock:{after:()=>({cancel(){}})},
   }
   await startSide($)
-  await pollSide($,'claude:p-fresh-conc')
-  await pollSide($,'claude:p-fresh-conc')
+  await pollSide($,'claude:p-fresh-conc')   // ev1: the ordinary fresh actor
+  await pollSide($,'claude:p-fresh-conc')   // reserved claim, no P0/P1 waiting: ev2 stays queued
   const freshConcurrentSpawns = spawns.length
-  await pollSide($,'claude:p-fresh-conc')
+  events.push(urgentEvent)
+  await pollSide($,'claude:p-fresh-conc')   // reserved claim takes the P1
   const freshUrgentWhileBusySpawns = spawns.length
+  await pollSide($,'claude:p-fresh-conc')   // two running: no claim
+  const freshFullSpawns = spawns.length
+  const freshClaims = claims
 
   // 2. decisionOf repairs for live Celly/KOBE shapes + non-hanging rejection for
   // Prody/KOBE leading-brace answers without a decision object (hooks-worker crash root cause).
@@ -141,7 +149,7 @@ import {startSide,pollSide,completeSide,decisionOf} from './side-intake.js'
   await completeSide(bg$,{agentId:'abg-1',reason:'answer',answer:'백그라운드 조회 완료. 이미 제출한 판정은 유효합니다.'})
 
   console.log(JSON.stringify({
-    freshConcurrentSpawns, freshUrgentWhileBusySpawns,
+    freshConcurrentSpawns, freshUrgentWhileBusySpawns, freshFullSpawns, freshClaims,
     missingBrace, missingBraceWithExpected, missingUnderstanding, missingNoReply,
     escapedDecisionInSummary, noDecisionErrors, bareUuidRefs, uuidInsideText,
     priorityCorrection, queuePositionCorrection, missingTargetCorrection,

@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import { startSide, pollSide, sideSpawnInput, sideTool, completeSide, suppressSide, sideReceipts, sideActors, sideMcpParity, readWorkMcp, hostJson, eventView, sideMainBusy, sideStopWake, sideRecordStopWake, sideWakeKnown, sidePromptSubmit, sidePromptPending, sidePromptTurnStart, sidePromptTurnComplete, sidePromptReassert, sidePromptRef, sideMainTurnStart, sideMainStep, sideMainFence, sideAppendStored, sideStopNotPresented, sideWakeRead, sideWakeReminded, sideReviewAppended, sideReviewDelivery, sideReviewRecheck, noticeToMain, sideParkedResume, sideThreadReadAfter, sideWorkflowApproved, sideApprovalRead } from './side-intake.js'
+import { startSide, pollSide, sideSpawnInput, sideTool, completeSide, suppressSide, sideReceipts, sideActors, sideMcpParity, readWorkMcp, hostJson, eventView, sideMainBusy, sideStopWake, sideRecordStopWake, sideWakeKnown, sidePromptSubmit, sidePromptPending, sidePromptTurnStart, sidePromptTurnComplete, sidePromptReassert, sidePromptRef, sideMainTurnStart, sideMainStep, sideMainFence, sideAppendStored, sideStopNotPresented, sideWakeRead, sideWakeReminded, sideReviewAppended, sideReviewDelivery, sideReviewRecheck, noticeToMain, sideParkedResume, sideThreadReadAfter, sideWorkflowApproved, sideApprovalRead, sidePersonInput } from './side-intake.js'
 import { T, setTextOverrides } from './texts.generated.js'
 
 // Router is authoritative; this cache is display-only and never persisted.
@@ -5399,6 +5399,8 @@ export function register(on) {
     return next(e)
   })
   on('prompt.submit', async ($, e, next) => {
+    // A person's own input ends Claude Code's Stop hold on plugin spawns.
+    sidePersonInput(e)
     if (await sideReceiptReady($, e)) return {drop:'Ciel side receipt claimed outside main conversation'}
     if (suppressSide(e)) return {drop:'Owned side notification retained outside main conversation'}
     if (ownedWorkNotification(e)) return {drop:'Owned Work notification retained outside main conversation'}

@@ -1,0 +1,160 @@
+{
+  "kind": "Stop hold and fresh reserved slot, real load",
+  "claude_version": "2.1.332 (Claude Code)",
+  "mod_sha256": {
+    "register.js": "2ee53557e63bbf82baeb0ebbb96f16243cae46400884c30b691b31d5c3e5d42c",
+    "side-intake.js": "1ed2bd554ff3dfa05810368c93c169938b690124d0ede8743308e79d5481386b"
+  },
+  "python_sha256": {
+    "side_intake_mcp.py": "3809423d9651be21a9493e13e057b3297ab1a38cae893e88e234da7fe54dc8e9",
+    "side_intake_settings.py": "6d251cef34076c2b5545813f358f6fa1cb472708f9c5dbe6293ca8214a1b0064",
+    "work_workflow_prompts.py": "0df49fe6bcc1c0f5847db1dbc3eda499a07351bad610e7abe91cd1c53c163e16"
+  },
+  "steps": {
+    "mod_load_line": "hooks module ciel-work@inline loaded (worker, environment 1, tier user); events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,sess",
+    "session_start_settled_ms": 93.0,
+    "main_long_started": true,
+    "main_interrupted_text": null,
+    "paused_line": "Side actors paused: Claude Code refuses to start them since a Stop (\"the session was stopped and nobody has sent input since\"). SSE events stay queued with no attempt counted; any input you type in this session resumes them.",
+    "a_while_held": {
+      "stage": "processing",
+      "side_failure": null,
+      "side_requests": 0
+    },
+    "a_processed": true,
+    "resumed_line": "Side actors resumed: the Stop hold ended; queued SSE events are claimed again",
+    "b_started": true,
+    "c_processed_while_b_held": true,
+    "b_stage_when_c_done": "processing",
+    "b_processed": true
+  },
+  "kill": "SUCCESS: The process with PID 96460 (child process of PID 113132) has been terminated.",
+  "claims": [
+    {
+      "after_s": 44.9,
+      "urgent_only": false,
+      "claimed": "dea12a07fa6e"
+    },
+    {
+      "after_s": 87.4,
+      "urgent_only": false,
+      "claimed": "d61d0b297d0c"
+    },
+    {
+      "after_s": 89.7,
+      "urgent_only": true,
+      "claimed": "a30e8e17a454"
+    }
+  ],
+  "side_fail_calls": [],
+  "walkie_calls": [
+    {
+      "at": 1795641162.19,
+      "tool": "walkie_call_tool",
+      "operation_id": "messages.work.update",
+      "arguments": {
+        "conversation_id": "2054f329-150e-4e50-aaae-6235d5e8bfa3",
+        "message_id": "9201",
+        "state": "ack",
+        "memo": "Work 큐에 새 항목으로 등록했습니다(사이드 액터)."
+      },
+      "conversation_id": null,
+      "text": null
+    }
+  ],
+  "receipt_a": {
+    "action": "create",
+    "no_reply": true,
+    "reported_sends": [
+      "mcp__walkie__walkie_call_tool"
+    ],
+    "delivery": "not_applicable",
+    "item_id": "n2"
+  },
+  "times_after_s": {
+    "esc": 11.0,
+    "main_client_closed": 11.1,
+    "a_received": 44.2,
+    "person_input": 70.2,
+    "side_first_A": 75.3,
+    "side_first_B": 87.7,
+    "b_started": 87.7,
+    "c_received": 87.7,
+    "side_first_C": 90.0,
+    "c_answered": 90.0,
+    "b_answered": 90.3
+  },
+  "model_requests": [
+    {
+      "after_s": 9.0,
+      "agent": "",
+      "label": null,
+      "side": false,
+      "tool_result": false
+    },
+    {
+      "after_s": 71.1,
+      "agent": "",
+      "label": null,
+      "side": false,
+      "tool_result": false
+    },
+    {
+      "after_s": 75.3,
+      "agent": "a964e5eedb9a4f4a",
+      "label": "A",
+      "side": true,
+      "tool_result": false
+    },
+    {
+      "after_s": 75.4,
+      "agent": "a964e5eedb9a4f4a",
+      "label": "A",
+      "side": true,
+      "tool_result": true
+    },
+    {
+      "after_s": 87.7,
+      "agent": "a85f85b153aa11fb",
+      "label": "B",
+      "side": true,
+      "tool_result": false
+    },
+    {
+      "after_s": 90.0,
+      "agent": "ab56ea750e23caf5",
+      "label": "C",
+      "side": true,
+      "tool_result": false
+    }
+  ],
+  "spawn_prompt_a_has_ack_rule": true,
+  "main_request_closed_after_esc_s": 0.06,
+  "resume_delay_after_input_s": 5.2,
+  "checks": {
+    "mod_loaded": true,
+    "main_turn_stopped_by_esc": true,
+    "actor_started_soon_after_person_input": true,
+    "engine_refused_spawn_after_stop": true,
+    "pause_logged_with_engine_reason": true,
+    "held_event_not_failed": true,
+    "no_side_fail_call": true,
+    "no_side_model_request_while_held": true,
+    "a_processed_after_person_input": true,
+    "resume_logged": true,
+    "spawn_prompt_has_ack_rule": true,
+    "ack_via_messages_work_update": true,
+    "no_separate_reply_to_a": true,
+    "receipt_a_no_reply_and_reported_send": true,
+    "p0_started_while_ordinary_running": true,
+    "p0_claim_was_reserved": true,
+    "p0_processed_before_ordinary": true,
+    "ordinary_processed": true
+  },
+  "passed": true,
+  "profile_changed": [
+    "~/.claude.json"
+  ],
+  "profile_unchanged": true,
+  "scratch_removed": true
+}

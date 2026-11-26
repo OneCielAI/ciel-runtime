@@ -63,6 +63,31 @@ timestamp: 2026-11-25T18:30:00Z
   - 사건 A(본문과 메타데이터 `agent_instruction`이 ACK와 메인 결정을 요구): side-fresh 프롬프트가 새 역할로 시작하고 전송 금지 문구가 없으며, 메타 지시가 `original`에 들어 있었다. side-fresh 도구 목록에 `mcp__walkie__walkie_send_message`가 있었다. side-fresh가 원본 스레드(`reply_to 9001`)에 ACK 1건을 직접 보냈고, 영수증에 `reported_sends`가 기록됐다. 호스트 결과 회신 1건이 별도로 나갔다. 메인 다음 요청에 "Ciel side asks main … Original message: <원문>"이 실렸다.
   - 사건 B(파킹된 담당 포크가 있는 항목의 GitHub CI 실패): 결정이 `update + relay(fork_responds) + no_reply`였다. 호스트가 파킹 소유자 재개 경로를 시도했다. 이 하네스의 파킹 포크는 실제 네이티브 포크가 없는 합성 리스라 Work 호스트가 "no longer a parked worker of this session"으로 거부했고, 메인 다음 요청에 원문·출처·거부 이유가 담긴 handoff가 실렸다. **실제 네이티브 파킹 포크의 재개 성공은 이 E2E로 확인하지 않았다.** 이 재개 경로(`parallelResumeReleased`)는 운영에서 이미 쓰이고 있다(Celly 전사 "Side released wait → parked worker ab2dcc48f313 resumed by the Work host").
 
+## 발행·설치
+
+- `ff24aa6`: `feature/priority-models`·`beta` 푸시. Publish `45685461604` 성공. `@one-ciel-ai/ciel-runtime@beta` = `0.2.51-beta.20261125-192811.ff24aa6`, gitHead `ff24aa61d4f765e868d608f12450ff8b101dde1c`.
+- 해시 확인 오버레이 `overlay-ff24aa6`: npm tarball의 코드 5개 파일 SHA-256이 커밋과 같다(`side-intake.js` 7946dd07…, `side_intake_settings.py` a5d6423d…, `work_settings_menu.py` 4151d3bd…, `work_workflow_prompts.py` bd0fa52f…, `work_workflow_tools.py` 7630fd6d…). 적용 전 `check`에서 승인된 7개 루트가 모두 `d1f9da3` 기준(base)과 일치했다. 그 뒤 `base → new`로 설치했고 7곳 모두 `ok=true`였다. `.cmd` 래퍼는 건드리지 않았다.
+  - 로컬 4곳: `ciel-runtime-hotfix5-20261119-210220`, `~/.local/share/ciel-runtime`, `AppData/Roaming/npm/.../ciel-runtime`, `G:/ciel-bridge-service/.npm-global/.../ciel-runtime`
+  - KOBE u24, Prody u41, Betty u42
+
 ## 라이브 효과와 파일 설치 구분
 
-DEPLOY_PLACEHOLDER
+- 운영 세션과 라우터는 재시작하지 않았다(사용자 운영 규칙).
+- **모드 측(`side-intake.js`, 역할·전송 허용·파킹 포크 직접 전달·ask_main 원문):** CLI가 ciel-work를 다시 불러올 때 반영된다. 관측 기록은 아래 "핫 리로드 관측"에 적는다.
+- **라우터 측(`side_intake_settings.py`의 설정 화면용 기본 지침 사본, `work_workflow_prompts.py`·`work_workflow_tools.py`의 관리형 프롬프트 합성, `work_settings_menu.py` 설명):** 다음 라우터 기동 때 반영된다. 그 전까지 라이브 라우터는 이전 관리형 프롬프트를 덧붙인다. 사이드 액터가 실제로 받는 지침의 앞부분(역할·전송 허용)은 모드의 `PROMPT`에서 오므로 핫 리로드만으로 바뀐다. 관리형 `side_source_instructions`와 GitHub 전달 단락 추가분은 라우터 재기동 전까지 붙지 않는다.
+- 운영 호스트에는 사이드 지침 저장 오버라이드가 없다(Andy·Celly 설정 확인: `instruction` 비어 있음, Andy 관리형 오버라이드 0건). 따라서 모드 `PROMPT`가 그대로 쓰인다. KOBE·Prody·Betty는 루트 `config.json`에 `work_side_intake` 오버라이드가 없다. 워크스페이스별 `config.json`은 이번 읽기에서 보이지 않아(디렉터리 목록 0건) 확인하지 못했다.
+
+### 핫 리로드 관측
+
+각 CLI 전사의 `ciel-work: reloaded (19 hooks …)` 기록(설치 19:38Z 이후 25분 감시):
+
+| 호스트 | 리로드 관측 |
+|---|---|
+| Celly | 19:40:56Z |
+| Andy | 19:50:25Z |
+| Prody | 19:51:58Z |
+| Betty | 19:57:19Z |
+| KOBE | 감시 25분 안에 관측 안 됨(미관측이며 미반영으로 단정하지 않음) |
+
+- **새 역할의 실제 효과(Andy, 읽기 전용 전사 대조):** 리로드 뒤 side-fresh `afcfa003`(이벤트 `33ff2ea3a5d1`), `acda8d73`(`307544b57584`), `ab40068f`(`072b2ff50cde`)가 `walkie_call_tool`로 `messages.work.update(state=ack)`를 호출했다. `ab40068f`는 같은 호출이 3번 있었고, 중복인지 재시도인지는 확인하지 못했다.
+- **Celly:** 리로드는 됐지만 이후 사이드 액터가 한 번도 시작되지 않았다. 원인은 [Stop 대기와 fresh 예약 슬롯](/docs/journal/2026/11/25/fixes/side-stop-hold-fresh-slot/record.md)에 있다.
