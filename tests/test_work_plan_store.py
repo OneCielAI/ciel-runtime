@@ -337,6 +337,71 @@ except WorkPlanConflict:
                 self.store.transaction(lambda d: t.update_node(d, "n1", title="not committed"))
         self.assertEqual(events, [])
         self.assertEqual(self.path.read_bytes(), before)
+
+    def test_write_does_not_collide_with_in_process_read_snapshot_on_separate_store(self):
+        # Andy 2026-11-26 14:57:27Z: an 11.7 MB work-plan.json held open by
+        # read_snapshot() on a second WorkPlanStore instance (WorkSessionStore)
+        # caused os.replace() to exhaust its 40 ms retry budget with WinError 5
+        # and return HTTP 500 on /ca/mcp.
+        from ciel_runtime_support import work_plan_store as store_module
+        self.store.transaction(lambda d: t.add_node(d, None, "initial"))
+        reader = WorkPlanStore(self.path)
+        read_entered = threading.Event()
+        release_read = threading.Event()
+        real_read_bounded = store_module._read_bounded
+        real_replace = store_module.os.replace
+        reader_tid = []
+        overlap_seen = []
+
+        def slow_read(handle, limit):
+            if reader_tid and threading.get_ident() == reader_tid[0]:
+                read_entered.set()
+                release_read.wait(2.0)
+            return real_read_bounded(handle, limit)
+
+        def strict_replace(src, dst):
+            if read_entered.is_set() and not release_read.is_set():
+                overlap_seen.append(True)
+                raise PermissionError(13, "Access is denied", str(src), 5, str(dst))
+            return real_replace(src, dst)
+
+        def run_reader():
+            reader_tid.append(threading.get_ident())
+            return reader.read_snapshot()
+
+        with patch.object(store_module, "_read_bounded", side_effect=slow_read), \
+             patch.object(store_module.os, "replace", side_effect=strict_replace):
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+                read_fut = pool.submit(run_reader)
+                self.assertTrue(read_entered.wait(2.0))
+                write_fut = pool.submit(
+                    lambda: self.store.transaction(lambda d: t.update_node(d, "n1", title="updated"))
+                )
+                # Hold the simulated slow snapshot read for 120 ms (> old 40 ms budget).
+                time.sleep(0.12)
+                release_read.set()
+                read_fut.result(timeout=5)
+                doc, _ = write_fut.result(timeout=5)
+        self.assertEqual([], overlap_seen)
+        self.assertEqual("updated", doc["nodes"][0]["title"])
+
+    def test_write_retries_transient_cross_process_permission_error_past_40ms(self):
+        from ciel_runtime_support import work_plan_store as store_module
+        self.store.transaction(lambda d: t.add_node(d, None, "initial"))
+        real_replace = store_module.os.replace
+        attempts = []
+
+        def flaky_replace(src, dst):
+            attempts.append(1)
+            if len(attempts) <= 25:
+                raise PermissionError(13, "Access is denied", str(src), 5, str(dst))
+            return real_replace(src, dst)
+
+        with patch.object(store_module.os, "replace", side_effect=flaky_replace), \
+             patch.object(store_module.time, "sleep", return_value=None):
+            doc, _ = self.store.transaction(lambda d: t.update_node(d, "n1", title="retried"))
+        self.assertEqual(26, len(attempts))
+        self.assertEqual("retried", doc["nodes"][0]["title"])
         self.assertEqual(list(self.path.parent.glob("*.tmp")), [])
 
     def test_corruption_read_fails_closed(self):

@@ -16,6 +16,7 @@ import json
 import os
 import threading
 import time
+import weakref
 from pathlib import Path
 from typing import Any, Callable
 
@@ -25,6 +26,30 @@ from ciel_runtime_support.work_plan_tree import WorkPlanError, WorkStateUnavaila
 WORK_PLAN_FILE_NAME = "work-plan.json"
 MAX_WORK_PLAN_BYTES = 32 * 1024 * 1024
 READ_CHUNK_BYTES = 64 * 1024
+_WINDOWS_IO_RETRY_ATTEMPTS = 50
+_PATH_IO_LOCKS: weakref.WeakValueDictionary[str, threading.RLock] = weakref.WeakValueDictionary()
+_PATH_IO_LOCKS_GUARD = threading.Lock()
+
+
+def _path_io_lock(path: Path) -> threading.RLock:
+    """In-process per-path lock separating snapshot file reads from atomic replace.
+
+    Creates no files or directories on disk so read_snapshot() stays strictly
+    read-only while preventing separate WorkPlanStore instances in the same
+    router (for example WorkSessionStore.read_snapshot() vs transaction()) from
+    holding the target open during Windows os.replace() (Andy 2026-11-26).
+    """
+    key = os.path.normcase(str(path.resolve()))
+    with _PATH_IO_LOCKS_GUARD:
+        lock = _PATH_IO_LOCKS.get(key)
+        if lock is None:
+            lock = threading.RLock()
+            _PATH_IO_LOCKS[key] = lock
+        return lock
+
+
+def _retry_delay_seconds(attempt: int) -> float:
+    return min(0.05, 0.002 * (attempt + 1))
 
 
 def _read_bounded(handle: Any, limit: int) -> bytes:
@@ -108,17 +133,19 @@ class WorkPlanStore:
         """
 
         payload = None
-        for attempt in range(20):
+        io_lock = _path_io_lock(self.path)
+        for attempt in range(_WINDOWS_IO_RETRY_ATTEMPTS):
             try:
-                with self.path.open("rb") as handle:
-                    payload = _read_bounded(handle, MAX_WORK_PLAN_BYTES)
+                with io_lock:
+                    with self.path.open("rb") as handle:
+                        payload = _read_bounded(handle, MAX_WORK_PLAN_BYTES)
                 break
             except FileNotFoundError:
                 return empty_document()
             except PermissionError as error:
-                if attempt == 19:
+                if attempt == _WINDOWS_IO_RETRY_ATTEMPTS - 1:
                     raise WorkStateUnavailable("work plan snapshot could not be read") from error
-                time.sleep(0.002)
+                time.sleep(_retry_delay_seconds(attempt))
             except OSError as error:
                 raise WorkStateUnavailable("work plan snapshot could not be read") from error
         if payload is None:
@@ -235,7 +262,8 @@ class WorkPlanStore:
         except (UnicodeDecodeError, ValueError, TypeError, KeyError, OverflowError, RecursionError) as error:
             quarantine = self.path.with_name(f"{self.path.name}.corrupt-{time.time_ns()}")
             try:
-                os.replace(self.path, quarantine)
+                with _path_io_lock(self.path):
+                    os.replace(self.path, quarantine)
             except OSError as move_error:
                 raise WorkStateUnavailable("invalid Work plan could not be quarantined; writes are blocked") from move_error
             if self._log is not None:
@@ -248,19 +276,21 @@ class WorkPlanStore:
         payload = json.dumps(doc, ensure_ascii=False, indent=1).encode("utf-8")
         if len(payload) > MAX_WORK_PLAN_BYTES:
             raise WorkPlanError("work plan exceeds the size limit")
+        io_lock = _path_io_lock(self.path)
         try:
             with temporary.open("wb") as handle:
                 handle.write(payload)
                 handle.flush()
                 os.fsync(handle.fileno())
-            for attempt in range(20):
-                try:
-                    os.replace(temporary, self.path)
-                    break
-                except PermissionError:
-                    if attempt == 19:
-                        raise
-                    time.sleep(0.002)
+            with io_lock:
+                for attempt in range(_WINDOWS_IO_RETRY_ATTEMPTS):
+                    try:
+                        os.replace(temporary, self.path)
+                        break
+                    except PermissionError:
+                        if attempt == _WINDOWS_IO_RETRY_ATTEMPTS - 1:
+                            raise
+                        time.sleep(_retry_delay_seconds(attempt))
         finally:
             temporary.unlink(missing_ok=True)
 
