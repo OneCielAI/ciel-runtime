@@ -1081,8 +1081,9 @@ class WorkWebUiTests(unittest.TestCase):
         self.assertRegex(self.html, r"params\.set\('q',state\.sideQuery\.search\)")
         self.assertIn("const receipts=Array.isArray(data.receipts)?data.receipts:[]", self.html)
         self.assertNotIn("data.receipts||{}", self.html)
-        self.assertLess(self.html.index("panel.append(list);if(state.sideCursor)"),
-                        self.html.index("renderSideLegacy(panel,data)"))
+        self.assertIn("view:'receipts',limit:'15'", self.html)
+        self.assertLess(self.html.index('renderSide(panel,state.side)'),
+                        self.html.index('loadSideSummary(summary)'))
 
     @unittest.skipUnless(os.environ.get("CIEL_TEST_BROWSER"), "opt-in browser verification")
     def test_side_receipts_browser_flow_preserves_draft_and_ignores_stale_detail(self):
@@ -1100,6 +1101,7 @@ class WorkWebUiTests(unittest.TestCase):
             browser = playwright.chromium.launch(executable_path=os.environ["CIEL_TEST_BROWSER"], headless=True)
             page = browser.new_page(viewport={"width": 390, "height": 844})
             detail_routes = []
+            summaries = []
             def route(request):
                 url = request.request.url
                 if url.endswith("/ca/work/ui"):
@@ -1111,6 +1113,8 @@ class WorkWebUiTests(unittest.TestCase):
                     receipt = "r-old" if "r-old" in url else "r-new"
                     request.fulfill(json={"receipt": {"receipt_id": receipt, "stage": "processed",
                                                        "recap": "safe <b>text</b>", "route": "redacted"}})
+                elif "view=summary" in url:
+                    summaries.append(request)
                 elif "/side?" in url:
                     request.fulfill(json=older if "cursor=older-1" in url else newest)
                 elif "/board" in url:
@@ -1126,6 +1130,18 @@ class WorkWebUiTests(unittest.TestCase):
             page.get_by_role("button", name="Load older").click()
             page.get_by_text("Older request").wait_for()
             self.assertEqual(2, page.locator(".receipt-row").count())
+            self.assertEqual(1, len(summaries))
+            self.assertEqual(0, page.locator('.side-handoff').count())
+            if os.environ.get('CIEL_SIDE_SCREENSHOT'):
+                page.screenshot(path=os.environ['CIEL_SIDE_SCREENSHOT'], full_page=True)
+            summaries[0].fulfill(json={'version': 1, 'counts': {'received': 1}, 'reviews': [],
+                                      'handoffs': [{'event_id': 'h1', 'state': 'requested', 'summary': 'Draft target'}]})
+            draft = page.locator('.side-handoff textarea')
+            draft.fill('Unsubmitted answer')
+            page.get_by_role('button', name='P1', exact=True).click()
+            page.get_by_text('Newest request').wait_for()
+            self.assertEqual('Unsubmitted answer', draft.input_value())
+            self.assertEqual(1, len(summaries))
             page.locator(".receipt-row").first.get_by_role("button", name=re.compile("Show redacted detail")).click()
             page.get_by_text("safe <b>text</b>").wait_for()
             self.assertEqual(1, len(detail_routes))

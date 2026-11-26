@@ -28,6 +28,15 @@ class WorkTextsTests(unittest.TestCase):
             self.assertIn(phrase, main)
         self.assertNotIn("알림을 기다리기 위해", work_texts.TEXTS["mod_fork_rules"])
 
+    def test_ack_and_worker_guidance_cover_observed_failures(self):
+        from ciel_runtime_support.side_intake_settings import DEFAULT_SIDE_INSTRUCTION
+
+        for text in (DEFAULT_SIDE_INSTRUCTION, prompts.DEFAULTS['side_source_instructions']):
+            for field in ('messages.work.get', 'version', 'UUID client_id', 'message_id', 'memo'):
+                self.assertIn(field, text)
+        for tool in ('Agent', 'Explore', 'TaskStop', 'SendMessage', 'work_parallel_report'):
+            self.assertIn(tool, work_texts.TEXTS['mod_fork_rules'])
+
     def test_fork_rules_carry_the_complete_question_wait_contract(self):
         # The contract is its own text, appended only for a router that
         # advertises question_wait; the base rules never name the new fields.

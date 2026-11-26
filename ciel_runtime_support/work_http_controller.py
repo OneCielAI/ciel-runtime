@@ -145,25 +145,36 @@ class WorkHttpController:
                 self.services.write_json(handler, {"ok": True, "schema_version": 2,
                     **self._public_parallel(identity, document)})
             elif path == "/ca/work/api/v1/side":
-                document = application.document()
-                side = self._side_projection(identity, document)
-                from .side_review import with_delivery
                 from .side_intake_inbox import SideIntakeInbox
-                side["reviews"] = with_delivery(side["reviews"], self.services.state_dir, identity)
+                from .side_review import with_delivery
+                view = self._single_query(query, "view", "")
+                if view not in ("", "receipts", "summary"):
+                    raise tree.WorkPlanError("invalid side receipt view")
+                inbox = SideIntakeInbox(self.services.state_dir, identity)
+                if view == "receipts":
+                    side = {"ok": True, "schema_version": 1, "session_id": identity}
+                else:
+                    document = application.document()
+                    side = self._side_projection(identity, document)
+                    if view == "summary":
+                        side["reviews"] = [row for row in side["reviews"] if row["state"] == "pending"]
+                        side["handoffs"] = [row for row in side["handoffs"] if row["state"] == "requested"]
+                    side["reviews"] = with_delivery(side["reviews"], self.services.state_dir, identity)
+                    side["review_delivery"] = self._review_delivery(identity, document)
                 limit = self._single_query(query, "limit", "50")
                 if not isinstance(limit, str) or not limit.isdigit():
                     raise tree.WorkPlanError("side receipt limit must be an integer from 1 to 100")
-                page = SideIntakeInbox(self.services.state_dir, identity).receipt_page(
-                    limit=int(limit), cursor=self._single_query(query, "cursor", ""),
+                page = inbox.receipt_page(
+                    limit=1 if view == "summary" else int(limit),
+                    cursor=self._single_query(query, "cursor", ""),
                     stage=self._single_query(query, "stage", ""),
                     priority=self._single_query(query, "priority", ""),
-                    search=self._single_query(query, "q", ""))
-                side.update({"receipts": page["items"],
-                             "enabled": (self.services.load_config().get("work_side_intake") or {}).get(
-                                 "enabled") is True,
-                             **{key: page[key] for key in ("next_cursor", "has_more", "total", "counts",
-                                                           "counts_complete", "quarantined_count", "watermark")}})
-                side["review_delivery"] = self._review_delivery(identity, document)
+                    search=self._single_query(query, "q", ""), include_counts=view != "receipts")
+                items = page.pop("items")
+                side.update(page)
+                if view != "summary":
+                    side["receipts"] = items
+                side["enabled"] = (self.services.load_config().get("work_side_intake") or {}).get("enabled") is True
                 self.services.write_json(handler, side)
             elif path == "/ca/work/api/v1/side/receipt":
                 from .side_intake_inbox import SideIntakeInbox

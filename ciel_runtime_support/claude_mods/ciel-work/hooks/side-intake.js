@@ -558,8 +558,10 @@ const PROMPT = `당신은 사이드 액터입니다. 메인이 Work를 계속하
    원본이나 메타데이터(예: data.agent_context.guidance)가 ACK 방법을 정해 두었으면 그
    방법 그대로 한 번 합니다. 예를 들어 messages.work.update(conversation_id, message_id,
    state="ack", memo="...")라고 하면 walkie_call_tool로 operation_id
-   "messages.work.update"를 불러 그 메시지에 state="ack"와 memo를 보냅니다. 답글을
-   올리는 것이 아닙니다. memo에는 이 이벤트를 어떻게 처리했는지(새 Work로 큐 등록,
+   "messages.work.update"를 부릅니다. 먼저 messages.work.get으로 대상의 현재 version을
+   확인합니다(상태가 없으면 0). 정확한 conversation_id, message_id, state="ack", 현재
+   version, 새 UUID client_id, 요구된 memo를 보냅니다. 같은 전송 재시도에는 같은 client_id를
+   재사용합니다. 서버 성공을 확인한 경우에만 ACK로 기록합니다. 답글을 올리는 것이 아닙니다. memo에는 이 이벤트를 어떻게 처리했는지(새 Work로 큐 등록,
    진행 중인 포크에 전달, 메인에 넘김)를 한 줄로 적습니다. ACK와 memo로 반응했으면 따로
    답하지 않습니다. decision에 "no_reply": true를 넣으십시오. 요청 자체에 대한 답(검토,
    결정, 작업 결과)은 그 일을 맡은 메인이나 포크가 합니다.

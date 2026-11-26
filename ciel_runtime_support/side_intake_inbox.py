@@ -715,7 +715,7 @@ class SideIntakeInbox:
         return cls._timed_summary(summary, inputs, now)
 
     def receipt_page(self, *, limit: int = RECEIPT_PAGE_DEFAULT, cursor: str = '', stage: str = '',
-                     priority: str = '', search: str = '') -> dict[str, Any]:
+                     priority: str = '', search: str = '', include_counts: bool = True) -> dict[str, Any]:
         """Newest-first, keyset-paged current-session receipt summaries."""
         if type(limit) is not int or not 1 <= limit <= RECEIPT_PAGE_MAX:
             raise WorkPlanError(f'side receipt limit must be an integer from 1 to {RECEIPT_PAGE_MAX}')
@@ -746,8 +746,9 @@ class SideIntakeInbox:
         # Stage counts describe the newest receipts, independent of filters and
         # paging. Unchanged records come from the projection cache.
         stage_counts = {name: 0 for name in RECEIPT_STAGES}
-        for entry in all_entries[:RECEIPT_COUNT_WINDOW]:
-            stage_counts[project(entry)['stage']] += 1
+        if include_counts:
+            for entry in all_entries[:RECEIPT_COUNT_WINDOW]:
+                stage_counts[project(entry)['stage']] += 1
         entries = [entry for entry in all_entries
                    if before is None or (entry[0], entry[1]) < before]
         wanted = search.casefold().strip()
@@ -781,11 +782,12 @@ class SideIntakeInbox:
             resume = last_item if len(items) == limit else boundary
             if resume is not None:
                 next_cursor = f'{resume[0]}-{resume[1]}'
-        quarantined = len(self.quarantined_keys())
-        return {'items': items, 'next_cursor': next_cursor, 'has_more': has_more,
-                'total': len(all_entries), 'counts': stage_counts,
-                'counts_complete': len(all_entries) <= RECEIPT_COUNT_WINDOW,
-                'quarantined_count': quarantined, 'watermark': self.watermark() or ''}
+        page = {'items': items, 'next_cursor': next_cursor, 'has_more': has_more,
+                'total': len(all_entries), 'watermark': self.watermark() or ''}
+        if include_counts:
+            page.update(counts=stage_counts, counts_complete=len(all_entries) <= RECEIPT_COUNT_WINDOW,
+                        quarantined_count=len(self.quarantined_keys()))
+        return page
 
     def receipt_detail(self, receipt_id: str) -> dict[str, Any] | None:
         if not isinstance(receipt_id, str) or RECEIPT_ID.fullmatch(receipt_id) is None:

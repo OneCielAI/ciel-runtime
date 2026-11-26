@@ -85,6 +85,34 @@ class WorkHttpSideReceiptTests(unittest.TestCase):
         self.inbox._save_file(self.inbox._event_path('pending', received['receipt_id']), row)
         return received['receipt_id'], processing['receipt_id'], processed['receipt_id'], claimed
 
+    def test_light_page_is_independent_of_board_and_counts(self):
+        from unittest.mock import patch
+        for i in range(60):
+            self.inbox.receive(f'event {i}', f'light:{i}')
+        path = '/ca/work/api/v1/side'
+        with patch.object(WorkHttpController, '_side_projection', side_effect=AssertionError('board projection')):
+            original = SideIntakeInbox._cached_public_summary
+            calls = []
+
+            def track(inbox, *args, **kwargs):
+                calls.append(args[0])
+                return original(inbox, *args, **kwargs)
+
+            with patch.object(SideIntakeInbox, '_cached_public_summary', track):
+                status, first = self.request(path + '?view=receipts&limit=15')
+                self.assertEqual(status, 200)
+                self.assertEqual(len(first['receipts']), 15)
+                self.assertLessEqual(len(calls), 16)
+                self.assertNotIn('counts', first)
+                self.assertNotIn('handoffs', first)
+                status, second = self.request(path + '?view=receipts&limit=15&cursor=' + first['next_cursor'])
+                self.assertEqual(status, 200)
+                self.assertEqual(len({r['receipt_id'] for r in first['receipts'] + second['receipts']}), 30)
+        status, summary = self.request(path + '?view=summary')
+        self.assertEqual(status, 200)
+        self.assertEqual(summary['counts']['received'], 60)
+        self.assertNotIn('receipts', summary)
+
     def test_side_lists_each_stage_with_counts_cursor_and_redaction(self):
         received, processing, processed, claimed = self.seed_stages()
         status, side = self.request('/ca/work/api/v1/side?limit=2')

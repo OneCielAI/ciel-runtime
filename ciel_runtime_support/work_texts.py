@@ -132,7 +132,10 @@ TEXTS: dict[str, str] = {
     'mod_fork_rules': (
         "작업 기록 (필수 규칙): 작업 중간의 마일스톤마다, 그리고 마무리할 때 OKF 문서를 갱신하십시오. 작업 공간의 docs 아래 OKF 계층 구조(저널)에 이 아"
         "이템의 문서를 두고, 마일스톤마다 무엇을 했는지, 근거(명령, 출력, 파일), 결과, 남은 일과 다음 단계를 적습니다. 문서를 갱신하지 않은 채 완료를 보고하지 "
-        "마십시오. 완료 보고의 증거에 그 문서의 경로를 포함하십시오."),
+        "마십시오. 완료 보고의 증거에 그 문서의 경로를 포함하십시오. "
+        "Work 포크에서는 Agent(Explore 포함), TaskStop, SendMessage를 호출하지 마십시오. "
+        "허용된 Read, Grep, Glob 등으로 직접 조사하고, 메인 판단이나 도움이 필요하면 현재 리스의 "
+        "work_parallel_report(event=\"question\")로 보고하십시오. 가드가 거절했거나 제공되지 않은 도구는 다시 호출하지 마십시오."),
     # The complete work_parallel_report event=question contract (question_wait).
     # Appended to a fork prompt only when the router advertises the
     # question_wait capability: a router from before it refuses waiting_on and
