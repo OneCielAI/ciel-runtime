@@ -5,7 +5,7 @@
 // stayed blocked. Drives side-intake.js's startSide/pollSide/completeSide with a
 // scripted router: the prompt names the waiting item, an unchecked answer is
 // corrected once with the item's lookup, and a check or a release commits.
-import {startSide,pollSide,completeSide} from './side-intake.js'
+import {startSide,pollSide,completeSide,eventWaitTargets} from './side-intake.js'
 const CONVERSATION='8319baa4-e5b6-4374-95b8-0e1aed0b60f9'
 const WAITING_ON='Daniel Yun SSH passkey approval on IT Hotline 162105 (vmi3610452 oneciel, req d353d85a)'
 const HINT={condition:"ssh_access.status(request_id='d353d85a-b52d-4e7b-a193-9586fac303c7') returns status approved (or rejected/expired)",
@@ -99,4 +99,22 @@ const created=JSON.stringify({understanding:'A new note in another thread asks f
  expected_version:12552})
 await scenario('other_thread',[created],{message:'99001',root:'99000'})
 await scenario('prose_first',[prose,checkedOpen])
+// Andy 2026-11-27 12:19Z: an agent.pending_reminder (no source message) named
+// roots 63773 and 61802 and carried room and company ids in its fields. Items
+// whose lookup only shared that room or company were sent as wait items (8 in
+// all, 29 tool calls); a room or company is no evidence the event concerns them.
+const COMPANY='9ab76ce4-536f-42dc-8cd5-cbdc6536c3cb'
+const reminder=JSON.stringify({type:'com.ciel.walkie.support.message',company:COMPANY,
+ data:{event_type:'agent.pending_reminder',payload:{items:[{root_id:'63773',conversation_id:CONVERSATION,
+  note:'request 7c0e3a52-1b2c-4d5e-8f90-a1b2c3d4e5f6 pending'}]}}})
+const reminderNodes=[
+ {id:'nRoot',status:'pending',waiting_on:'release of 63773 serialized',refs:[]},
+ {id:'nRoom',status:'pending',waiting_on:'JUN KIM review decision',
+  release_hint:{condition:'approved on 162051 (conversation '+CONVERSATION+')',
+   lookup:'Read Walkie conversation '+CONVERSATION+' message 162051 approvals'}},
+ // A request UUID the event names is still evidence.
+ {id:'nRequest',status:'pending',waiting_on:'SSH approval req 7c0e3a52-1b2c-4d5e-8f90-a1b2c3d4e5f6',refs:[]},
+ {id:'nCompany',status:'pending',waiting_on:'Daniel review',
+  release_hint:{condition:'approved',lookup:'GET /api/companies/'+COMPANY+'/conversations/'+CONVERSATION+'/messages/163057'}}]
+out.reminder_targets=eventWaitTargets({nodes:reminderNodes},reminder,[],'')
 console.log(JSON.stringify(out))

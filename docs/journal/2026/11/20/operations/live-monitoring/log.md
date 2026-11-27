@@ -2,6 +2,23 @@
 
 ## 2026-11-27
 
+- 12:32:26–12:32:58Z 정기 틱(12:20Z 대비 12분). 재시작·상태 파일 수정 없음.
+  - **대기 확인 게이트 라이브 첫 관측(Andy):**
+    - 12:19:58Z `agent.pending_reminder` 이벤트 `3556200a0ca7`의 사이드 액터가 `wait_items` 8건을 받았다. 도구를 29회 불러 8건 모두 조건을 조회했고, 결과는 `wait_checks`(전부 `met=false`)로 남았다. 12:25:42Z `answer`로 끝났다(5분 44초).
+    - 조회와 판정은 의도대로 동작했다.
+    - 그러나 8건 중 5건이 대화방·회사 UUID만 공유해 잡혔다(과매칭, 입증). 실패 테스트로 재현하고 수정했다. 상세: [side-wait-match-places](../../../27/fixes/side-wait-match-places/record.md).
+    - 같은 이벤트를 수정 코드로 재생하면 3건(n869, n2927, n2953)이 남는다. 회귀를 실행 중이며 끝나면 배포한다.
+  - **Andy:** MCP 1047ms, 새 실패 0, 전사 오류 0.
+    - 라우터 로그(로컬 06:21–06:29):
+      - `anthropic_sse_upstream_incomplete`(`_Walkie_P4-5`) 1건
+      - `anthropic_sse_client_disconnected` 3건(`_Walkie_P1`)
+    - 상류 스트림이 중간에 끊겼거나 클라이언트가 연결을 닫은 것으로, 원인은 미확정이다(추적).
+  - **Celly:** MCP 875ms, 새 실패 0.
+    - 전사 12:25:26Z `walkie_send_message: Invalid uuid at client_id` 1건은 모델이 잘못된 인자를 넘긴 것이다.
+  - **KOBE:** MCP 261ms. `runtime_activity_context_usage_failed PermissionError` 2건이 나왔다(로컬 04:30:22). Celly에서도 반복되는 활동 파일 권한 거절 패턴이다(추적). `n298`·`n5` 가드는 유지된다.
+  - **Prody·Betty:** 변화 없음.
+  - **keep-alive mismatch 경고:** Andy 146건, Celly 100건, KOBE 148건, Betty 151건. 설계상 재기동 경고다.
+
 - 12:20:11–12:20:44Z 정기 틱(12:17Z 대비 3분, 배포 직후). 재시작·상태 파일 수정 없음.
   - **모드 라이브 확인:** KOBE 12:09:33Z, Prody 12:09:24Z, Betty 12:09:14Z 전사에 `ciel-work: reloaded (19 hooks …)`가 있다. Andy·Celly는 앞서 확인했으므로 다섯 호스트 모두 `2fe04af` 모드가 로드됐다.
   - **라우터:** 다섯 라우터 모두 `2fe04af`다(`/health`의 pid가 위 교체 표와 같다).

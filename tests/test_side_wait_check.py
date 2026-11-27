@@ -70,6 +70,11 @@ class SideWaitCheckTests(unittest.TestCase):
         row = self.result['other_thread']
         self.assertEqual(([], [], 1), (row['waitItems'], row['sends'], row['resolves']))
 
+    def test_a_room_or_company_id_in_the_event_names_no_waiting_item(self):
+        # Andy 2026-11-27 12:19Z: a pending reminder with no source message
+        # matched 8 items, 5 of them only through the room or company id.
+        self.assertEqual(['nRoot', 'nRequest'], self.result['reminder_targets'])
+
     def test_the_correction_for_a_missing_decision_json_keeps_read_only_lookups_allowed(self):
         row = self.result['prose_first']
         self.assertEqual(1, len(row['sends']))

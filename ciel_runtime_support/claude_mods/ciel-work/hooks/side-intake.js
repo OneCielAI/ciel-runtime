@@ -2961,6 +2961,7 @@ async function requireAck($,actor,event) {
 // share), or whose waiting_on or release_hint names a message or request id
 // that the event text carries. The decision's own item counts when it waits.
 const WAIT_ID = /\b\d{5,}\b|\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi
+const PLACE_ID = /(?:"(?:conversation|conversation_id|company|company_id)"\s*:\s*"|\/(?:conversations|companies)\/)([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/g
 function isWaiting(node) {
   return Boolean(node && node.status !== 'done' && typeof node.waiting_on === 'string' && node.waiting_on.trim())
 }
@@ -2970,11 +2971,18 @@ export function eventWaitTargets(workload,text,ids,conversation = '',excluded = 
   const skip = new Set(excluded)
   const source = String(text || '').toLowerCase()
   const room = String(conversation || '').toLowerCase()
+  // Andy 2026-11-27 12:19Z: a pending reminder carried its room and company
+  // UUIDs, and every item whose condition or lookup named that room or company
+  // matched (8 wait items, 29 lookups). A room or company says where to look,
+  // not what the event is about, so every UUID the event itself uses as a
+  // conversation or company (a field of that name, or a /conversations/ or
+  // /companies/ path) is never evidence. Message ids and request ids still are.
+  const places = new Set([room,...[...source.matchAll(PLACE_ID)].map(match => match[1])].filter(Boolean))
   const named = node => {
     const hint = node.release_hint && typeof node.release_hint === 'object' ? node.release_hint : {}
     return [node.waiting_on, hint.condition, hint.lookup].filter(value => typeof value === 'string')
       .flatMap(value => value.match(WAIT_ID) || []).map(id => id.toLowerCase())
-      .some(id => id !== room && source.includes(id))
+      .some(id => !places.has(id) && source.includes(id))
   }
   return nodes.filter(node => isWaiting(node) && !skip.has(node.id)
       && ([node.ref,...(Array.isArray(node.refs) ? node.refs : [])].some(ref => typeof ref === 'string' && exact.has(ref))
