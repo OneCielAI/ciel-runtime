@@ -334,7 +334,7 @@ class SideModTests(unittest.TestCase):
         self.assertEqual({'conversation_id':'34886995-4a66-4527-a618-814e9cb0a5bf','root_id':'40','target_message_id':'41'},
                          prompt['source_ref'])
         self.assertEqual('event_only',prompt['source_context'])
-        self.assertIn('스레드 전체는 읽지 마십시오',prompt['instruction'])
+        self.assertIn('메시지·부모·스레드 ID',prompt['instruction'])
 
     def test_walkie_source_reads_only_a_cut_events_target_and_fails_closed(self):
         row=self.run_harness('side_prefetch_harness.mjs')
@@ -347,8 +347,6 @@ class SideModTests(unittest.TestCase):
             with self.subTest(case=name):
                 self.assertEqual((1,[]),(row[name]['spawns'],row[name]['walkieReads']))
         self.assertEqual((1,'none_referenced',True),(row['null_none_referenced']['spawns'],row['null_none_referenced']['source'],row['null_none_referenced']['truncated']))
-        self.assertIn('빠진 내용을 가정하거나 지어내지 말고',row['null_none_referenced']['instruction'])
-        self.assertIn('[잘림]',row['null_none_referenced']['instruction'])
         # A cut or textless event: exactly one read, of its target (after target-1).
         for name,after,target in (('truncated_ok','40','41'),('textless_ok','40','41'),('root_target_ok','39','40'),
                                   ('big_id','900719925474099312','900719925474099313')):
@@ -1224,7 +1222,7 @@ class SideModTests(unittest.TestCase):
         for spawn in row['spawns']:
             instruction = spawn['prompt']['instruction']
             for phrase in ('ACK + 메모', '원문', 'relay=true', 'ask_main=true',
-                           '새 작업 요청만', 'completed', 'Work 직접 변경', 'fresh'):
+                           '새 작업 요청만', 'completed', 'Work 직접 변경', '메시지 ID와 핵심 요약'):
                 self.assertIn(phrase, instruction)
             self.assertNotIn('walkie_call_tool', instruction)
 

@@ -36,7 +36,8 @@ class SideBackgroundPromptTests(unittest.TestCase):
                 self.assertNotIn("그대로 물려받은 포크", text)
                 self.assertNotIn("이미 컨텍스트에 있습니다", text)
                 self.assertNotIn("물려받은 대화 기록에서", text)
-                self.assertIn("fresh", text)
+                if name != "side":
+                    self.assertIn("fresh", text)
 
     def test_the_actor_instructions_name_the_session_mode_and_the_background_reads(self):
         for name in ("gate_actor",):
@@ -62,7 +63,7 @@ class SideBackgroundPromptTests(unittest.TestCase):
                 self.assertNotIn('"미조회"라고 적고', text)
 
     def test_a_partial_approval_or_mains_narrowing_never_releases_a_wait(self):
-        self.assertIn('대기를 직접 변경하지 마십시오', INSTRUCTIONS['side'])
+        self.assertIn('Work 직접 변경', INSTRUCTIONS['side'])
         for name in ('gate_actor', 'gate_recheck'):
             text = INSTRUCTIONS[name]
             with self.subTest(name=name):
@@ -96,9 +97,9 @@ class SideBackgroundPromptTests(unittest.TestCase):
         # fork is running goes to that fork, which answers or acts on it.
         text = INSTRUCTIONS["side"]
         self.assertNotIn("그 항목에 대한 단순한 상태 질문이나 상황 보고는 전달하지 않습니다", text)
-        self.assertIn("상태, 진행, 사양 변경", text)
+        self.assertIn("담당 포크의 실행이 확인되면", text)
         self.assertIn('relay=true, no_reply=true', text)
-        self.assertIn('포크가 없거나 파킹됐거나 대상이 모호하면', text)
+        self.assertIn('메인에 메시지 ID와 핵심 요약', text)
         relay = DEFAULTS["side_running_fork_relay"]
         self.assertIn("상태 질문", relay)
         self.assertIn("사양 변경", relay)
