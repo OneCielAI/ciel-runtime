@@ -54,3 +54,10 @@ timestamp: 2026-11-27T07:05:00Z
 ## 추적 (수정하지 않음)
 
 - **일시 git 타임아웃의 `workspace_unavailable` 분류:** n1635의 stranded 행은 `observe()`의 git이 39초 타임아웃된 것만으로 만들어졌다. 이후 같은 워크트리의 `git log`·조상 검사는 정상이었다. `_publish_pending_review` 주석은 "소유권 검증 실패만 stranded"라고 하지만, `_workspace_unavailable_reason()`은 타임아웃을 포함한 모든 `WorkspaceError`를 사유로 돌려준다. 타임아웃을 어떻게 다룰지(재시도인지 stranded인지)는 결정이 필요해 이번에는 바꾸지 않았다.
+
+## 발행·설치·라이브 (구분)
+
+- **커밋:** `ebf972e` (`feature/priority-models`, `beta` fast-forward 푸시).
+- **GitHub Actions / npm:** `Publish to npm` 런 `45957614254` `completed: success`. `@one-ciel-ai/ciel-runtime@beta` = `0.2.51-beta.20261127-071913.ebf972e`, `gitHead` 일치. 타볼의 `work_parallel_mcp.py`는 `git show ebf972e`와 같다(`ce72cdb5971b`).
+- **7개 승인 루트 해시 확인 오버레이 (`overlay-ebf972e.tgz`):** check 단계에서 7곳 모두 `base`(mcp `af89b9a26278`, constants `877078f3875d`)였다. apply는 **7/7 `ok=True`** — mcp `ce72cdb5971b`, constants `f906aafd0003`, package.json `aa1e6c0c2aa1`(없는 로컬 2개 루트는 `skipped_absent`). 원격 임시 파일 정리 `clean`.
+- **라이브 효과:** 없음. 라우터는 기동 시 모듈을 읽으므로 다섯 라우터 모두 이전 코드로 실행 중이다. 틱 규칙상 재시작하지 않았으며, Celly `n1635`는 Celly 라우터가 다음에 재기동한 뒤의 첫 결정에서 이동된다(라이브 상태 사본 재생으로 확인한 경로).

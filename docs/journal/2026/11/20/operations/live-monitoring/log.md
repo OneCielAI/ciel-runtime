@@ -11,6 +11,7 @@
   - Prody (`06:17:23Z`): 보드 `7573→7584`, 원장 `1407→1421`, 리스 0, 실패 0. 전사 2건은 정상 가드(`plan changed`, reviewer fork 거부)다.
   - Betty (`06:17:31Z`): 보드 `5789→5803`, 원장 `1262→1277`, 제출 5·대기 1. 전사 5건은 정상 가드다(Agent 이름 누락 ×2, P5 용량, 기존 lease, 검증 대기). keep-alive mismatch 766건은 Celly와 같은 설계 경로다.
   - 호스트(Andy/Celly 기기): 커밋 90%(128.7/142.5 GB), paged pool 25.4 GB.
+  - 배포: `ebf972e` beta/npm `0.2.51-beta.20261127-071913.ebf972e`, 7개 루트 오버레이 7/7 `ok=True`(mcp `ce72cdb5971b`). **라이브 미적용** — 라우터 재시작 금지로 다섯 라우터 모두 이전 코드다. Celly `n1635`는 다음 라우터 기동 후 결정에서 풀린다.
   - 미결·추적: 일시 git 타임아웃이 `workspace_unavailable`로 분류되는 경로(n1635 계기, 미수정)·Andy 사이드 ACK/`uncertain`·claim 만료·Andy 정지 라우터 kill guarantee·Celly 413·KOBE `n5` 가드.
 
 - 05:45–06:13Z 재배포·라우터 점검(정기 틱 아님, 사용자 지시 "다시 수정본 전부 배포해 베타도 푸시하고"). 이하 UTC. 상세는 [e9eef86 재배포](../../../27/deployments/e9eef86-redeploy/record.md).
