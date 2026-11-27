@@ -91,7 +91,13 @@ timestamp: 2026-11-27T17:45:00Z
   - n2549 포크(`a20552e35fbd`)가 17:37:36Z `API Error: Connection to the API was lost (StreamTruncated)`을 받았다. 이 포크는 17:37:08Z exit 계약 요청에 답하던 중이었다.
   - Andy_Main은 17:38Z 무렵 `ciel-runtime-router` MCP가 한 번 끊겼다가 다시 연결됐다고 보고했다.
   - 둘 다 제 라우터 교체(17:37:26–38Z)가 원인이다.
-- **Celly·KOBE·Prody·Betty:** 다음 틱에 확인한다.
+- **Celly:** 17:38:54Z `tool.call hook skipped: snapshot-paged` 1건이 교체 구간에 관측됐다. 교체가 원인인지는 확인되지 않았다. 18:06:54Z `router-error` 1건은 교체 구간 밖이다.
+- **KOBE·Prody·Betty:** 교체에 인과를 연결할 수 있는 후속 부작용은 확인하지 못했다. 18:35Z 탐침은 3개 호스트 모두 응답했다.
+
+## 18:36:26Z 후속 읽기 검증
+
+- Andy P3는 `full`, `active 1`, `fenced_states: {reserved: 1}`, 후보 5개다. 이전 `a0874c5a` 해제는 위 아카이브로 확인했으며, 후속 조회에서 해당 리스는 나오지 않았다. 최근 parallel 실패 4개에는 `reserve-unbound-stale`이 보이지 않았다(전체 이벤트 부재를 뜻하지 않는다).
+- n2779 `c4a612a6`은 앞서 슬롯을 재획득했으나 이 시점에는 `waiting_input`, `slot False`다. n2549 `50129428` 역시 `waiting_input`, `slot False`다. 슬롯 획득이나 이 스냅샷만으로 포크의 지속 실행·종료를 단정하지 않는다.
 
 ## 남은 항목
 

@@ -1,0 +1,10 @@
+=== LOCAL apply
+\.local\share\ciel-runtime-hotfix5-20261119-210220 apply ok= True ['side-intake.js:3f5e518ae6ce', 'work_mcp_tools.py:b3bb18fbcab2', 'runtime_constants.py:c8ed1d87ea52', 'package.json:skipped_absent'] 
+C:\Users\djlov\.local\share\ciel-runtime apply ok= True ['side-intake.js:3f5e518ae6ce', 'work_mcp_tools.py:b3bb18fbcab2', 'runtime_constants.py:c8ed1d87ea52', 'package.json:skipped_absent'] 
+Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime apply ok= True ['side-intake.js:3f5e518ae6ce', 'work_mcp_tools.py:b3bb18fbcab2', 'runtime_constants.py:c8ed1d87ea52', 'package.json:6f47efbed4d1'] 
+.npm-global\node_modules\@one-ciel-ai\ciel-runtime apply ok= True ['side-intake.js:3f5e518ae6ce', 'work_mcp_tools.py:b3bb18fbcab2', 'runtime_constants.py:c8ed1d87ea52', 'package.json:6f47efbed4d1'] 
+=== KOBE apply
+.npm-global\node_modules\@one-ciel-ai\ciel-runtime apply ok= True ['side-intake.js:3f5e518ae6ce', 'work_mcp_tools.py:b3bb18fbcab2', 'runtime_constants.py:c8ed1d87ea52', 'package.json:6f47efbed4d1'] 
+=== .12 (Prody, Betty) apply
+.npm-global\node_modules\@one-ciel-ai\ciel-runtime apply ok= True ['side-intake.js:3f5e518ae6ce', 'work_mcp_tools.py:b3bb18fbcab2', 'runtime_constants.py:c8ed1d87ea52', 'package.json:6f47efbed4d1'] 
+.npm-global\node_modules\@one-ciel-ai\ciel-runtime apply ok= True ['side-intake.js:3f5e518ae6ce', 'work_mcp_tools.py:b3bb18fbcab2', 'runtime_constants.py:c8ed1d87ea52', 'package.json:6f47efbed4d1'] 

@@ -1,0 +1,10 @@
+=== LOCAL check
+\.local\share\ciel-runtime-hotfix5-20261119-210220 check ok= None {'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js': 'base', 'ciel_runtime_support/work_mcp_tools.py': 'base', 'ciel_runtime_support/runtime_constants.py': 'base', 'package.json': 'skipped_absent'} 
+C:\Users\djlov\.local\share\ciel-runtime check ok= None {'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js': 'base', 'ciel_runtime_support/work_mcp_tools.py': 'base', 'ciel_runtime_support/runtime_constants.py': 'base', 'package.json': 'skipped_absent'} 
+Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime check ok= None {'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js': 'base', 'ciel_runtime_support/work_mcp_tools.py': 'base', 'ciel_runtime_support/runtime_constants.py': 'base', 'package.json': 'base'} 
+.npm-global\node_modules\@one-ciel-ai\ciel-runtime check ok= None {'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js': 'base', 'ciel_runtime_support/work_mcp_tools.py': 'base', 'ciel_runtime_support/runtime_constants.py': 'base', 'package.json': 'base'} 
+=== KOBE check
+.npm-global\node_modules\@one-ciel-ai\ciel-runtime check ok= None {'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js': 'base', 'ciel_runtime_support/work_mcp_tools.py': 'base', 'ciel_runtime_support/runtime_constants.py': 'base', 'package.json': 'base'} 
+=== .12 (Prody, Betty) check
+.npm-global\node_modules\@one-ciel-ai\ciel-runtime check ok= None {'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js': 'base', 'ciel_runtime_support/work_mcp_tools.py': 'base', 'ciel_runtime_support/runtime_constants.py': 'base', 'package.json': 'base'} 
+.npm-global\node_modules\@one-ciel-ai\ciel-runtime check ok= None {'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js': 'base', 'ciel_runtime_support/work_mcp_tools.py': 'base', 'ciel_runtime_support/runtime_constants.py': 'base', 'package.json': 'base'} 
