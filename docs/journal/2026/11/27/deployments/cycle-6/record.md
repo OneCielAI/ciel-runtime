@@ -34,7 +34,7 @@ timestamp: 2026-11-27T17:45:00Z
 - **Linux py310·py311**(`run_serial.sh`, 파일 하나씩): 26/26 `failures=0 errors=0`. `test_work_mod_real_backend`는 두 버전 모두 `RAN 120 failures=0 errors=0 skipped=4`이다.
 - **Windows 임시 격리**: 25개 파일 모두 통과(`cycle9-win.txt`).
   - side 13, gate_check 27, mod_write_gate 157, texts 10, architecture 219+2, fork_gate 35, side_real_backend 8, mcp_tools 33, release_hints 3, http_controller 37, workflow_surfaces 8, running_fork_relay 3, gate_parked_forks 9.
-  - `test_work_mod_real_backend`는 기록 시점에 실행 중이다. 결과는 아래 "남은 항목"에 적는다.
+  - `test_work_mod_real_backend`: 117 passed, 3 skipped, 19 subtests passed (3201 s).
 - `claude plugin validate ciel-work`와 `ciel-work-gate` 통과. `claude plugin test ciel-work` 99 pass / 0 fail.
 - 사이클 8(중간 코드)의 Linux real-backend 실행은 register.js가 다시 바뀌어 중단했고, 사이클 9로 대체했다.
 
@@ -72,13 +72,31 @@ timestamp: 2026-11-27T17:45:00Z
 
 ## 라이브 효과
 
-- 17:56Z 확인 예정이다.
-  - 유령 예약 `a0874c5a`는 새 모드가 17:37:36Z부터 관측하므로 15분 뒤 해제될 것으로 예상한다.
-  - 해제 뒤 P3 슬롯이 n2779 재개 또는 P3 후보로 쓰이는지 본다.
+- **유령 예약 해제(Andy):**
+  - `a0874c5a`(n2923, 08:20:08Z 예약)가 18:10:21Z에 해제됐다. coordination 아카이브의 outcome은 `native launch never started`다.
+  - 17:54Z와 18:04Z에는 아직 예약이 남아 있었다.
+  - 새 모드의 첫 펌프 흔적은 17:52:15Z의 parked 로그다. 첫 관측 뒤 15분이 지나야 해제되므로, 모드 리로드(17:37:36Z) 시점보다 늦어졌다.
+  - 해제 전 확인:
+    - 같은 ledger 복사본에 router `release`를 재현하면 받아들여진다(`release_replay.py`).
+    - 호스트 투영으로 보면 `owner_process own`, `workspace_path` 있음, `dispatch_name` 있음이다(`project(..., host_view=True)`).
+- **해제 뒤:**
+  - 18:15:46Z에 P3는 `active 0, candidates 6, can_fill`이다.
+  - n2779 `c4a612a6`은 `slot True`(재획득)다.
+  - 18:15:35Z `Work: resumed parked worker a879d922407… on n2888`.
+- **게이트 결정 유지·ACK client_id·사이드 보드 쓰기 차단:** 해당 이벤트가 오면 다음 틱에서 확인한다.
+
+## 재시작 부작용
+
+- **Andy:**
+  - n2549 포크(`a20552e35fbd`)가 17:37:36Z `API Error: Connection to the API was lost (StreamTruncated)`을 받았다. 이 포크는 17:37:08Z exit 계약 요청에 답하던 중이었다.
+  - Andy_Main은 17:38Z 무렵 `ciel-runtime-router` MCP가 한 번 끊겼다가 다시 연결됐다고 보고했다.
+  - 둘 다 제 라우터 교체(17:37:26–38Z)가 원인이다.
+- **Celly·KOBE·Prody·Betty:** 다음 틱에 확인한다.
 
 ## 남은 항목
 
-- Windows `test_work_mod_real_backend` 결과.
+- `work_status` parallel 블록이 빈 신원으로 계산되던 결함(runtime=codex)을 고쳤다. 고친 코드는 다음 사이클에 배포한다. 테스트는 `test_status_json_parallel_block_is_this_conversations`이고, 수정 전 실패와 수정 후 34 passed를 확인했다.
+- Andy 18:10–18:13Z `Ciel Work gate wg-…: router-error` 3건(미확인).
 - Andy_Main 보고 [3]: stranded·finalization 행이 `rework_ready`·launch `bound`로 남아 있는데, 교체 리스는 이미 unreported/orphaned다. 디스패치는 막지 않지만(`_stranded_item_pending`은 intent/pending만 본다) 종결 경로가 없다.
 - Andy_Main 보고 (4): `work_status`의 parallel 요약이 `runtime=codex`로 계산된다(미확인).
 - n2957 포크의 `__unparsedToolInput` 중첩 손상 루프(16:49Z)는 별도로 추적한다.
