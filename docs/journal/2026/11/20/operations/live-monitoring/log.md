@@ -2,6 +2,14 @@
 
 ## 2026-11-26
 
+- 02:12:21–02:13:07Z 정기 틱(01:53:49Z 대비 19분 관측 창). 5개 호스트 전원 수집 성공, `live.board` 전원 `observed`, MCP 전원 `probe_succeeded`(Andy `1984ms`, Celly `1735ms`, KOBE `668ms`, Prody `713ms`, Betty `492ms`). 재시작·상태 파일 수정 없음. 이하 UTC.
+  - Andy (`02:12:21Z`): 보드 `v12524→v12526`, 원장 `8903→8904`, actionable 53 유지, 리스 제출 20·실행/슬롯 3→2·대기 1, finding 0·신규 실패 0. 라우터 로그 `fork_turn_watch_poll_failed` 0건·`work_workspace_failed` 0건 유지. **포크 그룹: 확인 0, 대기 1(`n2898` idle), 미확인 2(`n2763`·`n1166` running), 검증 대기 20** — 직전 틱의 확인 포크 2건이 이번 표본에서는 `uncertain`으로 내려갔다(마지막 native 관측이 30초 신선도를 벗어남). 이는 종료 증거가 아니며 `native-fork-evidence/1` 계약상 미확인으로만 기록한다. **새 워크트리 예산의 성공 실증은 여전히 없음**: 최근 90분 내 워크스페이스 매니페스트 변경은 `311546de`(19:09 생성, `ready`) 1건뿐으로 이는 배포 이전이다.
+  - Celly (`02:12:26Z`): 보드 `v11452→v11456`, 원장 10422 유지, MCP `1735ms`, 대기 10·제출 1·실행/슬롯 3, finding 1건 `n1585 awaiting_capacity`(P3 1/1, 결함 아님) 유지, 신규 실패 0·포크 표본 오류 0(직전 3건에서 감소), 전사 1건. 라우터는 여전히 11-25 빌드(변경 없음).
+  - KOBE (`02:12:40Z`): 보드 `v818→v822`, 원장 `4875→4881`, MCP `668ms`, 수락 1·대기 24·실행/슬롯 1. **신규 finding `slot held, fork absent since 01:04: n282 2bfdd481 P3 running`** — native 부재는 종료 증거가 아니므로 결함으로 단정하지 않고 추적만 한다. `n5` 미완료 자식 가드 유지. 포크 표본 오류 6건.
+  - Prody (`02:12:54Z`): 보드 `v7559→v7562`, 원장 `1357→1374`, MCP `713ms`, 실행/슬롯 1만(제출·대기 0), finding 0·신규 실패 0·포크 오류 2건, action 1.
+  - Betty (`02:13:07Z`): 보드 5789·원장 1262 변화 없음, MCP `492ms`, 제출 5만, 오류 0.
+  - 미결·추적: Andy 새 예산 성공 실증 미확보·`n2763`/`n1166` 미확인 포크·`n2898` idle 대기; Celly 라우터 11-25 빌드 유지(새 예산·애니메이션 미적용)·`n1585` 용량 대기·`work_side_intake_enabled=False` 적체; KOBE **신규 `n282` 슬롯 점유/포크 부재**·`n5` 가드.
+
 - 01:52:16–01:53:49Z 정기 틱(01:46:30Z 대비 6분 관측 창). 5개 호스트 전원 수집 성공, `live.board` 전원 `observed`, MCP 전원 `probe_succeeded`(Andy `953ms`, Celly `2000ms`, KOBE `304ms`, Prody `353ms`, Betty `314ms`). 재시작·상태 파일 수정 없음. 이하 UTC.
   - **정정 — Celly CLI 재시작은 실제로 완료됐다(직전 틱의 "미완료" 판정이 틀렸다).** 프로세스 트리를 직접 읽어 확인했다: `104616`(python, 구 supervisor) → 자식 `101552`(cmd.exe, 19:43:36) → `75652`(**claude.exe, 19:43:37 신규**), 그리고 `78556`(python). 즉 `claude_session_restart exit_code=1`은 재시작 자체의 실패가 아니라 옛 CLI 종료 코드였고, 새 CLI가 1초 뒤 정상 기동했다. 지난 틱에 `active_client_pids`가 옛 값으로 남은 것을 근거로 "미완료"라고 쓴 것은 **잘못된 추론**이었다. 다만 **라우터 프로세스 `111684`는 11-25 23:32 기동 그대로**여서, 새 CLI는 새 워크트리 예산·애니메이션 코드를 모듈로 로드하지 않았다(모드는 CLI가 훅/클라이언트를 읽으므로 예외). Celly의 `fork_watch`는 `null`(이 세션은 포크 감시 미바인딩).
   - **Andy (`01:52:16Z`) — 배포 후 첫 워크스페이스 생성 성공 관측:** 보드 `v12521→v12524`(actionable 52→53), 원장 `8901→8903`, MCP `953ms`, 리스 제출 20·실행/슬롯 3(직전 2). **확인 포크 2건(`n2898` running, `n1166` running)** — 새 라우터에서 처음으로 실행 중 포크가 관측됐다. 새 라우터 로그 `fork_turn_watch_poll_failed` **0건**, `work_workspace_failed` **0건** 유지. 워크스페이스 매니페스트 `work-parallel-311546defa9a6b73ff63660d`(lease `d0ed667269`, host `a11ef6cc1bca`, `ready`, `idle_proof="Submitted completion fork absent from agent.list after restart"`)가 워크트리와 함께 존재. 단 이 워크트리 생성 시각은 `19:09:34Z`로 **배포·재시작(19:19·19:36) 이전**이므로, 이것을 새 예산의 성공 증거로 쓰지 않는다. 새 예산의 실증은 아직 미확보다.
