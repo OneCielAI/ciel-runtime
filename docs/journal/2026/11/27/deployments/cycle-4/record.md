@@ -63,4 +63,43 @@ timestamp: 2026-11-27T10:55:00Z
 
 ## 배포
 
-- (기록 예정: 커밋, beta, npm, 7개 루트 오버레이, 라우터 재시작과 부작용)
+### 발행
+
+- 커밋 `2fe04af`를 `feature/priority-models`와 `beta`에 fast-forward 푸시했다.
+- `Publish to npm` 런 `45994568451` 성공. `@one-ciel-ai/ciel-runtime@beta` = `0.2.51-beta.20261127-115656.2fe04af`(`gitHead` `2fe04aff42f3` 일치).
+
+### 파일 설치(7개 루트)
+
+- `build_overlay_from_stamp.py`로 npm tarball에서 오버레이 `overlay-2fe04af`를 만들었다. 기반은 `ebf972e`, stamp는 `stamp-ebf972e`다.
+  - 코드 8개 파일 모두 tarball과 `git show 2fe04af`가 같다.
+  - 새 해시: `register.js e80dec9e54d7`, `side-intake.js 06e7e1d3e42b`, `texts.generated.js ae5cbd0a0b99`, `router_process_lifecycle.py 6b213e36291b`, `side_intake_settings.py 073e7e2d3780`, `work_parallel_mcp.py 1334fb2c09c6`, `work_parallel_workspace.py 594e029d612d`, `work_texts.py af411d6c0e95`, `runtime_constants.py 03036d499918`, `package.json 37e7812bc480`.
+- check는 7/7 루트에서 모든 파일이 `base`였다(로컬 2개 루트의 package.json은 `skipped_absent`).
+- apply는 7/7 `ok=True`다. 재check 결과 7/7 모두 `new`이며 `.cmd` 래퍼는 건드리지 않았다.
+
+### 라이브 적용(재시작)
+
+| 호스트 | 모드 핫리로드 | 라우터 교체(UTC) | 결과 |
+| --- | --- | --- | --- |
+| Andy `9515` | 12:10:44Z `ciel-work: reloaded` | `83616`(e9eef86) → `51288`, 12:11Z | `2fe04af`, 클라이언트 `[93580]` 유지, REST·MCP 정상 |
+| Celly `9385` | 12:09:23Z `ciel-work: reloaded` | `60548`(ebf972e) → `58896`, 12:12:45Z(권한 상승 스크립트, pid·명령줄·리스너 확인 후 종료) | `2fe04af`, 클라이언트 `[84588]` 유지 |
+| KOBE `9779` | (확인 안 함) | `12360`(1ca7dc3) → `16120`, 12:15:08Z | `2fe04af`, 런처 `11368` 유지, claude 동일 |
+| Prody `9592` | (확인 안 함) | `7836`(1ca7dc3 코드) → `7716`, 12:15:47Z | `2fe04af`, 런처 `10788` 유지, claude 동일 |
+| Betty `9564` | (확인 안 함) | `11836`(1ca7dc3 코드) → `11296`, 12:17:09Z | `2fe04af`, 런처 `5624` 유지, claude 동일 |
+
+- 각 라우터는 `/health` pid와 명령줄(`ciel_runtime.py serve`)을 확인한 뒤 그 pid만 종료했다. 슈퍼바이저가 같은 포트로 다시 띄웠다. 런처·Claude 세션·상태 파일은 그대로다.
+- KOBE·Prody·Betty의 모드 핫리로드는 이번에 확인하지 않았다. 이 세 호스트의 모드 수정(사이드 대기 확인, 예약 회수)은 그 세션이 새 파일을 로드했다는 증거를 본 뒤에 라이브로 판정한다.
+
+### 재시작 부작용(12:17Z 틱)
+
+- **Andy:**
+  - 12:11:32–12:11:45Z 라우터 교체 구간에 `Work reconciliation: Parallel read failed: MCP server "ciel-runtime-router" is not connected` 19건과 `work_host_page … not connected` 1건이 나왔다. 교체 중 재연결 대기에서 생긴 것이다.
+  - 같은 구간에 포크 3개(n2510 `ae761f31`, n2968 `a3ded728`, n2956 `a77850735`)가 `API Error: Connection refused (ECONNREFUSED)`를 받았다(12:11:32–34Z).
+  - 모드가 재시도를 예약했고(12:13:16Z, 1m×10), `ae761f31`은 12:18:29Z까지 진행이 이어졌다. **제 교체가 원인**이다.
+- **Celly·KOBE·Prody·Betty:** 교체 뒤 새 실패는 0이다.
+  - Celly 전사의 `auto continue could not read the Work status` 3건(11:55:45, 12:03:48, 12:10:45Z)은 교체 전에 생긴 것이라 부작용이 아니다.
+  - Celly 12:16:34Z JSON 트레이스백은 모델 스크립트다.
+
+### 남은 항목
+
+- Andy `a0874c5a`(n2923)와 Celly `6ee265a6`(n1577)의 미바인딩 예약은 이번 수정이 기록하는 키가 아니어서 자동으로 풀리지 않는다. 운영 상태 파일은 수정하지 않았다.
+- 대기 확인 게이트의 라이브 효과는 다음 대기 항목 이벤트에서 `wait_items`가 들어간 사이드 프롬프트와 그 답의 `wait_checks`·`release_waits`로 확인한다.
