@@ -18,7 +18,8 @@ const eventText=guidance=>JSON.stringify({specversion:'1.0',id:'ev-1',type:'com.
 const row=(agent,history)=>({agent_id:agent,display_name:agent===SELF?'Andy Ai':'Other Ai',
  state:history.at(-1)?.state ?? null,version:history.length,updated_at:null,received:true,
  memo:history.at(-1)?.state==='ack' ? history.at(-1).memo ?? null : null,history})
-function run(label,{guidance=GUIDANCE,work=()=>[],readbackFails=false}={}){
+function run(label,{guidance=GUIDANCE,work=()=>[],readbackFails=false,expires=false}={}){
+ let expired=expires
  const calls=[],sends=[],spawns=[],logs=[]
  let receipt=0
  const hostStore=new Map()
@@ -45,8 +46,12 @@ function run(label,{guidance=GUIDANCE,work=()=>[],readbackFails=false}={}){
       root_id:'40',target_message_id:'41',thread_root_id:'40'},route:{source_kind:'external_event'},
      workload:{version:3,truncated:false,nodes:[],queue_order:[]}}
     return text({claim,settings:{max_active:2},handoff_replies:[],main_wakes:[]})}
-   if(name==='work_side_understanding'&&args.state==='prepare')
-    return text({state:'submitting',attempt_id:'u1',server:'walkie',tool:'walkie_send_message',arguments:{text:args.understanding}})
+   if(name==='work_side_renew'){
+    expired=false
+    return text({receipt_id:args._host.receipt_id,generation:args._host.generation,lease_until:Date.now()/1000+120})}
+   if(name==='work_side_understanding'&&args.state==='prepare'){
+    if(expired) return {isError:true,content:[{type:'text',text:'side claim expired'}]}
+    return text({state:'submitting',attempt_id:'u1',server:'walkie',tool:'walkie_send_message',arguments:{text:args.understanding}})}
    if(name==='work_side_understanding') return text({receipt:{receipt_id:'e'.repeat(64),stage:'received'}})
    if(name==='work_side_resolve')
     return text({receipt:{receipt_id:'e'.repeat(64),stage:'processed'},result:{action:args.decision.action,duplicate:false,version:4}})
@@ -103,4 +108,5 @@ await scenario('acked',[good],{work:()=>[row(SELF,[...acked,{state:'processing',
 await scenario('no_guidance',[good],{guidance:null})
 // The readback itself fails: that proves nothing missing, so the decision commits.
 await scenario('readback_unavailable',[good],{readbackFails:true})
+await scenario('expired_before_prepare',[good],{work:()=>[row(SELF,acked)],expires:true})
 console.log(JSON.stringify(out))

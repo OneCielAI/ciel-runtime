@@ -1,0 +1,12 @@
+Python 3.10.22
+tests/test_side_ack_gate.py :: RAN 9 failures=0 errors=0 skipped=0
+tests/test_side_intake_mod.py :: RAN 75 failures=0 errors=0 skipped=0
+tests/test_side_intake_mcp.py :: RAN 54 failures=0 errors=0 skipped=1
+tests/test_work_mcp_tools.py :: RAN 34 failures=0 errors=0 skipped=0
+DONE
+Python 3.11.18
+tests/test_side_ack_gate.py :: RAN 9 failures=0 errors=0 skipped=0
+tests/test_side_intake_mod.py :: RAN 75 failures=0 errors=0 skipped=0
+tests/test_side_intake_mcp.py :: RAN 54 failures=0 errors=0 skipped=1
+tests/test_work_mcp_tools.py :: RAN 34 failures=0 errors=0 skipped=0
+DONE

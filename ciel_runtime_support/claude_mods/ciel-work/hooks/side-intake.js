@@ -2384,8 +2384,17 @@ async function submitAck($,identity,event) {
 // The understanding message: its own outbox phase and Walkie client_id. An
 // uncertain send is recorded and never repeated; the decision still commits.
 async function submitUnderstanding($,actor,event,proposal) {
-  const prepared = await callRouter($,'work_side_understanding',{...proposal,state:'prepare'},
-    {receipt_id:event.receipt_id,generation:event.generation},actor.identity)
+  const fence = {receipt_id:event.receipt_id,generation:event.generation}
+  const prepare = () => callRouter($,'work_side_understanding',{...proposal,state:'prepare'},fence,actor.identity)
+  let prepared
+  try { prepared = await prepare() } catch (error) {
+    // The router rejected this prepare before saving the proposal. Try once
+    // under the same generation; renew refuses if another claim took over.
+    if (error?.message !== 'Side router operation failed: work_side_understanding: side claim expired') throw error
+    const renewed = await callRouter($,'work_side_renew',{},fence,actor.identity)
+    if (Number.isFinite(renewed?.lease_until)) event.lease_until = renewed.lease_until
+    prepared = await prepare()
+  }
   // The router accepted and saved this proposal: from here a correction would
   // be a second proposal, which it refuses, so none is asked for.
   actor.understood = true

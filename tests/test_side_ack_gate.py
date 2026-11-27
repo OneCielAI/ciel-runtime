@@ -78,6 +78,10 @@ class SideAckGateTests(unittest.TestCase):
         row = self.result['no_guidance']
         self.assertEqual(([], [], 1), (row['readbacks'], row['sends'], row['resolves']))
 
+    def test_an_expired_claim_still_owned_by_the_actor_does_not_lose_its_decision(self):
+        row = self.result['expired_before_prepare']
+        self.assertEqual(([], 1, []), (row['sends'], row['resolves'], row['failures']))
+
     def test_an_unavailable_readback_does_not_block_the_decision(self):
         row = self.result['readback_unavailable']
         self.assertEqual(([], 1, []), (row['sends'], row['resolves'], row['failures']))
