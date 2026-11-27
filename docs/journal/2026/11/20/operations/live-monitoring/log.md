@@ -2,6 +2,37 @@
 
 ## 2026-11-27
 
+- 21:33:13–21:33:43Z 읽기 전용 틱(이전 21:22Z 대비). 이번 틱 지시에 따라 운영 세션·라우터 재시작은 하지 않았고, 상태 파일도 수정하지 않았다.
+  - **사이클 8 파일 설치(라이브 아님):**
+    - Linux py310·py311에서 14개 파일 모두 `failures=0`([로그](../../../27/fixes/side-decision-refusal-causes/evidence/linux-py310-py311.txt)).
+    - 커밋 `2fa83bc`(검수 거절 필드명), `1ce5c5c`(사이드 거절 원인·보류 결정 보존), `18aa41c`(문서). beta push `c8363a3..18aa41c`, 발행 런 `46069949494` 성공, npm beta `0.2.51-beta.20261127-212322.18aa41c`(gitHead `18aa41ce4312`).
+    - 오버레이 `overlay-18aa41c`의 기반은 c8363a3, stamp는 `stamp-c8363a3`(`c8ed1d87ea52`/`6f47efbed4d1`)이다. tarball과 git 내용이 같다.
+
+      | 파일 | 기존 → 새 해시 |
+      | --- | --- |
+      | `side-intake.js` | `3f5e518ae6ce → fce0107ddd9e` |
+      | `work_parallel_finalization.py` | `57a52860effb → b6bc40b09cbe` |
+      | `work_parallel_mcp.py` | `1334fb2c09c6 → ab7868d8a2ba` |
+      | `runtime_constants.py` | `c8ed1d87ea52 → f9e492bb4206` |
+      | `package.json` | `6f47efbed4d1 → a6d9c7401802` |
+
+    - 7개 루트 check `base` 7/7 → 21:32:47Z apply `ok=True` 7/7 → recheck `new` 7/7.
+    - **라우터는 아직 c8363a3 코드로 돈다.** `work_parallel_*` 변경은 라우터가 재기동해야 적용된다. `side-intake.js`는 모드 리로드 시점에 적용되는데, 이번 설치 뒤 리로드는 아직 확인하지 못했다.
+  - **Andy:**
+    - 보드·MCP 탐침이 4초 제한에 걸렸다(4031 ms). 직접 재측정하면 board 2015·3297 ms(742,842 B, v12881)로 응답했다.
+    - 21:26:20Z `work_parallel_item_review` 타임아웃과 21:26–21:28Z reconciliation 타임아웃 3건. 21:26:22Z `decision_refused_stop b665460e`(n1175)는 재시도로 21:28:40Z `finalized approve`가 됐다.
+    - 이전 틱의 발견 `n2961 2be7fa81`(검수 행 없음)과 `n1584 85f88eac`는 각각 21:28:57Z, 21:31:55Z에 `finalized approve`가 됐다. 해소됐다.
+    - 부하: CPU 85.7%, 디스크 큐 0.4. 6초 CPU 상위는 Andy 포크 워크트리의 `vite build`(node 65516, 9.75 s)와 Andy 라우터(15960, 6.61 s)다. 고아 grep/find는 없다.
+    - 21:24–21:34Z(로컬 15:24–15:34) 라우터 MCP 호출 중 `work_host_page`가 5,393건으로 대부분이다. 이 페이징 부하와 타임아웃의 관계는 미확인이다.
+  - **Celly:** 보드 11596→11600, MCP 641 ms. 21:28:19Z Work gate `router-error` 1건, 21:31:21Z Walkie 인자 400 1건. `transcript_delta_delivery_failed` timeout 11건·refused 9건.
+  - **KOBE:** 13:30:44Z(로컬) `channel_input_submit_unconfirmed attempts=4`, `channel_input_receipt_unmatched` 1건. 입력 전달 확인이 실패한 것으로, 원인은 미확인이다. 추적한다.
+  - **Prody·Betty:** 새 결함 없음. Betty `channel_turn_projection_persistent`(360–728 s, `observe_only`) 4건.
+  - **Andy_Main 핫픽스 요청(21:2xZ, 사용자 지시 인용):**
+    - 요청 범위: A(사유 없음 turn_error·aborted, 세 원인 구분, claim 만료를 별도 category로, 필드·형식이 빠진 사유, 교정문 사유별 안내)와 B(사이드 프롬프트: ACK 우선, 메인 담당 스레드 게시 금지, 미확인 기능 단정 금지, 위임 승인 인정).
+    - 이 중 A-2(세 원인 구분)는 이번 18aa41c에 들어 있다.
+    - 나머지는 다음 사이클에 실패 테스트부터 진행한다.
+    - Andy_Main은 정정도 보냈다. `side claim expired`는 reason 기준으로 5건이 있었고, c8363a3 배포 뒤에는 0건이다.
+
 - 21:20:13–21:20:39Z 틱(이전 20:18–20:20Z 대비). 이 기계(SAMA)가 재부팅된 직후다.
   - **재부팅 사실(Windows 이벤트 로그):**
     - 20:59:10Z `winlogon.exe`가 사용자 `djlov` 대신 재시작을 시작했다(id 1074).

@@ -1,0 +1,10 @@
+=== LOCAL apply
+\.local\share\ciel-runtime-hotfix5-20261119-210220 apply ok= True ['side-intake.js:fce0107ddd9e', 'work_parallel_finalization.py:b6bc40b09cbe', 'work_parallel_mcp.py:ab7868d8a2ba', 'runtime_constants.py:f9e492bb4206', 'package.json:skipped_absent'] 
+C:\Users\djlov\.local\share\ciel-runtime apply ok= True ['side-intake.js:fce0107ddd9e', 'work_parallel_finalization.py:b6bc40b09cbe', 'work_parallel_mcp.py:ab7868d8a2ba', 'runtime_constants.py:f9e492bb4206', 'package.json:skipped_absent'] 
+Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime apply ok= True ['side-intake.js:fce0107ddd9e', 'work_parallel_finalization.py:b6bc40b09cbe', 'work_parallel_mcp.py:ab7868d8a2ba', 'runtime_constants.py:f9e492bb4206', 'package.json:a6d9c7401802'] 
+.npm-global\node_modules\@one-ciel-ai\ciel-runtime apply ok= True ['side-intake.js:fce0107ddd9e', 'work_parallel_finalization.py:b6bc40b09cbe', 'work_parallel_mcp.py:ab7868d8a2ba', 'runtime_constants.py:f9e492bb4206', 'package.json:a6d9c7401802'] 
+=== KOBE apply
+.npm-global\node_modules\@one-ciel-ai\ciel-runtime apply ok= True ['side-intake.js:fce0107ddd9e', 'work_parallel_finalization.py:b6bc40b09cbe', 'work_parallel_mcp.py:ab7868d8a2ba', 'runtime_constants.py:f9e492bb4206', 'package.json:a6d9c7401802'] 
+=== .12 (Prody, Betty) apply
+.npm-global\node_modules\@one-ciel-ai\ciel-runtime apply ok= True ['side-intake.js:fce0107ddd9e', 'work_parallel_finalization.py:b6bc40b09cbe', 'work_parallel_mcp.py:ab7868d8a2ba', 'runtime_constants.py:f9e492bb4206', 'package.json:a6d9c7401802'] 
+.npm-global\node_modules\@one-ciel-ai\ciel-runtime apply ok= True ['side-intake.js:fce0107ddd9e', 'work_parallel_finalization.py:b6bc40b09cbe', 'work_parallel_mcp.py:ab7868d8a2ba', 'runtime_constants.py:f9e492bb4206', 'package.json:a6d9c7401802'] 
