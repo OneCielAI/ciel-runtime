@@ -28,6 +28,14 @@ capability, followed by the complete commit ledger merged into each release.
 - `work_node_update` now says in its reply when a title or note edit returned the
   goal to the planning phase and no Work fork will be assigned until
   `work_execute` (managed text `scope_planning`).
+- A side actor's decision is no longer lost when its claim lease lapsed just
+  before the host saved it. On `side claim expired` at the understanding step the
+  host renews the same claim once and retries; a claim another actor took is still
+  refused. Two Walkie events whose actors had ACKed and decided were quarantined
+  as `invalid_answer` this way.
+- `work_status` (json) reports the calling conversation's parallel summary instead
+  of one computed for an empty identity, which showed `runtime=codex` and no
+  unfinished work.
 
 
 ### Beta: the tool-guard Stop hook is removed
