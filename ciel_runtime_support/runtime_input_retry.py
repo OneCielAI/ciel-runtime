@@ -68,6 +68,9 @@ CLAUDE_TRANSIENT_ERRORS = frozenset({"server_error", "overloaded_error", "api_er
 CLAUDE_TRANSPORT_FAILURE_TEXTS = (
     "API Error: terminated",
     "API Error: Upstream Anthropic stream failed before message_stop (",
+    # streaming_anthropic report_incomplete_stream: upstream closed without
+    # message_stop (Andy n2956 2026-11-27 12:21Z, never retried, slot held).
+    "API Error: Upstream Anthropic stream ended before message_stop.",
     "API Error: Ciel Runtime failed to relay the Anthropic stream (",
     "API Error: Ciel Runtime stopped waiting for the first upstream output",
     "API Error: Gateway response stream was interrupted",

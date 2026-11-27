@@ -171,6 +171,8 @@ class TypedTurnResendTests(unittest.TestCase):
         texts = ("API Error: terminated",
                  "API Error: Upstream Anthropic stream failed before message_stop (TimeoutError).",
                  "API Error: Upstream Anthropic stream failed before message_stop (IncompleteRead).",
+                 # The router's own text when upstream closed without message_stop.
+                 "API Error: Upstream Anthropic stream ended before message_stop.",
                  "API Error: Ciel Runtime stopped waiting for the first upstream output: the router pre-output "
                  "time limit (540s since the request arrived) was reached (0 retries).",
                  "API Error: Gateway response stream was interrupted")

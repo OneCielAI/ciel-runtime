@@ -2,6 +2,42 @@
 
 ## 2026-11-27
 
+- 12:57:26–12:58:04Z 정기 틱(12:46Z 대비 11분). 재시작·상태 파일 수정 없음, 배포 대기.
+  - **Andy:**
+    - 보드 12679→12684, 원장 9056→9064, MCP 3235ms. 대기 6, 실행/슬롯 4.
+    - finding `n2956 a1838a3e P5`가 12:23Z부터 그대로다. 포크가 미재시도 상태로 슬롯을 쥐고 있다. 원인은 입증됐고 수정은 배포 대기 중이다.
+    - 라이브 라우터는 아직 옛 분류라 자동 재시도가 오지 않는다. 배포 후에는 이 전사를 `transport_interrupted`(재시도 대상)로 분류한다(재분류로 확인).
+    - 새 실패 0, 전사 오류 0.
+  - **Celly:** 보드 다시 관측(11531), MCP 1406ms. 12:47:24Z에 파킹 리스 `b5967f4c`가 대기 해제 뒤 재개를 시도했지만 P3 슬롯(1/1)이 없어 대기를 유지했다(정상 용량 대기).
+  - **KOBE:**
+    - 로컬 04:54:15에 상류 오류 이벤트 1건(`anthropic_sse_upstream_error_event`, `_Walkie_P1`)이 있었고, 라우터가 그대로 전달했다.
+    - 활동 파일 권한 거절 1건이 다시 나왔다.
+    - `n298`·`n5` 가드 유지.
+  - **Prody:** 전사 2건은 모델의 파일 경로·셸 명령 실패다.
+  - **Betty:** 보드 5808→5809, 실패 0.
+  - **회귀:**
+    - 재시도 수정: Windows 9/9 파일 통과.
+    - Linux py310은 5/9 파일, py311은 3/9 파일까지 실패 없이 진행 중이다.
+
+- 12:46:18–12:47:00Z 사이클 틱(12:32Z 대비 14분). 재시작·상태 파일 수정 없음.
+  - **매칭 수정 발행:** `4f65d4e`.
+    - beta 푸시, `Publish to npm` 런 `46001841740` 성공. npm `0.2.51-beta.20261127-124925.4f65d4e`, `gitHead` 일치.
+    - 회귀: Windows 8/8 파일, Linux py310·py311 8/8, plugin test 99/0.
+    - 설치·라우터 교체는 아래 재시도 수정과 묶어 한 번에 한다(포크 재연결 1회로 줄이기 위함).
+  - **Andy 새 finding — n2956 포크가 슬롯을 쥔 채 멈춤(입증, 수정):**
+    - lease `a1838a3e` P5, running, `slot=true`.
+    - 포크 전사 마지막 기록은 12:21:19Z `API Error: Upstream Anthropic stream ended before message_stop.`(`error=unknown`). 같은 시각 라우터에 `anthropic_sse_upstream_incomplete`가 찍혔다.
+    - 이 문구가 일시 전송 오류 목록에 없어 재시도가 예약되지 않았다. 실패 테스트 2개로 재현하고 수정했다.
+    - 상세: [fork-upstream-incomplete-retry](../../../27/fixes/fork-upstream-incomplete-retry/record.md). 회귀 실행 중.
+  - **Andy 기타:** MCP 4000ms 실패(이번 틱), 원장 9049→9056, 전사 오류 0.
+  - **Celly:**
+    - 보드 `unavailable`, MCP 4016ms 실패.
+    - 12:37:14Z 포크 2개(n1593 `aff9ece8`, n1481 `ad6f2cdb`)가 `server_error`를 받았다. 모드가 재시도를 예약했고 12:39:44Z에 1/20 재시도를 보냈다(재시도 경로 정상).
+    - 12:39:34Z `n1505 … active slot capacity reached for P3`는 용량 대기다.
+  - **KOBE:** `n298 awaiting_capacity`, `n5` 가드 유지, `_Walkie_Sonnet55-Sol61` 클라이언트 끊김 1건(로컬 04:44:54).
+  - **Prody:** 변화 없음.
+  - **Betty:** 로컬 04:38:35 `cielairouter_gateway_central … discovery unavailable degraded=True` 1건. 게이트웨이 discovery가 실패해 설정 base URL로 동작한 것이다(게이트웨이 소관, 추적).
+
 - 12:32:26–12:32:58Z 정기 틱(12:20Z 대비 12분). 재시작·상태 파일 수정 없음.
   - **대기 확인 게이트 라이브 첫 관측(Andy):**
     - 12:19:58Z `agent.pending_reminder` 이벤트 `3556200a0ca7`의 사이드 액터가 `wait_items` 8건을 받았다. 도구를 29회 불러 8건 모두 조건을 조회했고, 결과는 `wait_checks`(전부 `met=false`)로 남았다. 12:25:42Z `answer`로 끝났다(5분 44초).

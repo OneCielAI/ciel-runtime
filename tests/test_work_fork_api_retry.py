@@ -33,6 +33,14 @@ class WorkForkApiRetryTests(unittest.TestCase):
                             "error": "unknown",
                             "message": {"content": [{"type": "text", "text": "API Error: terminated"}]},
                             "timestamp": "2026-11-22T07:02:00Z"}, False, "transport_interrupted"),
+            # Andy 2026-11-27 12:21Z (n2956 a77850735eb2): the router's own
+            # incomplete-stream text (streaming_anthropic report_incomplete_stream)
+            # was not retried, so the fork sat with its P5 slot held.
+            ("upstream_incomplete", {"type": "assistant", "uuid": "u-inc", "isApiErrorMessage": True,
+                                     "error": "unknown", "apiErrorType": "api_error",
+                                     "message": {"content": [{"type": "text", "text":
+                                         "API Error: Upstream Anthropic stream ended before message_stop."}]},
+                                     "timestamp": "2026-11-22T07:02:30Z"}, False, "transport_interrupted"),
             ("empty_stream", {"type": "assistant", "uuid": "u-empty", "isApiErrorMessage": True,
                               "error": "unknown",
                               "message": {"content": [{"type": "text", "text": EMPTY_STREAM_ERROR}]},
