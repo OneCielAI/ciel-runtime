@@ -2,6 +2,15 @@
 
 ## 2026-11-26
 
+- 04:32:17–04:35:10Z 정기 틱(04:24:03Z 대비 8분 관측 창). 5개 호스트 전원 수집 성공, KOBE·Prody는 이번엔 기본 수집에서도 성공. 재시작·상태 파일 수정 없음. 이하 UTC.
+  - **Celly — 보드/MCP 4초 타임아웃 4틱 연속, 원인 후보 관측(미확정).** 이번에도 `board`·`mcp` `TimeoutError`(`mcp` `elapsed_ms=4031`). 라우터 파일 리스는 정상(대기 9·실행/슬롯 3·제출 2). 직접 `/board`를 3회 호출하니 **2.10s / 1.43s / 5.51s** — 성공하지만 편차가 크고 한 번은 4초 예산을 넘겼다. 라우터 로그의 분당 MCP 호출량을 세니 **22 → 36 → 16 → 79 → 118 → 161 → 139 calls/min**으로 급증했고, 누적 상위 도구는 `work_host_page` **153,483회**, `work_side_claim` 20,732회다. 같은 구간에 `router_post_client_disconnected path=/ca/mcp`(WinError 10054/10053)가 반복되고 `runtime_activity_context_usage_failed WinError 5`도 1건 있다. 전사에도 `Work reconciliation: Side router operation failed: work_host_page: The operation timed out.`(04:33:39)와 `Ciel Work gate … router-error`(04:33:47)가 있어 **모니터의 4초 타임아웃과 모드 자신의 `work_host_page` 타임아웃이 같은 현상**임을 보여준다. **인과(호출량 급증 → 지연)는 상관 관측일 뿐 확정 아님.** 코드 수정 없음.
+  - Andy (`04:32:17Z`): 보드 `v12543→v12548`, 원장 `8926→8933`, actionable 54, MCP `1313ms`, 리스 제출 20·실행/슬롯 2·대기 1, **finding 0**(직전 `n2763` 검수행 미생성 행이 이번 표본에서 사라짐 — 해소 여부는 다음 틱 확인 필요), 신규 실패 0, 전사 0, 포크 오류 0. 라우터 `fork_turn_watch_poll_failed` 0건·`work_workspace_failed` 2건 유지(신규 없음).
+  - Celly (`04:32:26Z`): 원장 `10430→10443`, finding `n1585 awaiting_capacity` 1건(용량 대기), 새 실패 `decision_refused_stop 1b3fdb79 x1`(정상 Stop 가드), 포크 표본 오류 5건, 전사 9건.
+  - KOBE (`04:34:48Z`): 보드 834 유지, 원장 `4924→4928`, MCP `247ms`, 수락 1·제출 1·실행/슬롯 1, finding `n5` 가드 유지, 신규 실패 0.
+  - Prody (`04:34:57Z`): 보드 `v7567→v7571`, 원장 1407 유지, MCP `370ms`, 실행/슬롯 1만, finding 0·신규 실패 0·포크 오류 2건.
+  - Betty (`04:35:10Z`): 보드 5789·원장 1262 변화 없음, MCP `255ms`, 제출 5만, 오류 0.
+  - 미결·추적: **Celly 4초 타임아웃 4틱 연속(분당 MCP 호출 급증 상관 관측, 인과 미확정)**·`work_host_page` 누적 153,483회·`n1585` 용량 대기·라우터 새 오버레이 미로드·사이드 적체; Andy `worktree add` 간헐 182초(원인 미확정, 코드 수정 없음)·`n2763` 해소 여부 확인 필요; KOBE `n5` 가드.
+
 - 04:12:42–04:24:03Z 정기 틱(03:52:50Z 대비 20분 관측 창). Andy·Celly·Betty 수집 성공. **KOBE·Prody는 기본 수집에서 `ssh failed`**였고, 두 호스트 모두 직후 단독 재조회로 정상 수집(KOBE `04:23:39Z`, Prody `04:24:03Z`). SSH 접속 자체는 두 호스트 모두 `alive`로 확인돼 미관측을 종료로 보지 않았다. 재시작·상태 파일 수정 없음. 이하 UTC.
   - **Andy (`04:12:42Z`)**: 보드 `v12540→v12543`, 원장 `8924→8926`, actionable 54, MCP `1078ms`, 리스 제출 21·실행/슬롯 2·대기 1, 신규 실패 0. **신규 finding `submitted, completion receipt, no review row: n2763 05530e0f P1 native=idle`** — 완료 영수증은 있는데 검수행이 없다(n2473·Celly n1585/n1634와 같은 계열, 추적). 로그: `fork_turn_watch_poll_failed` 0건, `work_workspace_failed` 2건 유지(신규 없음). 최근 30분 워크스페이스 매니페스트 1건(`a05b3692…`, `ready`). 포크 표본 오류 0, 전사 3건.
   - **Celly (`04:12:45Z`) — 보드/MCP 동시 타임아웃:** `board`·`workflow`·`mcp` 모두 `TimeoutError`(`mcp` `elapsed_ms=4016`, 보드 미관측). 리스 정보(대기 9·실행/슬롯 3·제출 2·예약/슬롯 1)는 파일에서 읽혔으므로 라우터 프로세스는 살아 있으나 HTTP 응답이 4초를 넘겼다. **직전 틱(03:52)도 `3906ms`, 그 전(03:32)도 `4016ms`** — Celly에서 4초 타임아웃이 반복되는 패턴(추적, 원인 미확정). finding은 `n1585 awaiting_capacity` 1건만(용량 대기). 포크 표본 오류 5건, 전사 4건.
