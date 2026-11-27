@@ -61,7 +61,7 @@ timestamp: 2026-11-27T16:00:00Z
   - 쓰기 도구 17종이 tool.call과 tool.check에서 모두 거부된다.
   - 읽기 5종과 Bash·Walkie 호출은 통과한다.
   - 라우터 호출은 0이다.
-- 영향 회귀(Windows 임시 격리, Linux py310/py311)는 [사이클 7](../../deployments/cycle-7/record.md)에 있다.
+- 영향 회귀(Windows 임시 격리, Linux py310/py311)는 [사이클 6](../../deployments/cycle-6/record.md)에 있다.
 
 ## 남은 항목
 

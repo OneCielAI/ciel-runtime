@@ -59,4 +59,4 @@ timestamp: 2026-11-27T16:50:00Z
   - ACK 교정 뒤 prose 답은 형식 교정을 따로 받는다.
   - 대기 확인이 두 번 없으면 커밋되고 n2892가 로그에 남는다.
 - `claude plugin validate ciel-work` 통과, `claude plugin test ciel-work` 99 pass / 0 fail.
-- 영향 회귀는 [사이클 7](../../deployments/cycle-7/record.md)에 있다.
+- 영향 회귀는 [사이클 6](../../deployments/cycle-6/record.md)에 있다.

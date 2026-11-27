@@ -32,4 +32,4 @@ timestamp: 2026-11-27T17:00:00Z
   - 수정 전 `'PLANNING:' not found in 'Updated n3 (pending). …'`.
 - **수정 후:** `test_work_mcp_tools.py`, `test_work_texts.py`, `test_work_approval_workflow_surfaces.py` 51 passed.
   - progress 갱신은 승인을 유지하고 문구도 붙지 않는다.
-- 영향 회귀는 [사이클 7](../../deployments/cycle-7/record.md)에 있다.
+- 영향 회귀는 [사이클 6](../../deployments/cycle-6/record.md)에 있다.

@@ -2,6 +2,35 @@
 
 ## 2026-11-27
 
+- 15:26–17:45Z 사이클 6. 사용자 지적 두 가지(사이드가 Git·외부 메시지로 차단을 풀지 못함, 차단이 풀려도 포크가 재가동되지 않음)와 n2459 유실을 추적하고, 수정 4건을 배포했다. 상세는 [cycle-6](../../../27/deployments/cycle-6/record.md)에 있다.
+  - **n2459 유실 원인:** 사이드 액터가 `work_node_update`로 progress를 직접 교체했다(11-26 14:05:59Z). 같은 결함이 n2888(11-27 10:31:53Z)에도 있었다. 이를 [사이드 보드 쓰기 차단](../../../27/fixes/side-board-write-gate/record.md)으로 막았다.
+  - **사이드가 해제를 놓친 오늘 3건:** 원인은 제 사이클 4 게이트였다. 해제 결정(n1584, n2967/n2968, n2981 조사)이 invalid_answer로 버려졌다. [결정 유지](../../../27/fixes/side-gate-shortfall-commits/record.md)로 고쳤다.
+  - **재가동 실패:**
+    - P3 유일 슬롯을 08:20Z부터 유령 예약 `a0874c5a`가 잡고 있었다. 그 결과 n2779 재개와 P3 후보 5건이 막혔다. [오래된 미바인딩 예약 해제](../../../27/fixes/stale-unbound-reserve/record.md)로 고쳤다.
+    - 범위 편집으로 목표가 planning으로 돌아가도 알림이 없었다. [planning 복귀 알림](../../../27/fixes/scope-edit-planning-notice/record.md)으로 고쳤다.
+  - **배포:**
+    - 7/7 루트에 설치했다.
+    - 라우터 5개를 17:37–17:42Z에 교체했다. Andy·Celly는 모드 리로드를 확인했다.
+    - 교체 구간 부작용은 다음 틱에 기록한다.
+  - **Andy_Main 보고 중 남은 것:**
+    - stranded rework_ready 행의 종결 경로
+    - work_status parallel 요약의 runtime=codex 표시
+    - 질문으로 파킹된 n2975·n2982는 설계상 메인 SendMessage로만 재개된다(답변 완료).
+
+- 13:20:19–13:21:01Z 사이클 틱(13:18Z 대비 2분, 배포 직후). 재시작·상태 파일 수정 없음.
+  - **재시도 수정 라이브 동작:**
+    - Andy n2956: 13:15:05Z 예약 후 13:19:41Z `Work fork API retry 1/20 (transport_interrupted)`가 실제로 전송됐다. 12:21Z부터 재시도 없이 멈춰 있던 포크다.
+    - 로컬 07:20:07에 `anthropic_sse_upstream_incomplete`(`_Walkie_P4-5`)가 다시 1건 나왔다. 같은 오류가 이제 재시도 경로로 들어가는지는 다음 틱에서 확인한다.
+  - **정정 — Celly "MCP probe_failed 4000ms" 반복 이상은 모니터 자신의 4 s 제한이다.**
+    - `monitor_host.py`의 `_req(timeout=4)`가 4 s를 넘는 응답을 실패로 기록한다.
+    - 같은 `work_status` 호출을 직접 재면 13:2xZ에 4969·1453·3093ms였다. 그 뒤 다시 재면 984·1188·1593ms였다. 모두 version 11533과 완전한 스냅샷을 돌려줬다.
+    - Andy도 1187–2579ms다(응답 76,917 B, 포크 파일 7,025개). Celly는 49,973 B, 포크 파일 974개다.
+    - 따라서 "보드·MCP 무응답"이 아니라 **1–5 s로 느린 응답**이다. 오늘 앞선 틱에서 반복 이상으로 적은 Celly probe 실패들(최근 8틱 중 5틱 등)도 이 기준으로 다시 봐야 한다. 응답 자체가 실패한 것은 확인되지 않았다.
+    - 남은 추적 대상: 응답 지연(1–5 s)의 원인. auto continue `could not read the Work status`는 별도 경로이고 여전히 미확인이다.
+  - **Andy:** MCP 2063ms, 새 실패 0, 전사 오류 0.
+  - **Celly:** 13:18:18Z 파킹 리스 `b5967f4c`는 P3 슬롯 1/1 용량 대기(정상)다.
+  - **KOBE·Prody·Betty:** 새 실패 0, 전사 오류 0.
+
 - 13:00–13:18Z 사이클 배포 `fd96473`(`4f65d4e` 포함). 상세는 [cycle-5](../../../27/deployments/cycle-5/record.md)에 있다.
   - **회귀:** Linux py310·py311 9/9 파일 통과(재시도 수정).
   - **발행:** npm `0.2.51-beta.20261127-130006.fd96473`.

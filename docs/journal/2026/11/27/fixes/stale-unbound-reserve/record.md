@@ -43,4 +43,4 @@ timestamp: 2026-11-27T17:00:00Z
   - 16분 뒤에는 `release:L0` 한 번 → 새 예약 → bind → spawn 1 순서로 진행된다.
   - 기존 lost-reserve와 refill 시나리오도 통과한다.
 - `claude plugin test ciel-work` 99/0.
-- 영향 회귀는 [사이클 7](../../deployments/cycle-7/record.md)에 있다.
+- 영향 회귀는 [사이클 6](../../deployments/cycle-6/record.md)에 있다.
