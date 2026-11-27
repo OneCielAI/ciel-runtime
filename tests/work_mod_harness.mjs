@@ -1955,6 +1955,37 @@ const scenarios = {
     return {spawned:spawned.length,hasContract:prompt.includes('question_wait detail is exactly'),
       hasOkf:prompt.includes('OKF'),namesWaitFields:/waiting_on|release_hint/.test(prompt)}
   },
+  async 'parallel-lost-reserve-reply'() {
+    let reservation = null, attempts = 0, bound = false
+    const calls = [], spawned = []
+    const {$}=host(async(tool,args)=>{
+      if(tool==='work_status') return text(snapshot())
+      if(tool==='work_parallel_status') return text({version:9,active_device:0,
+        policy:{enabled:true,paused:false,priority_limits:{P3:1}},leases:reservation ? {L1:reservation} : {}})
+      if(tool==='work_parallel_event'){
+        if(args.event==='reserve_next'){
+          calls.push('reserve_next')
+          if (bound) return {isError:true,...text('no eligible candidate')}
+          if (reservation) return {isError:true,...text('active slot capacity reached for P3 (1/1)')}
+          if (++attempts === 1) {
+            reservation={id:'L1',item_id:'n2',state:'reserved',role:'worker',slot:true,owner_process:'own',
+              dispatch_name:args._host.dispatch_name,workspace_path:'/repo/.claude/worktrees/L1'}
+            throw new Error('Connection reset after reserve commit')
+          }
+          return text({lease_id:'L2',plan_version:7,item_id:'n2',priority:'P3',worker_token:'e'.repeat(64)})
+        }
+        if(args.event==='release') { calls.push('release:'+args.lease_id); reservation=null; return text({released:true}) }
+        if(args.event==='bind') { bound=true; calls.push('bind:'+args.lease_id); return text({}) }
+      }
+      return text({})
+    })
+    $.session.repo=async()=>({root:'/repo'}); $.session.root=async()=>'/repo'
+    $.agent.spawn=async args=>{spawned.push(args);return {agentId:'agent-new'}}
+    await handlers['session.start']($,{isInteractive:true},next(undefined))
+    await handlers['tool.call']($,{tool:'mcp__ciel-runtime-router__work_parallel_report',agentId:'worker'},next({ok:true}))
+    await startSettled($)
+    return {calls,spawned:spawned.length,stuck:!!reservation}
+  },
   async 'parallel-report-refills-released-slot'() {
     let reserve=0; const spawned=[]
     const {$}=host(async(tool,args)=>{

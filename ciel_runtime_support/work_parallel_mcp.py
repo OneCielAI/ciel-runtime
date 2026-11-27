@@ -2224,11 +2224,17 @@ def _observe_supersessions(store, identity):
 
 
 def _workspace_unavailable_reason(lease):
-    """The ownership-verification failure of a lease's workspace, or None if it verifies."""
+    """The ownership-verification failure of a lease's workspace, or None.
+
+    None also when verification only ran out of time: a timeout is not a
+    broken worktree, so the caller re-raises and retries instead of stranding.
+    """
     from .work_parallel_workspace import WorkspaceError, observe
     try:
         observe(lease["workspace"]["repo"], lease["id"])
     except WorkspaceError as error:
+        if error.transient:
+            return None
         return str(error) or "workspace verification failed"
     return None
 

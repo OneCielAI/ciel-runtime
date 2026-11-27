@@ -1265,11 +1265,13 @@ class SideModTests(unittest.TestCase):
             # User 2026-11-25 (Celly #161250): a source that names its ACK method
             # (messages.work.update state=ack, memo) gets exactly that, with the
             # handling in the memo and no separate answer.
+            # User 2026-11-27: the side text Andy's user saved is the default
+            # (one line per paragraph, no hard wraps).
             for rule in ('data.agent_context.guidance',
-                         'operation_id\n   "messages.work.update"',
+                         '"messages.work.update"를 불러',
                          'state="ack"',
                          'memo에는 이 이벤트를 어떻게 처리했는지',
-                         'ACK와 memo로 반응했으면 따로\n   답하지 않습니다',
+                         'ACK와 memo로 반응했으면 따로 답하지 않습니다',
                          '["mcp__walkie__walkie_call_tool"]'):
                 self.assertIn(rule,instruction)
             self.assertIn('최종 답은 아래에 설명한 decision JSON 그대로여야 합니다',instruction)

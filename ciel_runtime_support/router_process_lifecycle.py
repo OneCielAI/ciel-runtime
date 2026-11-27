@@ -401,10 +401,17 @@ def stop_with_guarantee(
     clock: ClockPorts,
 ) -> bool:
     initial_health = state.health()
-    if initial_health is None:
+    # A listener whose /health does not answer is a busy or wedged router, not
+    # a stopped one (Andy 2026-11-27: after MemoryError 9505 kept listening and
+    # claude_exit left it serving). Only this config's pid-file router is
+    # stopped; the loop then waits for the listener itself to go away.
+    listener_only = initial_health is None and bool(termination.listener_pids())
+    if initial_health is None and not listener_only:
         state.log("INFO", f"router_kill_guarantee reason={reason} state=already_down")
         return False
-    if state.foreign_config(initial_health):
+    if listener_only:
+        state.log("WARN", f"router_kill_guarantee reason={reason} state=listener_without_health")
+    elif state.foreign_config(initial_health):
         state.log(
             "INFO",
             "router_kill_guarantee_skipped_foreign_config "
@@ -424,7 +431,7 @@ def stop_with_guarantee(
                 f"current_config={config.config_dir}",
             )
             return False
-        if health is None:
+        if health is None and (not listener_only or not termination.listener_pids()):
             elapsed_ms = int((max_wait_seconds - (deadline - clock.now())) * 1000)
             state.log(
                 "INFO",

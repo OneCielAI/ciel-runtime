@@ -1209,6 +1209,36 @@ class StopRouterGuaranteeTests(unittest.TestCase):
         self.assertFalse(result)
         stop.assert_not_called()
 
+    def test_stops_a_listening_router_whose_health_does_not_answer(self):
+        """Andy 2026-11-27: after MemoryError the router kept its listener while
+        /health timed out; claude_exit logged state=already_down and left it serving."""
+        def fake_listeners():
+            return [] if stop.called else [4321]
+
+        with (
+            mock.patch.object(ciel_runtime, "router_health", return_value=None),
+            mock.patch.object(ciel_runtime, "router_port_listener_pids", side_effect=fake_listeners),
+            mock.patch.object(ciel_runtime, "stop_router_processes") as stop,
+            mock.patch.object(ciel_runtime, "router_log") as log,
+        ):
+            result = ciel_runtime.stop_router_with_guarantee("claude_exit", max_wait_seconds=1.0)
+        self.assertTrue(result)
+        stop.assert_called_once()
+        lines = [call.args[1] for call in log.call_args_list]
+        self.assertFalse(any("state=already_down" in line for line in lines), lines)
+        self.assertTrue(any("state=killed" in line for line in lines), lines)
+
+    def test_listener_that_outlives_the_stop_is_reported_not_called_down(self):
+        with (
+            mock.patch.object(ciel_runtime, "router_health", return_value=None),
+            mock.patch.object(ciel_runtime, "router_port_listener_pids", return_value=[4321]),
+            mock.patch.object(ciel_runtime, "stop_router_processes") as stop,
+            mock.patch.object(ciel_runtime, "router_log"),
+        ):
+            with self.assertRaises(RuntimeError):
+                ciel_runtime.stop_router_with_guarantee("claude_exit", max_wait_seconds=0.3)
+        stop.assert_called_once()
+
     def test_returns_true_when_kill_brings_router_down(self):
         health = {"config_dir": str(ciel_runtime.ROUTER_INSTANCE_DIR), "pid": 2468}
         states = iter([health, None])  # alive at first, dead after stop

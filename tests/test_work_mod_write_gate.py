@@ -2050,6 +2050,13 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertTrue(new["hasOkf"], new)
         self.assertTrue(new["hasContract"], new)
 
+    def test_lost_reserve_reply_does_not_pin_the_priority_slot(self):
+        result = self.run_scenario("parallel-lost-reserve-reply")
+        self.assertFalse(result["stuck"], result)
+        self.assertEqual(1, result["spawned"], result)
+        self.assertEqual(1, result["calls"].count("release:L1"), result)
+        self.assertLess(result["calls"].index("release:L1"), result["calls"].index("bind:L2"), result)
+
     def test_successful_worker_report_triggers_refill(self):
         result = self.run_scenario("parallel-report-refills-released-slot")
         self.assertEqual(1, result["spawned"], result)

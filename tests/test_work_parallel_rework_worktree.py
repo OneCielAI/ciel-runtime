@@ -1515,6 +1515,26 @@ class BrokenRetainedWorktreeTests(ReworkFixture):
         recovery, _ = self.recover_stranded(replacement)
         self.assertNotEqual(str(worktree), self.lease(recovery)["workspace"]["path"])
 
+    def test_git_timeout_at_decision_is_not_a_broken_workspace(self):
+        """Celly n1635 (2026-11-27): one verification git call timed out after 39 s
+        under host memory pressure, and the healthy worktree was recorded as
+        unavailable (stranded). A timeout proves nothing about the worktree: the
+        decision fails retryably, no stranded row is written, and the next
+        decision on the same healthy worktree finalizes the published review."""
+        first, replacement, worktree = self.rework()
+        token, name = self.launch(replacement, 1, "agent-a1")
+        self.bind(replacement, "agent-a1", name)
+        self.report(replacement, token, "c" * 64, "done")
+        self.idle(replacement)
+        self.assertIn(replacement, self.reviews())
+        with patch.object(workspace_module, "_GIT_TIMEOUT_SECONDS", 0.0001):
+            with self.assertRaisesRegex(ValueError, "timed out"):
+                self.review(replacement, "approve", "approve-2")
+        self.assertNotIn(replacement, self.stranded_rows())
+        self.assertIn(replacement, self.reviews())
+        self.assertTrue(worktree.is_dir())
+        self.assertEqual("finalized", self.review(replacement, "approve", "approve-3")["state"])
+
     def test_non_idle_activity_write_still_needs_a_bound_workspace(self):
         first, replacement, worktree = self.rework()
         self.launch(replacement, 1, "agent-a1")

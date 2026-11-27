@@ -22,11 +22,16 @@ class WorkspaceError(ValueError):
     ``prepare`` sets it: a failure before its ownership manifest is first saved
     leaves no file, branch or worktree, so the caller may release the
     reservation. Any later failure keeps whatever was written (retained).
+
+    ``transient`` is True only for a git command that ran out of its time
+    budget: it proves nothing about the worktree, so callers must not record
+    the workspace as unavailable on it (Celly n1635 2026-11-27).
     """
 
-    def __init__(self, *args, clean=False):
+    def __init__(self, *args, clean=False, transient=False):
         super().__init__(*args)
         self.clean = clean
+        self.transient = transient
 
 
 # Git's own refusal when a repository is owned by another account; the router
@@ -179,7 +184,7 @@ def _git(repo, *args, strip=True, trust=None):
         # Seen only inside the router (owned run 2026-11-09: worktree add, 30 s);
         # the same command outside it took 0.06 s. Name the step for the log.
         raise WorkspaceError("git " + " ".join(str(a) for a in args[:2]) + " timed out after "
-                             + format(time.monotonic() - started, ".0f") + " s") from exc
+                             + format(time.monotonic() - started, ".0f") + " s", transient=True) from exc
     if r.returncode:
         raise WorkspaceError("Git verification failed: " + r.stderr.strip()[:400])
     # Column-positioned output (status rows start with their two status

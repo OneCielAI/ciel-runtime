@@ -3396,7 +3396,13 @@ async function parallelDirectSpawn($, key, request) {
   // "not a git repository"). Work worktrees are prepared from this root.
   const observed = { fork: true, dispatch_name: key, workspace_repo: repo?.root }
   // R2 B2: a reservation's exact owner is this process's attachment.
-  const r = await parallelEvent($, { ...args, event }, event === 'rework_dispatch' ? observed : await hostProcess($, observed))
+  const reserveHost = event === 'rework_dispatch' ? observed : await hostProcess($, observed)
+  let r
+  try { r = await parallelEvent($, { ...args, event }, reserveHost) }
+  catch (error) {
+    if (event !== 'rework_dispatch') noteLostReserve(key, error)
+    throw error
+  }
   Object.assign(request, r)
   // reserve/reserve_next may return the P0 launch shape when its candidate is
   // effectively P0. Run the exact assignment/spawning protocol and use the
@@ -3815,6 +3821,50 @@ async function parallelHydrate($) {
       { host_id:row.id, agent_name:row.name })
   }
   return state
+}
+// Andy 2026-11-27 (lease a0874c5a, n2923): the router committed a P3
+// reservation, prepared its worktree for about two minutes, then found the
+// client gone (router_post_client_disconnected). The mod's reserve call threw,
+// so no fork was spawned. Nothing reclaims an unbound reservation whose owner
+// process is alive, so the only P3 slot stayed reserved for over an hour while
+// three P3 items waited. The host spawns a fork only after its reserve call
+// returns, so a reservation named after a key whose reserve threw has no fork
+// behind it. The pump releases it once the router shows it with its workspace
+// attached (preparation finished), unless a native agent of that name is
+// listed. Router refusals that reserve nothing are not noted.
+const lostReserves = new Map()
+const LOST_RESERVE_MS = 3600000
+const RESERVE_REFUSED = /no eligible candidate|capacity reached|launch rate reached|disabled\/paused|lease bound|fork_gate_missing/
+function noteLostReserve(key, error) {
+  if (RESERVE_REFUSED.test(String(error?.message || error))) return
+  lostReserves.set(key, Date.now())
+  if (lostReserves.size > 50) lostReserves.delete(lostReserves.keys().next().value)
+}
+async function releaseLostReserves($, state, listed) {
+  if (!lostReserves.size) return false
+  const now = Date.now()
+  for (const [key, at] of lostReserves) if (now - at > LOST_RESERVE_MS) lostReserves.delete(key)
+  const leases = Object.values(state?.leases || {}).filter(lease => lease.state === 'reserved' && !lease.host_id
+    && lease.slot === true && lease.role === 'worker' && lostReserves.has(lease.dispatch_name)
+    && typeof lease.workspace_path === 'string' && lease.workspace_path && lease.owner_process === 'own')
+  if (!leases.length) return false
+  let rows
+  try { rows = (await listed.fresh()) || [] } catch { return false }
+  let released = false
+  for (const lease of leases) {
+    if (rows.some(agent => agent?.name === lease.dispatch_name)) { lostReserves.delete(lease.dispatch_name); continue }
+    try {
+      await parallelEvent($, { event:'release', lease_id:lease.id }, { proof:'The reserve reply for '
+        + lease.dispatch_name + ' never reached the Work host, so no fork was spawned under that name' })
+      lostReserves.delete(lease.dispatch_name)
+      released = true
+      rememberParallelFailure('reserve-reply-lost', 'lease ' + clipped(lease.id, 40) + ' (' + lease.item_id
+        + '): its reserve reply never arrived and no fork was started; the reservation was released and the item stays queued')
+    } catch (error) {
+      rememberParallelFailure('release-unbound', 'lease ' + clipped(lease.id, 40) + ': ' + String(error?.message || error))
+    }
+  }
+  return released
 }
 const parallelExitAttempts = new Map()
 let parallelPumpRunning = false
@@ -4633,6 +4683,12 @@ async function parallelPump($, trigger = 'host', resendTried = null, agents = nu
       if (lifecycle !== starts) return
       try { await parallelP0Outcomes($, state, p0GateMissing) }
       catch (error) { rememberParallelFailure('p0-outcome', String(error?.message || error)) }
+      // A reservation whose reserve reply was lost holds a slot no fork uses;
+      // give it back before parked resumes and new launches need it.
+      if (await releaseLostReserves($, state, listed)) {
+        state = await hostStatus($)
+        if (lifecycle !== starts) return
+      }
       const stopped = !state.policy.enabled || state.policy.paused
       await parallelStartRework($, state, !stopped, listed)
       if (stopped || lifecycle !== starts) return

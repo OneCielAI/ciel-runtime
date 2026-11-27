@@ -1,5 +1,142 @@
 # Change log
 
+## 2026-11-27
+
+- 11:52:44–11:53:31Z 정기 틱(11:46Z 대비 6분). 재시작·상태 파일 수정 없음, 배포 대기.
+  - **외부 이벤트 원천 일시 장애(Andy·Celly 공통, 11:48–11:51Z):** 같은 4분 동안 두 라우터에 다음이 함께 찍혔다. 두 라우터가 같은 시각에 같은 원천 연결이 실패했으므로, 이번 연결 실패만은 라우터 내부 결함이 아니라 원천 측 일시 장애로 본다(원천 원인은 미확인).
+    - SSE 수신기 연결 오류: `ConnectionResetError` `phase=connect` → `URLError timeout phase=connect`. Andy는 리셋 4·URL 2, Celly는 리셋 5·URL 1.
+    - transcript delta 전달 실패: Celly는 timeout 13·연결 거부 11, Andy는 timeout 1.
+    - 11:52Z부터 두 라우터 모두 다시 정상 EOF 주기로 돌아왔다. delta 전달 성공은 Andy 11:53:54Z, Celly 11:52:11Z다.
+  - **Andy:** 보드 12668→12669, MCP 969ms, 실행/슬롯 4, `reserved+slot` 1(`a0874c5a`). 11:47:49Z `auto continue could not read the Work status` 1건(오늘 4번째)은 추적 중이다. 로컬 05:46:57 `anthropic_sse_client_disconnected` 1건이 있었다.
+  - **Celly:** 보드 다시 관측(11525), MCP 1234ms 성공, 원장 10598→10606, 실행/슬롯 4. `6ee265a6` n1577 미바인딩 예약은 그대로다. 전사 오류 0.
+  - **KOBE:** `n298 awaiting_capacity`, `n5` 가드 유지. **Prody·Betty:** 변화 없음.
+  - **회귀:** Linux py311 `test_work_mod_real_backend` 103/120 진행, 실패 0.
+
+- 11:46:20–11:47:03Z 사이클 틱(11:34Z 대비 12분). 재시작·상태 파일 수정 없음, 배포 대기.
+  - **Andy:**
+    - 보드 12660→12668, 원장 9022→9029, MCP 2625ms. 실행/슬롯 4, `reserved+slot` 1(`a0874c5a`).
+    - 11:34:31Z 사이드 실패 이벤트 `e67d2aea5fcd`의 원문이 메인에 전달됐다(`appended`, 이어 `already`).
+    - 11:42:25Z `plan is not ready to execute: decompose deeper`는 계획 깊이 가드다.
+  - **Celly:**
+    - 보드 `unavailable`, MCP 4015ms 실패. 최근 8틱 중 5틱이다(반복 이상, 원인 미확정). 원장 10579→10598.
+    - 11:34Z의 P0 예약 두 건(`9cde752c` n1656, `dfcdb4f7` n1659)은 바인딩된 뒤 `done`이 됐다. 정상 실행이었다.
+    - `6ee265a6` n1577 P2는 07:51:54Z부터 미바인딩으로 남아 있다(약 3시간 55분).
+  - **KOBE:** `n298 awaiting_capacity`, `n5` 가드 유지, 전사 오류 0. **Prody·Betty:** 변화 없음.
+  - **회귀:**
+    - Linux py310 `test_work_mod_real_backend` 120/120 통과(skipped 4).
+    - py311은 53/120 진행 중이고 실패 0이다. 끝나면 커밋하고 배포한다.
+
+- 11:34:15–11:34:49Z 정기 틱(11:16–11:22Z 대비). 재시작·상태 파일 수정 없음, 배포 대기.
+  - **Andy:** 보드 12658→12660, 원장 9018→9022, MCP 1313ms. 실행/슬롯 2, `reserved+slot` 1(`a0874c5a`, 08:20Z부터). 새 실패 0, 전사 오류 0.
+  - **Celly:**
+    - 보드 11522 관측, MCP 1734ms 성공, 원장 10561→10579, `reserved+slot` 3.
+    - 원장 읽기로 본 미바인딩 예약 3건:
+      - `6ee265a6` n1577 P2: 07:51:54Z 예약 후 약 3시간 43분째 미바인딩이다. Andy `a0874c5a`와 같은 증상이다. 메인 전사에는 상태 읽기에서만 나오고 그 이름의 포크 meta가 없다. 원인(예약 응답 유실 여부)은 라우터 로그에 그 시각(로컬 01:50–02:00) 줄이 없어 **미확인**이다.
+      - `9cde752c` n1656 P0: 11:31:29Z 예약.
+      - `dfcdb4f7` n1659 P0: 11:34:10Z 예약. 두 P0 예약은 막 예약된 실행 중 상태로 보고 다음 틱에 다시 본다.
+    - `n1660` 완료 영수증·검수 행 없음 finding은 해소됐다.
+    - 전사:
+      - 11:21:39Z `Work message refused: … work_host_page: The operation timed out` 1건(라우터 지연 계열, 추적)
+      - 11:30:58Z `stranded facts changed` 1건(CAS 성격, 재시도 대상)
+    - 라우터 MCP 연결 리셋 6건·중단 1건(로컬 05:21:39부터).
+  - **KOBE:** 새 finding `n298 awaiting_capacity`(P3 1/1). `n5` 가드 유지, 전사 오류 0. 로컬 03:23:03 `anthropic_sse_event_after_message_stop_ignored` 1건은 정상 무시 경로다.
+  - **Prody·Betty:** 변화 없음, 실패 0.
+  - **회귀:** Linux `test_work_mod_real_backend` 시간 기록 재실행이 py310 47/120, py311 17/120 진행 중이고 실패는 0이다. 끝나기 전에는 배포하지 않는다.
+
+- 11:16:29–11:22:03Z 사이클 틱(11:12Z 대비 약 5–9분). 재시작·상태 파일 수정 없음, 배포 대기.
+  - **Andy:** 보드 12657→12658, MCP 1516ms. `reserved+slot` 1(`a0874c5a`)과 실행/슬롯 3. 새 실패 0, 전사 오류 0.
+  - **Celly:**
+    - 보드가 다시 관측됐다(11521). MCP는 4031ms로 실패해 최근 6틱 중 4틱이다(반복 이상, 원인 미확정).
+    - 새 finding `n1660 cea9e928`: 완료 영수증은 있는데 검수 행이 없다. native는 running이고 마지막 활동은 11:15Z라, 포크가 보고 직후 아직 실행 중인 상태다. 다음 틱에 다시 본다(미관측을 누락으로 단정하지 않는다).
+    - 라우터 SSE 클라이언트 리셋 1건(로컬 05:12:20, `emitted_tool_use=True`)과 MCP 연결 중단 1건.
+  - **KOBE:** 원장 5012→5021, 대기 5. `n5` 가드 유지. 상류 대기 중 클라이언트 끊김 1건(로컬 03:20:35).
+  - **Prody·Betty:** 변화 없음, 실패 0.
+  - **회귀:**
+    - Windows 4b 19/19 파일 통과. `test_work_mod_real_backend`는 117 passed, 3 skipped(2833 s)다.
+    - `claude plugin test`는 첫 실행 98/1(`workflow.test.ts` 게이트 체크 cadence)이었다. 재실행은 3/3이 99/0이고 HEAD도 3/3이 99/0이라 재현되지 않는다.
+    - Linux `test_side_real_backend`는 직렬 실행에서 두 버전 모두 8/8이다.
+    - Linux `test_work_mod_real_backend`는 1200 s 제한에 약 103/120에서 중단돼 **미완료**다. 사이클 3은 120/120이었다. 테스트별 시간 기록으로 py310(1800 s)과 py311(3000 s)에서 다시 실행 중이며, 끝나기 전에는 배포하지 않는다.
+
+- 11:12:20–11:13:01Z 정기 틱(10:58Z 대비 14분). 재시작·상태 파일 수정 없음, 배포 대기.
+  - **Andy:**
+    - 보드 12647→12657, 원장 9008→9017, MCP 2719ms(이전보다 느림). 리스는 실행/슬롯 2, 대기 2, `reserved+slot` 2다.
+    - 원장을 직접 읽으면 reserved는 `a0874c5a` 1건뿐이다. 두 번째 예약은 틱과 원장 읽기 사이에 바인딩된 것으로 보인다(미확인).
+    - 새 실패 `decision_refused_stop a92f1b79 x1`은 정상 Stop 가드다.
+    - 전사 오류:
+      - 11:02:55–11:04:29Z `Work completion waits for this item's parallel validation…` 3건은 완료 가드다.
+      - 11:05:22Z `review changed; reread`는 CAS다.
+      - 11:11:51Z `auto continue could not read the Work status` 1건(오늘 3번째)은 추적 중이다.
+    - 라우터 MCP 연결 리셋 3건(로컬 05:02:30부터).
+  - **Celly:**
+    - 보드 `unavailable`, MCP 4000ms 실패. 최근 5틱 중 3틱이다(반복 이상, 원인 미확정).
+    - 원장 10555→10560, 대기 4·실행/슬롯 3.
+    - 전사 `Parallel read failed: timed out` 2건(11:02:10, 11:03:12Z).
+    - 라우터 MCP 연결 리셋 9건(로컬 05:02:04부터).
+    - 11:05:33Z `channel_stdin_proxy_blocked … stale_unconfirmed` 1건으로, 이 패턴은 오늘 Celly 2건·KOBE 1건이다.
+    - 11:08:53Z exit 2는 모델 셸 명령이다.
+  - **KOBE:** 보드 870→871, MCP 180ms, `n5` 가드 유지, 전사 오류 0.
+  - **Prody·Betty:** 변화 없음, 실패 0.
+  - **회귀:**
+    - Windows 4b `test_work_mod_real_backend`는 10:35:39Z 시작 후 진행 중이다(11:07Z에도 새 서버 기동 확인).
+    - 4a의 같은 파일은 3000 s 제한에 결과 없이 끝났다.
+    - Linux 직렬 `run_serial.sh`는 py310·py311 모두 첫 파일 진행 중이다.
+
+- 10:57:55–10:58:31Z 정기 틱(10:46Z 대비 약 10분). 재시작·상태 파일 수정 없음, 배포 대기.
+  - **Andy:** 보드 12639→12647, 원장 9002→9008, MCP 1156ms. 실행/슬롯 4, 대기 1. 새 실패 0, 전사 오류 0. 미바인딩 예약 `a0874c5a`는 그대로다. 라우터 로그(로컬 04:47–04:57): 상류 413 3건(`_Walkie_P1` 2, `_Walkie_S_Tier_Only` 1, 첫 04:49:25)과 transcript delta 연결 거부 1건이다.
+  - **Celly:** 보드 다시 관측(11515), MCP 1828ms 성공, 원장 10546→10555, 대기 5·실행/슬롯 2. 새 전사 오류 없음(10:47:47Z 건은 직전 틱과 같은 것). 10:55:34Z `channel_stdin_proxy_blocked reason=prior_submission_failed detail=stale_unconfirmed` 1건이 나왔다(`channel_windows_console_unseen_failed` 20.5 s 직후). KOBE 08:20Z와 같은 패턴이고 원인은 미확정이다. 보드·MCP 4 s 무응답은 이번 틱에 재현되지 않았다(최근 4틱 중 2틱).
+  - **KOBE:** 원장 5005→5012, MCP 283ms. `n283 awaiting_capacity` finding이 해소됐고 `n5` 가드는 유지된다. 전사 오류 0.
+  - **Prody·Betty:** 변화 없음, 실패 0.
+  - **회귀:** Windows 4b는 `test_work_mod_real_backend` 진행 중이다. Linux 직렬 재실행은 처음에 docker exec 연결 오류(`unable to upgrade to tcp, received 500`)로 시작되지 않았다. `run_serial.sh`를 `docker exec -d`로 다시 시작했다(py310/py311).
+
+- 10:46:23–10:49:56Z 사이클 틱(10:32Z 대비). 재시작·상태 파일 수정 없음, 배포 대기.
+  - **Andy:** 보드 12638→12639, 원장 9002 유지, MCP 657ms, 새 실패 0.
+    - 미바인딩 예약 `a0874c5a`는 그대로다.
+    - 라우터 로그(로컬 04:32–04:46):
+      - 상류 게이트웨이 `127.0.0.1:20128` 413 5건(첫 04:39:58). 게이트웨이 소관이며 추적한다.
+      - `transcript_delta_delivery_failed` `WinError 10061` 4건(첫 04:44:41). 원인 미확정.
+    - 전사 2건은 Walkie 409 CAS와 모델의 잘못된 경로다.
+  - **Celly:** 보드 다시 `unavailable`, MCP probe 4000ms 실패, 원장 10545→10546, 실행/슬롯 4.
+    - 전사:
+      - 10:33:46Z `auto continue could not read the Work status`
+      - 10:47:47Z `Parallel read failed: timed out`
+    - 직접 확인 10:5xZ: `9385` `/health` 0.04 s 응답, pid `60548`, `ebf972e`.
+    - 라우터 로그: MCP 연결 끊김 2건(로컬 04:32:44, 04:47:17), 활동 파일 권한 거절 1건(04:39:46).
+    - 연속 3틱 중 2틱에서 보드·MCP가 4 s 안에 답하지 않았다(반복 이상). 원인 스레드는 미확정이며 다음 사이클 조사 대상이다.
+    - 호스트 커밋은 138.2/144.6 GB(96%), 물리 여유 4.5 GB다. 다른 세션의 `grep` 2개가 각 2.33 GB를 쓴다(손대지 않음).
+  - **KOBE:** 보드 869→870, MCP 201ms, `n283 awaiting_capacity`(P3 1/1)와 `n5` 가드 유지, 전사 오류 0.
+  - **Prody·Betty:** 변화 없음, 실패 0.
+  - **회귀:**
+    - Windows 4b: 19개 파일 중 18개 통과. `test_work_mod_real_backend` 진행 중.
+    - Linux 4병렬: 18/19 파일 통과. `test_side_real_backend` 단독 실행은 두 버전 모두 8/8이다.
+    - py311의 `test_work_mod_real_backend` 결과는 docker 연결 오류(`unable to upgrade to tcp, received 500`)로 남지 않았다. 두 real-backend 파일을 py310/py311에서 직렬로 재실행 중이다.
+    - 배포 기록 초안: [cycle-4](../../../27/deployments/cycle-4/record.md).
+
+- 10:32:26–10:33:09Z 정기 틱(10:18Z 대비 14분). 재시작·상태 파일 수정 없음, 배포 없음.
+  - **Andy:** 보드 12631→12638, 원장 8995→9002, MCP 1609ms. 실행/슬롯 3, 대기 2, 미바인딩 예약 1(`a0874c5a`, 그대로), 새 실패 0. 전사 오류 5건(10:29:57–10:30:07Z)은 메인이 `general-purpose` Agent를 이름 없이 부른 것을 모드가 거부한 정상 가드다.
+  - **Celly:** 보드가 다시 관측됨(11511). MCP probe는 4000ms 시간 초과로 실패, 원장 10541→10545, 실행/슬롯 5. 라우터 MCP 연결 리셋 7건(로컬 04:26:20부터), 전사 오류 0. probe 실패는 직전 두 틱(4016ms 실패, 1844ms 성공)과 같은 지연 패턴으로 추적한다.
+  - **KOBE:** 보드 867→869, MCP 310ms. 새 finding `n283 awaiting_capacity`(P3 1/1 용량 대기), n5 가드 유지. 08:20:34Z `channel_stdin_proxy_blocked reason=prior_submission_failed detail=stale_unconfirmed` 1건(`channel_windows_console_unseen_failed` 36.8 s 직후)은 채널 주입 확인 실패다. 기존 미결 패턴이며 원인 미확정으로 추적한다.
+  - **Prody:** 보드 7601→7602, 전사 1건은 `gh` 로그인 없음(호스트 자격 증명 문제). **Betty:** 변화 없음.
+  - **회귀 진행:**
+    - Windows 영향 목록 14/19 파일 통과(사이드 전체·게이트 포함).
+    - Linux py310/py311 4병렬 실행에서는 `test_side_real_backend`만 실패했다(py310 2건, py311 6건+4 error). 같은 파일을 단독으로 실행하면 두 컨테이너 모두 8/8 통과다.
+    - 사이클 3(수정 전 코드)도 4병렬에서 이 파일이 1건 실패했으므로, 병렬 부하에 민감한 테스트로 기록한다. 제품 변경 영향인지는 단독 통과로 배제했다.
+    - 나머지 파일(`test_work_mod_real_backend` 등)은 진행 중이다.
+
+- 10:18:09–10:19:00Z 정기 틱(10:04Z 대비 14분). 재시작·상태 파일 수정 없음.
+  - **Andy:** 보드 12628→12631, 원장 8991→8995, MCP 1109ms. finding 0, 새 실패 0, 전사 오류 0. `reserved+slot` 1(`a0874c5a`, n2923)이 계속 남아 있다. 원인은 예약 응답 유실로 입증됐고 수정했다([lost-reserve-reply](../../../27/fixes/lost-reserve-reply/record.md)). 이 리스 자체는 현 프로세스 메모리에 키가 없어 자동 해제되지 않는다.
+  - **Celly:** 보드 이번 틱 `unavailable`, MCP 1844ms 성공, 원장 10536→10541. 전사 오류 1건은 Walkie 400(Mermaid step id 형식)으로 모델 인자 오류다. 라우터 MCP 연결 끊김 2건(로컬 04:04:19, 04:12:01), `transcript_delta_delivery_failed` timeout 1건. 보드 미관측은 종료로 보지 않는다.
+  - **KOBE:** 보드 867 유지, 원장 4994→5001, MCP 2975ms. n284 용량 finding은 해소됐고 n5 가드는 유지된다. 전사 2건은 git 경로 길이 제한과 모델 스크립트 실패다.
+  - **Prody·Betty:** 변화 없음, 실패 0. Betty 상류 `transport_unsent` 재시도 2회(로컬 02:18:03–05)는 라우터 재시도 경로다.
+  - 수정 진행: 사이드 대기 확인 게이트의 대상을 `update`·`prioritize`로 좁혔다. 결정 항목을 action과 무관하게 넣었을 때 실제 백엔드 테스트의 `advise` 흐름이 멈췄기 때문이다. 좁힌 뒤 `test_side_real_backend`·`test_side_wait_check`·`test_side_ack_gate`는 21/21 통과했다. Windows·Linux 전체 영향 회귀를 재실행 중이며 배포는 그 결과 뒤에 한다.
+
+- 10:04:00–10:04:41Z 정기 틱. 직전 07:27Z 파일을 보존해 비교. 보드는 5/5 관측, 포크 관측은 전원 `partial`(표본 오류 0, 미관측은 종료 아님). 재시작·운영 상태 변경 없음.
+  - **Andy:** 보드 12586→12628, 원장 8967→8991, MCP 1531ms 성공. 실행 슬롯 3·미바인딩 예약 1·대기 1·제출 21. n2898 `1f76bff9`에서 완료 영수증은 보였으나 검수 행은 틱에서 미관측(누락 확정 아님). n2923 `a0874c5a`는 08:20:08Z 예약, 08:22Z 작업트리 준비 완료 후 08:22:09Z MCP 연결 리셋과 같은 시간대이며 fork bind 없음. 동일 프로세스의 미바인딩 예약이 P3 슬롯을 점유. 연결 리셋 뒤 예약 유지/후속 포크 미시작은 HEAD 하니스에서 재현. 상류 게이트웨이 413 로그 표본 8건(첫 로컬 02:35:44), SSE EOF 138건(첫 로컬 01:28:37), MCP 리셋 3건(첫 로컬 01:42:09). 절단 응답의 상류 원인 및 SSE 종료 이유는 미확정. 전사 오류 38건에는 도구 인자 JSON 파싱 오류가 포함된다.
+  - **Celly:** 보드 11484→11505, 원장 10463→10536. MCP probe 4016ms 실패, 보드는 관측. 실행 4·예약 1·제출 1. 09:45:10Z 상태 읽기 타임아웃 1, 09:55:42/09:57:10Z 검수 타임아웃 2. 10:00:59Z `stranded review already decided differently` 1건은 기존 결정과 충돌했다는 응답이며 원인 분석 전 제품 결함으로 분류하지 않음. 새 실패 `revival_refused`·`decision_refused_stop` 각 1. 라우터 표본 MCP 리셋 48(첫 로컬 01:38:17), SSE EOF 93(02:08:37), 활동 권한 거절 6(context usage 4, router 2; 첫 02:06:30), 정상 keep-alive 10. 검수 타임아웃과 연결 리셋의 개별 인과는 미확정.
+  - **KOBE:** 보드 852→867, 원장 4951→4994, MCP 266ms 성공. n5 미완료 자식 가드 유지. n284는 09:03:35Z 차단 해제가 관측됐지만 P3 1/1로 슬롯 획득 불가, 09:03:51Z에도 용량 대기. GitHub CLI 401은 08:39:31/08:43:17Z 2건. SSE EOF 표본 138(첫 로컬 23:28:24), 상류 503 재시도 2(23:34:12).
+  - **Prody:** 보드 7596→7601, 원장 1432→1443, MCP 270ms 성공, 검수 finding·신규 실패 0. 전사 오류 3건은 Walkie 인자(07:47:26Z), 정규식(08:12:13Z), 파일 없음(08:14:58Z).
+  - **Betty:** 보드 5808·원장 1283·제출 5 유지, MCP 253ms 성공, 신규 실패·전사 오류 0. 정상 keep-alive 표본 1855(첫 로컬 23:27:40), SSE EOF 154(23:28:09). 라우터 표본 집계는 틱 간 신규 발생 수와 동일하지 않다.
+  - 미결: #162105/n2892(이벤트 수신 뒤 읽기 확인·해제 누락), 해제→자동 재개 전체 경로, Andy 예약 회수 및 n2898 검수 후속, Celly 지연·권한, 상류 413. Andy 저장 프롬프트 기본 반영 및 수정 후보는 격리 검증 중, 이 틱 배포 없음.
+
 ## 2026-11-26
 
 - 07:27:34–07:28:15Z 정기 틱(06:17Z 대비 70분 관측 창). 5개 호스트 전원 수집 성공, `live.board` 전원 `observed`, MCP 전원 `probe_succeeded`(Andy `1672ms`, Celly `2937ms`, KOBE `273ms`, Prody `221ms`, Betty `555ms`). 재시작·상태 파일 수정 없음, 코드 수정 없음. 이하 UTC.

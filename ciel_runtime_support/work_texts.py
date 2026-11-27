@@ -109,6 +109,53 @@ TEXTS: dict[str, str] = {
         "Ciel side wake {id}: a host message beginning \"Ciel side asks main\" was added to this conversation"
         " while you were idle. {source}Read it there and act on it now. This wake holds no event data, needs no"
         " acknowledgment and grants no approval."),
+    # Correction to a side actor whose event guidance asked for a Walkie ACK and
+    # memo first, when the host's read-back found none (Daniel 2026-11-27).
+    # {message} and {conversation} are the source message and room.
+    'mod_side_ack_required': (
+        "Ciel side host: ACK와 note를 먼저 등록하십시오. 이 이벤트의 Walkie 안내는 처리 전에 메시지 {message}"
+        "(대화 {conversation})에 ACK와 memo를 남기라고 요구하지만, 호스트가 messages.work.get으로 확인한 당신의"
+        " 상태에는 memo가 있는 ACK가 없습니다. 그래서 답이 거부됐고 아무것도 커밋하거나 보내지 않았습니다.\n"
+        "지금 walkie_call_tool로 messages.work.get(conversation_id, message_id)을 불러 당신 행의 현재 version을"
+        " 읽고(상태가 없으면 0), messages.work.update(conversation_id, message_id, state=\"ack\", version, 새"
+        " UUID client_id, memo=\"이 이벤트를 어떻게 처리하는지 한 줄\")를 보내십시오. 서버 성공을 확인한 뒤"
+        " 같은 JSON 객체 하나로 다시 답하고 \"sent_via\"에 보낸 도구 이름을 적으십시오. 그 밖의 글은 보내지"
+        " 마십시오."),
+    # Correction to a side actor whose answer the host refused for its shape
+    # ({reason} is the exact error). Read-only lookups stay allowed (Andy
+    # 2026-11-27 #162105: "Do not call tools" here left the actor unable to
+    # check the wait it was told about, so the wait was never released).
+    'mod_side_correction': (
+        "Ciel side host: your answer was refused, so nothing was committed or sent. Exact error: {reason}\n"
+        "Answer again with only the one JSON object the event prompt describes: "
+        "{\"understanding\":\"...\",\"decision\":{...},\"expected_version\":N}. The decision kind must match its action "
+        "(status or info -> answer, clarify -> clarify, request -> create, update or prioritize); summary and reply "
+        "must be non-empty text; update and prioritize name an existing item_id; create names none; "
+        "create, update and prioritize carry refs, every related source id you confirmed. "
+        "You may still make the read-only lookups the event prompt asks for (Walkie reads, approval or access "
+        "status, work_status) before answering; do not send any message again and do not change files, settings "
+        "or Work directly."),
+    # Correction to a side actor whose event concerns Work items that wait on a
+    # condition, when its answer neither released them nor reported a check of
+    # the condition (Andy 2026-11-27 #162105, n2892). {items} is one line per
+    # item: id, waiting_on, and release_hint condition/lookup when recorded.
+    'mod_side_wait_check': (
+        "Ciel side host: 답이 거부됐고 아무것도 커밋하거나 보내지 않았습니다. 이 이벤트는 대기 중인 Work 항목에"
+        " 관한 것인데, 답에 그 대기 조건이 지금 충족됐는지 확인한 결과가 없습니다.\n{items}\n"
+        "지금 각 항목의 release_hint.lookup을 읽기 전용으로 조회하십시오(없으면 waiting_on 상태를 보여 주는 Walkie"
+        " 글·승인·접근 상태 조회). 그다음 같은 JSON 객체 하나로 다시 답하되, 최상위에 \"wait_checks\": [{\"id\":"
+        "\"<항목 id>\",\"lookup\":\"<무엇을 조회했는지>\",\"observed\":\"<본 상태>\",\"met\":true 또는 false}]를"
+        " 위 항목마다 넣으십시오. met이 true이면 decision.release_waits에 {\"id\",\"waiting_on\"}(waiting_on은 위에 적힌"
+        " 그대로)을 넣어 대기를 푸십시오. 메시지를 다시 보내거나 파일·설정·Work를 직접 바꾸지는 마십시오."),
+    # The rule that comes with an event's wait_items (the waiting Work items it
+    # concerns), so the first answer already checks them (Andy 2026-11-27).
+    'mod_side_wait_items': (
+        "wait_items는 이 이벤트와 관련된, 대기 중인 Work 항목입니다. 답하기 전에 항목마다 release_hint.lookup을"
+        " 읽기 전용으로 조회하십시오(없으면 waiting_on 상태를 보여 주는 Walkie 글·승인·접근 상태 조회). 그리고 이"
+        " 이벤트와 조회 결과로 release_hint.condition(없으면 waiting_on)이 지금 충족됐는지 판정하십시오. 결과는 최상위"
+        " \"wait_checks\": [{\"id\":\"<항목 id>\",\"lookup\":\"<무엇을 조회했는지>\",\"observed\":\"<본 상태>\","
+        "\"met\":true 또는 false}]에 항목마다 적습니다. met이 true이면 decision.release_waits에 {\"id\",\"waiting_on\"}"
+        "(waiting_on은 wait_items에 적힌 그대로)을 넣어 대기를 푸십시오. 확인 결과 없이 답하면 호스트가 거부합니다."),
     'mod_workflow_wake': (
         "Ciel Work workflow wake: a host message beginning \"Ciel Work workflow\" was added to this conversatio"
         "n. Read it and do what it asks. This wake holds none of it and grants no approval."),
