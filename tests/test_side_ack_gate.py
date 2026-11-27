@@ -64,11 +64,19 @@ class SideAckGateTests(unittest.TestCase):
         self.assertIsNone(self.result['no_guidance']['promptAck'])
 
     def test_a_gate_correction_leaves_the_shape_correction_available(self):
-        row = self.result['ack_then_prose']
+        row = self.result['ack_then_bad_summary']
         self.assertEqual(2, len(row['sends']))
         self.assertTrue(row['sends'][0]['ackText'])
         self.assertFalse(row['sends'][1]['ackText'])
         self.assertEqual((1, []), (row['resolves'], row['failures']))
+
+    def test_prose_after_a_gate_correction_commits_the_decision_the_gate_held(self):
+        # Andy 2026-11-27 965d84239d22: the held decision was lost to prose.
+        row = self.result['ack_then_prose']
+        self.assertEqual(1, len(row['sends']))
+        self.assertTrue(row['sends'][0]['ackText'])
+        self.assertEqual((1, []), (row['resolves'], row['failures']))
+        self.assertTrue(any('ACK' in text for text in row['shortfallLogs']), row['shortfallLogs'])
 
     def test_a_recorded_ack_with_memo_commits_without_correction(self):
         row = self.result['acked']

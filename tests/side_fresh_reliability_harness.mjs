@@ -70,6 +70,10 @@ import {startSide,pollSide,completeSide,decisionOf} from './side-intake.js'
     try { decisionOf(sample); noDecisionErrors.push('unexpected_ok') }
     catch (err) { noDecisionErrors.push(String(err?.message || err)) }
   }
+  // A decision-shaped object that does not parse (a stray quote in summary).
+  let unparsedError = 'unexpected_ok'
+  try { decisionOf('{"understanding":"u","decision":{"action":"answer","kind":"status","summary":"a "b" c","reply":"r"},"expected_version":1}') }
+  catch (err) { unparsedError = String(err?.message || err) }
 
   // 3. Correction for invalid priority, queue_position, and missing target Work item
   async function runCorrection(errText, badDecision) {
@@ -151,7 +155,7 @@ import {startSide,pollSide,completeSide,decisionOf} from './side-intake.js'
   console.log(JSON.stringify({
     freshConcurrentSpawns, freshUrgentWhileBusySpawns, freshFullSpawns, freshClaims,
     missingBrace, missingBraceWithExpected, missingUnderstanding, missingNoReply,
-    escapedDecisionInSummary, noDecisionErrors, bareUuidRefs, uuidInsideText,
+    escapedDecisionInSummary, noDecisionErrors, unparsedError, bareUuidRefs, uuidInsideText,
     priorityCorrection, queuePositionCorrection, missingTargetCorrection,
     bgFollowup:{resolves:bgResolves,failures:bgFailures},
   }))

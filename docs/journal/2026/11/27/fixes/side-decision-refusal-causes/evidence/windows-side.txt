@@ -1,0 +1,9 @@
+== tests/test_side_ack_gate.py :: 10 passed in 0.32s
+== tests/test_side_wait_check.py :: 9 passed in 0.26s
+== tests/test_side_actor_failures_hotfix.py :: 20 passed, 13 subtests passed in 5.87s
+== tests/test_side_fork_answers.py :: 8 passed in 0.99s
+== tests/test_side_intake_mcp.py :: 53 passed, 1 skipped in 10.34s
+== tests/test_work_mcp_tools.py :: 34 passed, 50 subtests passed in 1.88s
+== tests/test_work_mode_launch.py :: 12 passed, 24 subtests passed in 0.30s
+== tests/test_work_parallel_mcp.py :: 37 passed in 9.83s
+75 passed, 89 subtests passed in 48.47s

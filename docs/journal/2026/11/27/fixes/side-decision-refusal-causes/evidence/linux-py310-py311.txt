@@ -1,0 +1,32 @@
+Python 3.10.22
+tests/test_side_ack_gate.py :: RAN 10 failures=0 errors=0 skipped=0
+tests/test_side_wait_check.py :: RAN 9 failures=0 errors=0 skipped=0
+tests/test_side_actor_failures_hotfix.py :: RAN 20 failures=0 errors=0 skipped=0
+tests/test_side_intake_mod.py :: RAN 75 failures=0 errors=0 skipped=0
+tests/test_side_intake_mcp.py :: RAN 54 failures=0 errors=0 skipped=1
+tests/test_side_fork_answers.py :: RAN 8 failures=0 errors=0 skipped=0
+tests/test_work_parallel_finalization.py :: RAN 115 failures=0 errors=0 skipped=5
+tests/test_work_parallel_review_pin.py :: RAN 15 failures=0 errors=0 skipped=3
+tests/test_work_approval_workflow_review.py :: RAN 6 failures=0 errors=0 skipped=0
+tests/test_work_parallel_legacy_reviewer.py :: RAN 12 failures=0 errors=0 skipped=1
+tests/test_work_parallel_rework_worktree.py :: RAN 82 failures=0 errors=0 skipped=41
+tests/test_work_parallel_mcp.py :: RAN 37 failures=0 errors=0 skipped=0
+tests/test_work_mcp_tools.py :: RAN 34 failures=0 errors=0 skipped=0
+tests/test_work_mode_launch.py :: RAN 12 failures=0 errors=0 skipped=2
+DONE
+Python 3.11.18
+tests/test_side_ack_gate.py :: RAN 10 failures=0 errors=0 skipped=0
+tests/test_side_wait_check.py :: RAN 9 failures=0 errors=0 skipped=0
+tests/test_side_actor_failures_hotfix.py :: RAN 20 failures=0 errors=0 skipped=0
+tests/test_side_intake_mod.py :: RAN 75 failures=0 errors=0 skipped=0
+tests/test_side_intake_mcp.py :: RAN 54 failures=0 errors=0 skipped=1
+tests/test_side_fork_answers.py :: RAN 8 failures=0 errors=0 skipped=0
+tests/test_work_parallel_finalization.py :: RAN 115 failures=0 errors=0 skipped=5
+tests/test_work_parallel_review_pin.py :: RAN 15 failures=0 errors=0 skipped=3
+tests/test_work_approval_workflow_review.py :: RAN 6 failures=0 errors=0 skipped=0
+tests/test_work_parallel_legacy_reviewer.py :: RAN 12 failures=0 errors=0 skipped=1
+tests/test_work_parallel_rework_worktree.py :: RAN 82 failures=0 errors=0 skipped=41
+tests/test_work_parallel_mcp.py :: RAN 37 failures=0 errors=0 skipped=0
+tests/test_work_mcp_tools.py :: RAN 34 failures=0 errors=0 skipped=0
+tests/test_work_mode_launch.py :: RAN 12 failures=0 errors=0 skipped=0
+DONE

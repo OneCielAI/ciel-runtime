@@ -2727,7 +2727,10 @@ function quoteBareRefs(text) {
   }
   return from ? out + text.slice(from) : text
 }
-function parseDecisionCandidate(candidate) {
+// Why no candidate gave a decision, kept per kind so the refusal says which one
+// it was (Andy_Main 2026-11-27, from a screenshot of Daniel's: one sentence
+// covered a missing object, a parse error and an object with no decision).
+function parseDecisionCandidate(candidate, why) {
   const quoted = quoteBareRefs(candidate)
   const attempts = quoted === candidate ? [candidate] : [quoted, candidate]
   // Celly & KOBE 2026-11-25: 9 of 11 live invalid_answer failures had a complete
@@ -2737,12 +2740,25 @@ function parseDecisionCandidate(candidate) {
     attempts.push(candidate + '}')
   }
   for (const raw of attempts) {
-    try {
-      const value = JSON.parse(raw)
-      if (value && typeof value === 'object' && value.decision && typeof value.decision === 'object') return value
-    } catch {}
+    let value
+    try { value = JSON.parse(raw) } catch (error) {
+      if (why && !why.parse && candidate.trimStart().startsWith('{')) why.parse = line(String(error?.message || error),160)
+      continue
+    }
+    if (value && typeof value === 'object' && value.decision && typeof value.decision === 'object') return value
+    if (why && !why.shape && value && typeof value === 'object' && !Array.isArray(value)) {
+      const keys = Object.keys(value).slice(0,12).join(', ') || 'none'
+      why.shape = 'top-level keys: '+keys+('decision' in value ? '; decision is '
+        +(value.decision === null ? 'null' : Array.isArray(value.decision) ? 'an array' : 'a '+typeof value.decision) : '')
+    }
   }
   return null
+}
+function noDecisionReason(why) {
+  return 'side answer carries no decision JSON: '+(why.shape
+    ? 'a JSON object was found, but it has no decision object ('+why.shape+')'
+    : why.parse ? 'the JSON did not parse ('+why.parse+')'
+    : 'no JSON object containing "decision" was found in the answer')
 }
 export function decisionOf(answer) {
   const text = String(answer || '')
@@ -2762,8 +2778,9 @@ export function decisionOf(answer) {
       if (candidates.length > 64) break
     }
   }
+  const why = {}
   for (const candidate of candidates) {
-    const value = parseDecisionCandidate(candidate)
+    const value = parseDecisionCandidate(candidate, why)
     if (!value) continue
     // Observed live: sent_via nested inside decision and "public_summary"
     // for summary. Both are presentation slips, not different decisions.
@@ -2793,7 +2810,7 @@ export function decisionOf(answer) {
     return {...value, expected_version, decision, understanding: rawUnderstanding, sent_via: value.sent_via || sent_via,
       wait_checks: value.wait_checks ?? value.decision.wait_checks}
   }
-  throw new Error('side answer carries no decision JSON')
+  throw new Error(noDecisionReason(why))
 }
 // Steps 2-4 of an event (user requirement 2026-11-17): the actor's own
 // restatement goes to the source before the board changes, then the decision
@@ -3143,6 +3160,14 @@ export async function completeSide($,e) {
             try { parsed = decisionOf(recent[i].text); break } catch {}
           }
         } catch {}
+        // Andy 2026-11-27 965d84239d22: the decision the ACK/wait gate held back
+        // was lost when the answer to that correction reported its lookups in
+        // prose. That decision parsed; the router still validates it at commit.
+        if (!parsed && actor.gateHeld) {
+          parsed = actor.gateHeld
+          try { $.ui.log('Ciel side: '+event.receipt_id.slice(0,12)+' answered the gate correction without a decision; '
+            +'committing the decision it gave before ('+line(String(parseError?.message || parseError),200)+')',{to:'debug'}) } catch {}
+        }
         if (!parsed) throw parseError
       }
       const {sent_via, understanding, ...proposal} = parsed
@@ -3157,7 +3182,10 @@ export async function completeSide($,e) {
       const shortfalls = []
       try { await requireAck($,actor,event) } catch (error) { shortfalls.push(String(error?.message || error)) }
       try { requireWaitCheck(event,parsed) } catch (error) { shortfalls.push(String(error?.message || error)) }
-      if (shortfalls.length && !actor.gateCorrected) throw new Error(shortfalls.join('; '))
+      if (shortfalls.length && !actor.gateCorrected) {
+        actor.gateHeld = parsed
+        throw new Error(shortfalls.join('; '))
+      }
       if (shortfalls.length) {
         const missing = shortfalls.map(text => /side ACK required/.test(text) ? 'the ACK' : 'the wait check').join(' and ')
         try { $.ui.log('Ciel side: committing '+event.receipt_id.slice(0,12)+' without '+missing

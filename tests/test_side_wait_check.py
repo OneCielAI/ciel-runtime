@@ -77,6 +77,15 @@ class SideWaitCheckTests(unittest.TestCase):
         # matched 8 items, 5 of them only through the room or company id.
         self.assertEqual(['nRoot', 'nRequest'], self.result['reminder_targets'])
 
+    def test_a_decision_held_back_by_the_wait_gate_commits_when_the_next_answer_is_prose(self):
+        # Andy 2026-11-27 965d84239d22 (Walkie 163158): the valid decision of the
+        # second answer was lost when the answer to the wait-check correction
+        # reported its lookups in prose.
+        for label, sends in (('prose_gate_prose', 2), ('gate_then_prose', 1)):
+            row = self.result[label]
+            self.assertEqual((sends, 1, []), (len(row['sends']), row['resolves'], row['failures']), label)
+            self.assertTrue(any('n2892' in text for text in row['shortfallLogs']), (label, row['shortfallLogs']))
+
     def test_the_correction_for_a_missing_decision_json_keeps_read_only_lookups_allowed(self):
         row = self.result['prose_first']
         self.assertEqual(1, len(row['sends']))

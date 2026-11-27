@@ -136,7 +136,17 @@ class SideModTests(unittest.TestCase):
         # Leading '{' or '}' without a valid decision object must reject cleanly instead of
         # infinite-looping in lastIndexOf(..., -1) and crashing Claude Code's hooks worker
         # (Prody 03:30Z/07:50Z, KOBE 01:00Z/03:09Z).
-        self.assertEqual(['side answer carries no decision JSON'] * 3, row['noDecisionErrors'])
+        # Each refusal says which of its causes it was (Andy_Main 2026-11-27, a
+        # screenshot from Daniel: one sentence covered all three).
+        self.assertEqual([
+            'side answer carries no decision JSON: a JSON object was found, but it has no decision object'
+            ' (top-level keys: analysis_focus, answer, understanding)',
+            'side answer carries no decision JSON: a JSON object was found, but it has no decision object'
+            ' (top-level keys: analysis_focus, blockers, decision; decision is a string)',
+            'side answer carries no decision JSON: no JSON object containing "decision" was found in the answer',
+        ], row['noDecisionErrors'])
+        self.assertRegex(row['unparsedError'],
+                         r'^side answer carries no decision JSON: the JSON did not parse \(.+\)$')
         # KOBE f5ae6c68b340: a bare UUID token and numeric ids in refs are repaired
         # into string refs instead of failing the corrected answer.
         self.assertEqual(['138846', '160846', '4c846761-5ce7-4f79-b65f-db09b5605413', '226'],
@@ -237,7 +247,7 @@ class SideModTests(unittest.TestCase):
         self.assertNotIn('context_key',row['resolveCalls'][0]['_host'])
         self.assertEqual({'action':'answer','kind':'info','summary':'done2','reply':'answer2'},row['resolveCalls'][1]['decision'])
         self.assertEqual([{'category':'invalid_answer','receipt':'c'*64,
-                           'reason':'side answer carries no decision JSON'}],row['failures'])
+                           'reason':'side answer carries no decision JSON: no JSON object containing "decision" was found in the answer'}],row['failures'])
         self.assertTrue(row['first']['retired'])
         self.assertTrue(row['second']['retired'])
         self.assertIsNone(row['first']['current'])

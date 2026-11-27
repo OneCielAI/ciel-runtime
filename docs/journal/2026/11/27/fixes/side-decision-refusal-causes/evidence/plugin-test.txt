@@ -1,0 +1,166 @@
+Validating plugin manifest: C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\ciel_runtime_support\claude_mods\ciel-work\.claude-plugin\plugin.json
+
+  ❯ types ./types/index.d.ts declares on $: nothing (no EngineInterface member)
+  ❯ types ./types/index.d.ts declares state: ciel-work.detail, ciel-work.panel, ciel-work.legacyWakes, ciel-work.promptPending
+
+Validating hooks: C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\ciel_runtime_support\claude_mods\ciel-work\hooks\hooks.json
+
+  ❯ ./register.js hooks: agent.spawn, session.append, session.start, classic.SessionStart, prompt.attachment{type=plan_mode|plan_mode_exit}, turn.start, turn.step, turn.complete, session.compact, classic.Stop, session.receive, prompt.submit, command.run{command=btw_with_mcp}, command.run{command=work-mode}, tool.call, session.send, tool.check, session.end, ui.render{component=AbovePrompt} (default matcher key: plugin), ui.render{component=Pane, requestId=ciel-side-intake} (default matcher key: plugin), ui.message{component=Pane, requestId=work-details, element=obs-graphic}, ui.render{component=Pane, requestId=work-details} (default matcher key: plugin), ui.render{component=SessionMode}
+  ❯ ./register.js answers its own command: command.run{command=btw_with_mcp}
+  ❯ ./register.js answers its own command: command.run{command=work-mode}
+  ❯ ./register.js gating hook without .catch: agent.spawn
+  ❯ ./register.js gating hook without .catch: session.append
+  ❯ ./register.js gating hook without .catch: classic.SessionStart
+  ❯ ./register.js gating hook without .catch: session.compact
+  ❯ ./register.js gating hook without .catch: classic.Stop
+  ❯ ./register.js gating hook without .catch: session.receive
+  ❯ ./register.js gating hook without .catch: prompt.submit
+  ❯ ./register.js gating hook without .catch: tool.call
+  ❯ ./register.js gating hook without .catch: session.send
+  ❯ ./register.js gating hook without .catch: tool.check
+  ❯ ./register.js calls: $.agent.list (via listNativeAgents, sideActorEnded, startSide), $.agent.register (via freshSideType), $.agent.spawn (via parallelDirectSpawn, parallelP0Spawn, pollSide, workflowDelegate), $.clock.after (via armForkApiRetryTimer, armPromptRelease, btwBridge, commitProposal, correctSide, parallelPump, pollBusySideReceipts, pollSide, retryStart, scheduleGateCheck, scheduleIdleRefresh, scheduleNativeObservation, schedulePaneRecovery, scheduleSideStop, startPeriodicPump), $.clock.now (via parallelEnsureExitContract, parallelStopSubmittedWaiting), $.command.register, $.command.run (via btwBridge), $.env.get (via callRouter, hostCredential, mcpText, parallelHostAttach, reworkLaunchNonce)
+  ❯ ./register.js calls: $.env.set (via reworkLaunchNonce), $.fs.read (via mcpText), $.mcp.call (via approvalReadWalkie, callRouter, focusItems, mcpText, moveRoot, parallelCall, planText, readWorkMcp, submitAck, submitReply, submitUnderstanding, workToolCall), $.mcp.connect (via readWorkMcp, startSide, writeFailure), $.prompt.compose (via freshSideType), $.prompt.submit (via sidePromptSubmit), $.session.append (via appendToMain, deliverParallelReview, hostNoticeToMain, shareWithMain), $.session.id (via identityOf, mcpText, sessionId), $.session.info (via mainTranscriptPath), $.session.messages (via appendedRefCount, completeSide, sideTurnError)
+  ❯ ./register.js calls: $.session.repo (via parallelAgentSpawn, parallelDirectSpawn, parallelP0Spawn), $.session.send (via armForkApiRetryTimer, notifyReleased, parallelEnsureExitContract, parallelRecoverWorkers, parallelResumeParked, relayToItem, sendCorrection), $.state.get (via claimLegacyAttempt, claimPromptKey, sidePromptHydrate, terminalizePromptKey), $.state.set (via claimLegacyAttempt, claimPromptKey, terminalizePromptKey), $.tool.call (via parallelStopSubmittedWaiting, recoverSubmittedReview, rejectLateReworkAgents, rejectStaleReworkForks, stopParallelAgent, stopRetiredActor), $.tool.check (via forkGatePresent)
+  ❯ ./register.js calls: $.ui.ask (via editObservatorySetting, parallelToolCall, pickChoice, requestReworkLaunchResolution, retryReviewReappend, retrySideNotice, retrySideReappend, retrySideReply, retrySideWake, workToolCall), $.ui.close, $.ui.invalidate
+  ❯ ./register.js calls: $.ui.log (via answerParkedForks, appendToMain, armForkApiRetryTimer, btwBridge, completeSide, correctLater, correctSide, gateHostRound, gateRead, logParkedState, noteTurnReconcileFailure, notice, notifyReleased, parallelObserveNative, parallelProcessForkApiRetries, parallelResumeParked, parallelStopSubmittedWaiting, parallelTurnComplete, pollSide, relayToItem, requireAck, resumeSide, scheduleGateCheck, scheduleMainWake, sendOwedAcks, stopNotice, stopRetiredActor, workflowAgentComplete, workflowApprovalReads, workflowApprovalResults, workflowDelegate, writeFailure), $.ui.open, $.ui.resolve
+  ❯ ./register.js calls: $.ui.toast (via focusItems, forkGatePresent, hintPlanning, moveRoot, reconcileReworkLaunch, requestReworkLaunchResolution, retryRefused, setObservatorySetting, workStop)
+  ❯ ./register.js env writes: CIEL_WORK_HOST_PROCESS_NONCE
+  ❯ ./register.js env reads: CIEL_RUNTIME_WORK_LAUNCHER_PID, CIEL_RUNTIME_WORK_PARALLEL_HOST_TOKEN, CIEL_WORK_HOST_PROCESS_NONCE, CLAUDE_CONFIG_DIR, HOME, USERPROFILE
+  ❯ ./register.js state writes: ciel-work.detail, ciel-work.legacyWakes, ciel-work.panel, ciel-work.promptPending
+  ❯ ./register.js state reads: ciel-work.detail, ciel-work.legacyWakes, ciel-work.panel, ciel-work.promptPending
+  ❯ ./register.js surface modules: hooks/observatory.client.js
+
+Provides:
+
+  ❯ modules: hooks/register.js
+  ❯ skills: ciel-work:work-operations
+
+Hosts not read for: modules (1), skills (1)
+Hosts not declared: list what these parts reach under "network.hosts" in plugin.json
+
+Plugin directory checks for C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\ciel_runtime_support\claude_mods\ciel-work. The plugin directory is the catalog that plugins are submitted to; this is a subset of what it runs.
+
+⚠ Found 1 plugin directory warning:
+
+  ❯ .claude-plugin/plugin.json icon: No icon (ICON_MISSING). No icon found in the plugin. The validator looked for `icon` in plugin.json and for a file at .claude-plugin/icon.png or .svg, assets/icon.png or .svg, or a similar path.
+    Fix: Add a square PNG to the plugin folder at .claude-plugin/icon.png, or set `icon` in plugin.json to the path of a square PNG or JPEG in the plugin: 512 to 2048 px on each side, under 2 MB. SVG and WebP are not accepted. That file may become the listing icon only once: the first time the plugin is saved or submitted in the developer portal. Adding or changing it later does not change the icon.
+
+About these checks:
+
+  ❯ The repository root was taken to be C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel, the nearest parent folder with a .git folder or file. README.md and LICENSE were taken from it, because this plugin folder has none of its own. For a plugin submitted from a git repository, the repository root is the top folder of that repository, with only what is committed there, so check that the folder named above is that top folder.
+  ❯ hooks/hooks.json names a hooks module (a code file listed under `modules`). The plugin directory has rules of its own for such code, and these checks apply none of them, so passing here does not mean the directory accepts the plugin. The developer portal's own validation applies those rules.
+
+These plugin directory checks do not change the result below.
+
+The directory also runs a safety scan and a policy review that this command does not.
+
+✔ Validation passed
+
+tests\observatory.test.ts:
+(pass) graphical SSE view labels processing receipts while side work is active [989.11ms]
+(pass) graphical SSE view calls only a quarantined row failed; retries and compaction waits keep their state [657.72ms]
+(pass) graphical SSE view shows a Walkie emergency as P0 and keeps it under the urgent filter [559.08ms]
+(pass) terminal control strip drives the graphical view without a Client click [558.34ms]
+(pass) terminal strip appends to focus, opens the parent and moves a queued goal [654.80ms]
+(pass) /work-mode settings opens the pane on its Settings tab [465.33ms]
+(pass) Work & SSE pane validates and navigates on terminal [517.42ms]
+(pass) Work & SSE pane validates and navigates on mobile [443.17ms]
+(pass) graphical pane clears finalized reviews on host status updates without manual refresh [478.14ms]
+(pass) graphical pane shows P0-P5 lanes and all running fork items beyond 3 including parent goals [419.85ms]
+(pass) the item list animates the row whose fork is running now and holds the rest still [442.71ms]
+(pass) a list with no running fork does not redraw on the pane clock [443.06ms]
+
+tests\work.test.ts:
+(pass) live Work settings command works while board is off without model prompt [905.57ms]
+(pass) /work-mode discard-failed reaches the host operation, shows the counts, and starts no model turn [602.05ms]
+(pass) side intake command calls MCP and keeps main prompt untouched [429.33ms]
+(pass) immediate command, router tree, bounded prompt context [472.39ms]
+(pass) planning denies all known writes including subagents; live phase refresh [443.02ms]
+(pass) only exact engine plan attachments exempt Edit and Write in the same native loop [512.02ms]
+(pass) native Windows plan facts accept slash spelling without widening the path [402.75ms]
+(pass) no guessed paths, prose, plugin context or EnterPlanMode result can identify a plan file [372.01ms]
+(pass) native plan exemption clears on exit, missing facts and session changes; offline permits only that file [374.53ms]
+(pass) shells delegate to native policy and disabled state clears edit guards [307.90ms]
+(pass) Bash never depends on Work status or rewrites native permission results [399.72ms]
+(pass) PowerShell never depends on Work status or rewrites native permission results [347.01ms]
+(pass) unavailable and malformed status fail closed but reads pass [326.55ms]
+(pass) auto strips forged confirmation and refreshes after result [327.03ms]
+(pass) ask: Approve [310.67ms]
+(pass) ask: Keep planning [280.22ms]
+(pass) ask: Other [270.20ms]
+(pass) approval rejects changed plan [323.89ms]
+(pass) SessionMode planning, progress, off and unavailable are read-only renders [319.41ms]
+(pass) offline shells delegate but execute and missing approval tree still fail closed [284.18ms]
+(pass) every Work result refreshes; another server is not treated as Work [333.71ms]
+(pass) agent work_mode_set refreshes: off lifts the edit gate and prompt context, on restores them [316.34ms]
+(pass) conversation changes isolate every router read and override forged tool session ids [288.44ms]
+(pass) approval rejects a conversation switch even when plan counters match [309.24ms]
+(pass) identical blockers survive unrelated version changes without repeated reassessment [343.78ms]
+(pass) background work does not suppress one bounded wait reassessment [289.58ms]
+(pass) Stop guard {"enabled":false} [287.69ms]
+(pass) Stop guard {"auto_continue":false} [313.83ms]
+(pass) Stop guard {"continuation":{"actionable":0}} [303.34ms]
+(pass) Stop guard {"phase":"planning","approval":"ask","ready":true} [308.13ms]
+(pass) a Stop read superseded by a newer successful read is not reported as unavailable [402.64ms]
+(pass) overlapping main compacts wait for every settlement and preserve native Stop gates [314.32ms]
+(pass) Inspector opens when the first status read times out but its fallback succeeds [430.36ms]
+(pass) three levels display linked ids, waits, urgent holds and green done checks [400.82ms]
+(pass) root move buttons pin version, identity and explicit user request [427.95ms]
+(pass) Inspector focus and clear pin exact user intent, version and conversation [445.96ms]
+(pass) Inspector appends an inspected existing item to focus in order [324.66ms]
+(pass) compact footer and vertical branch buttons [281.89ms]
+(pass) branch press opens read-only details with notes and evidence, nested node and parent [370.39ms]
+(pass) detail state is hidden after version or conversation changes and offline [357.73ms]
+(pass) interactive start logs one person-facing notice; -p and off do not [322.33ms]
+(pass) a router still connecting at start is read again; band and notice follow once it answers [426.34ms]
+(pass) start retries stop after a bounded window, on a new session start and when Work is off [507.13ms]
+(pass) idle refresh reflects out-of-band edits, backs off and never starts a model turn [453.04ms]
+(pass) idle refresh pauses in a main turn but not a child turn, and stops at end or disabled [522.40ms]
+(pass) gate re-check asks once a minute, also while main is busy and while Work forks run [855.50ms]
+(pass) KOBE: the gate check is armed before the start phase and fires while that phase is still held [512.25ms]
+(pass) gate tick: 20 gates on 3 threads make 3 reads after each cursor and one batch [358.58ms]
+(pass) gate tick: a cursor far behind reads at most two pages, never the history [329.74ms]
+(pass) gate tick: a malformed or foreign thread row is returned as a failed read, not used [418.76ms]
+(pass) idle refresh never overlaps a slow poll and discards its late response after end [340.07ms]
+(pass) late old-session poll cannot overwrite new-session state or spawn another timer [301.98ms]
+(pass) offline idle refresh backs off and recovers without a prompt; startup retries stop at end [411.95ms]
+(pass) silent identity changes stop the idle poll before any cross-session router read [361.61ms]
+(pass) planning denial explains itself and toasts once per plan version [417.46ms]
+(pass) help, readable bare command and raw status [405.26ms]
+(pass) band shows a hint while no plan exists and the phase once one does [341.97ms]
+(pass) triage guidance reaches the model; queue tab is read-only and summary keeps root order [314.45ms]
+(pass) survey yields, disabled hides, long branch list retains every item [312.19ms]
+(pass) hybrid prompt keeps bounded valid active summary without queued title note or subtree [294.88ms]
+(pass) ask approval reads exact active goal only and never overrides native edit denial [283.11ms]
+(pass) queued planning target cannot inherit active approval during continuation [293.78ms]
+(pass) tabs classify by status not ratios and completion counts follow the latest snapshot [302.75ms]
+(pass) bounded root index pages every queued/history root; details only read the pressed root [384.14ms]
+(pass) whole band cap follows host maxRows and viewport; only Work rows are bounded, native follows [363.35ms]
+(pass) the host accepts the band around an engine-drawn native element and a companion tree [339.85ms]
+(pass) tiny band opens inspector with all tab lists and exact details on demand [313.22ms]
+(pass) tab and paging state resets at conversation change and end; no work mutations [355.71ms]
+(pass) inspector bounds long notes and trees with paging; every note chunk stays reachable [343.06ms]
+(pass) exact wide-character detail is paged without losing text and snapshot shrink clamps pages [382.24ms]
+(pass) default compact uses one Work row, counts and current leaf; expanded mode and completion remain separate [325.12ms]
+(pass) explicit expand and compact commands only change display state [332.04ms]
+(pass) external /btw is bridged to the native command and never enters as a prompt [280.82ms]
+(pass) compact display follows runnable selector and makes ancestor holds visible [325.09ms]
+(pass) main delegates execution: its direct code edit is refused in the executing phase, documents stay writable [313.62ms]
+(pass) pane preserves same-session items and auto-recovers after transient router drop; foreign session stays isolated [331.48ms]
+(pass) fork transient API error holds host_salvage, retries 1m×10 then 10m interval, and clears on recovery [1213.18ms]
+(pass) a submitted fork held waiting after its receipt is stopped by the host once, with no question [445.44ms]
+(pass) fork transient API error exhausts at 20/20 and hands off to exit contract [4770.01ms]
+(pass) exit-contract salvage never sends a second message that revives a revoked fork [370.20ms]
+
+tests\workflow.test.ts:
+(pass) a slow start host phase does not hold session.start or commands; the gate check is armed first [1284.81ms]
+(pass) the gate check runs while main is busy and reads pending approvals P0, P1, then the rest [811.69ms]
+(pass) 20 waiting items on 3 threads and 2 awaiting approvals: one tick, 3 thread reads, 2 request reads [626.33ms]
+(pass) main hears of its first workflow item once, woken only when idle [754.07ms]
+(pass) a workflow notice appended while main works wakes main once it is idle [825.36ms]
+(pass) a delegated proposal fork is requested on main model with the host prompt, also with parallel on [575.42ms]
+(pass) /work-mode workflow lists stage, owner, proposal and request [369.34ms]
+
+ 99 pass
+ 0 fail
+Ran 99 tests across 3 files. [35.55s]

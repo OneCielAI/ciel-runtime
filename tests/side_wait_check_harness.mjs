@@ -100,6 +100,11 @@ const created=JSON.stringify({understanding:'A new note in another thread asks f
  expected_version:12552})
 await scenario('other_thread',[created],{message:'99001',root:'99000'})
 await scenario('prose_first',[prose,checkedOpen])
+// Andy 2026-11-27 965d84239d22: prose (shape correction), then a valid decision
+// refused only for its wait check (gate correction), then prose reporting the
+// lookups. The decision it already gave was lost as invalid_answer.
+await scenario('prose_gate_prose',[prose,unchecked,prose])
+await scenario('gate_then_prose',[unchecked,prose])
 // Andy 2026-11-27 12:19Z: an agent.pending_reminder (no source message) named
 // roots 63773 and 61802 and carried room and company ids in its fields. Items
 // whose lookup only shared that room or company were sent as wait items (8 in

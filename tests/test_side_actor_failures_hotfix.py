@@ -306,7 +306,7 @@ class CorrectiveTurnTests(unittest.TestCase):
     def test_a_second_refusal_counts(self):
         row = self.result['no_json_twice']
         self.assertEqual(1, len(row['sends']))
-        self.assertEqual([{'category': 'invalid_answer', 'reason': 'side answer carries no decision JSON'}],
+        self.assertEqual([{'category': 'invalid_answer', 'reason': 'side answer carries no decision JSON: no JSON object containing "decision" was found in the answer'}],
                          row['failures'])
         self.assertEqual(0, row['resolves'])
 

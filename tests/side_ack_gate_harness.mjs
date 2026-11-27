@@ -51,6 +51,8 @@ function run(label,{guidance=GUIDANCE,work=()=>[],readbackFails=false,expires=fa
     return text({receipt_id:args._host.receipt_id,generation:args._host.generation,lease_until:Date.now()/1000+120})}
    if(name==='work_side_understanding'&&args.state==='prepare'){
     if(expired) return {isError:true,content:[{type:'text',text:'side claim expired'}]}
+    // The router's shape refusal of an empty summary (side_work_decision.py).
+    if(args.decision?.summary==='') return {isError:true,content:[{type:'text',text:'side decision needs bounded summary and reply'}]}
     return text({state:'submitting',attempt_id:'u1',server:'walkie',tool:'walkie_send_message',arguments:{text:args.understanding}})}
    if(name==='work_side_understanding') return text({receipt:{receipt_id:'e'.repeat(64),stage:'received'}})
    if(name==='work_side_resolve')
@@ -72,6 +74,7 @@ const acked=[{state:'ack',version:1,at:'2026-11-27T06:00:00Z',memo:'새 Work로 
 // The receipt id 'e'*64 as the event's own ACK idempotency key (UUID layout).
 const CLIENT='eeeeeeee-eeee-4eee-aeee-eeeeeeeeeeee'
 const prose='결정 JSON 없이 끝난 답입니다.'
+const badSummary=JSON.stringify({...JSON.parse(good),decision:{...JSON.parse(good).decision,summary:''}})
 const out={}
 async function scenario(label,answers,options){
  const host=run(label,options)
@@ -100,6 +103,9 @@ await scenario('missing_twice',[good,good],{work:()=>[row(SELF,[])]})
 // A gate correction does not use up the correction for the answer's shape
 // (Andy 2026-11-27 b386e8da7270): ACK missing, then prose, then a decision.
 await scenario('ack_then_prose',[good,prose,good],{work:()=>[row(SELF,[])]})
+// The shape refusal after a gate correction still gets its own correction
+// (b386e8da7270 was an over-long summary in the answer to a wait-check correction).
+await scenario('ack_then_bad_summary',[good,badSummary,good],{work:()=>[row(SELF,[])]})
 // An ACK without its note is not the required ACK.
 await scenario('ack_without_memo',[good,good],{work:()=>[row(SELF,[{state:'ack',version:1,at:'x',memo:null}])]})
 // Already ACKed with a memo (a later state keeps the ACK in history): commits at once.
