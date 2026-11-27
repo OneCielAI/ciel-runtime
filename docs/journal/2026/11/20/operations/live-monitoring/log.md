@@ -2,6 +2,14 @@
 
 ## 2026-11-26
 
+- 04:12:42–04:24:03Z 정기 틱(03:52:50Z 대비 20분 관측 창). Andy·Celly·Betty 수집 성공. **KOBE·Prody는 기본 수집에서 `ssh failed`**였고, 두 호스트 모두 직후 단독 재조회로 정상 수집(KOBE `04:23:39Z`, Prody `04:24:03Z`). SSH 접속 자체는 두 호스트 모두 `alive`로 확인돼 미관측을 종료로 보지 않았다. 재시작·상태 파일 수정 없음. 이하 UTC.
+  - **Andy (`04:12:42Z`)**: 보드 `v12540→v12543`, 원장 `8924→8926`, actionable 54, MCP `1078ms`, 리스 제출 21·실행/슬롯 2·대기 1, 신규 실패 0. **신규 finding `submitted, completion receipt, no review row: n2763 05530e0f P1 native=idle`** — 완료 영수증은 있는데 검수행이 없다(n2473·Celly n1585/n1634와 같은 계열, 추적). 로그: `fork_turn_watch_poll_failed` 0건, `work_workspace_failed` 2건 유지(신규 없음). 최근 30분 워크스페이스 매니페스트 1건(`a05b3692…`, `ready`). 포크 표본 오류 0, 전사 3건.
+  - **Celly (`04:12:45Z`) — 보드/MCP 동시 타임아웃:** `board`·`workflow`·`mcp` 모두 `TimeoutError`(`mcp` `elapsed_ms=4016`, 보드 미관측). 리스 정보(대기 9·실행/슬롯 3·제출 2·예약/슬롯 1)는 파일에서 읽혔으므로 라우터 프로세스는 살아 있으나 HTTP 응답이 4초를 넘겼다. **직전 틱(03:52)도 `3906ms`, 그 전(03:32)도 `4016ms`** — Celly에서 4초 타임아웃이 반복되는 패턴(추적, 원인 미확정). finding은 `n1585 awaiting_capacity` 1건만(용량 대기). 포크 표본 오류 5건, 전사 4건.
+  - KOBE (단독 `04:23:39Z`): 원장 4924 유지, 수락 1·대기 1·실행/슬롯 1, finding `n5` 자식 미완료 가드 유지, 신규 실패 0. 라우터 `/ca/work/api/v1/runtime` 응답 확인, 버전 `0.2.51-beta.20261127-013303.1ca7dc3` — **새 오버레이가 로드된 빌드**.
+  - Prody (단독 `04:24:03Z`): 원장 `1400→1407`, 실행/슬롯 1만, finding 0·신규 실패 0·라우터 로그 0. 라우터 버전 `0.2.51-beta.20261126-000237.61d2f8b`(구 빌드).
+  - Betty (`04:22:13Z`): 보드 5789·원장 1262 변화 없음, MCP `293ms`, 제출 5만, 오류 0.
+  - 미결·추적: **Celly 보드/MCP 4초 타임아웃 3틱 연속**(원인 미확정); Andy `n2763` 검수행 미생성·`worktree add` 간헐 182초(원인 미확정, 코드 수정 없음); Celly `n1585` 용량 대기·라우터 11-25/26 빌드(새 오버레이 미로드)·사이드 적체; KOBE `n5` 가드; KOBE·Prody SSH 기본 수집 반복 실패(단독 재조회로 회복).
+
 - 03:52:16–03:52:50Z 정기 틱(03:34:58Z 대비 17분 관측 창). 5개 호스트 전원 수집 성공(KOBE SSH 정상), `live.board` 전원 `observed`, MCP 전원 `probe_succeeded`(Andy `1500ms`, Celly `1438ms`, KOBE `264ms`, Prody `424ms`, Betty `417ms`). 재시작·상태 파일 수정 없음. 이하 UTC.
   - **Celly — 직전 틱의 "slot held, fork absent" 4건이 해소됐다(정정).** 이번 `/parallel`에서 **확인 포크 4건(`n1593`·`n1635`·`n1636`·`n1616` 전부 `running`)**, 대기 9, 미확인 2(`n1585`·`n1611`). device `active_slots=4 / capacity=8`(P1 3/3, P3 1/1). 즉 01:37·02:54에 native 관측이 끊겼던 항목들이 이번 표본에서는 다시 fresh 관측됐다 — **native 부재는 종료 증거가 아니라는 기존 원칙이 다시 확인됐고, 결함으로 단정하지 않은 판단이 맞았다.** 직전 틱 active_slots 3(대기 9) → 이번 4, 보드 `v11459→v11466`, actionable 18→25.
   - Andy (`03:52:16Z`): 보드 `v12536→v12540`, 원장 `8921→8924`, actionable 54, MCP `1500ms`, 리스 제출 20·실행/슬롯 3·대기 1, finding 0·신규 실패 0·전사 오류 0. 로그: `fork_turn_watch_poll_failed` 0건, `work_workspace_failed` **2건 유지**(`20:49:06`·`20:52:16` 신규 없음). 포크 표본 오류 3건.
