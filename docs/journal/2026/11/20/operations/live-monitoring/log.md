@@ -2,6 +2,15 @@
 
 ## 2026-11-26
 
+- 04:52:50–04:56:32Z 정기 틱(04:35:10Z 대비 18분 관측 창). 5개 호스트 전원 수집 성공, KOBE·Prody 기본 수집도 성공. 재시작·상태 파일 수정 없음. 이하 UTC.
+  - **Celly — 보드 지연 악화: 4초 예산 초과가 아니라 9–16초.** 모니터는 여전히 `board`/`mcp` `TimeoutError`(`elapsed_ms=4016`)다. 직접 `/board` 3회 측정은 **9.07s / 16.16s / 2.42s**(전 틱 2.10/1.43/5.51s보다 나빠졌다). 라우터 프로세스는 정상(threads 16, handles 253, working set 394 MB). 이번 구간 MCP 호출량은 **12 → 15 → 23 → 31 → 35 calls/min**으로 전 틱의 139–161 calls/min보다 **낮은데도 지연이 커졌다** — 따라서 "호출량 급증이 원인"이라는 직전 후보는 **성립하지 않는다(배제)**. 다른 요인으로 `/board` 응답 자체의 비용 또는 락 경합을 다음 관측 대상으로 둔다(원인 미확정, 코드 수정 없음).
+  - Andy (`04:52:50Z`): 보드 `v12548→v12552`, 원장 `8933→8940`, actionable 53, MCP `1328ms`, 리스 제출 20·실행/슬롯 2·대기 1, finding 0 유지(직전 사라진 `n2763` 검수행 행이 2틱 연속 없음 — 해소 쪽으로 기움, 단정 보류), 신규 실패 0, 포크 오류 0, 전사 2건. 로그 `fork_turn_watch_poll_failed` 0건·`work_workspace_failed` 2건 유지.
+  - Celly (`04:52:54Z`): 원장 `10443→10444`, finding `n1585 awaiting_capacity` 1건(용량 대기), 새 실패 `decision_refused_stop ed47d1db x1`(정상 Stop 가드), 포크 표본 오류 2건, 전사 3건.
+  - KOBE (`04:55:56Z`): 보드 `834→838`, 원장 `4928→4936`, MCP `212ms`, 수락 1·실행/슬롯 1, finding `n5` 가드 유지, 새 실패 `decision_refused_stop fdd3a09b x1`(정상 Stop 가드), 포크 오류 2건.
+  - Prody (`04:56:10Z`): 보드 `v7571→v7573`, 원장 1407 유지, MCP `309ms`, 실행/슬롯 1만, finding 0·신규 실패 0·포크 오류 2건.
+  - Betty (`04:56:32Z`): 보드 5789·원장 1262 변화 없음, MCP `407ms`, 제출 5만, 오류 0.
+  - 미결·추적: **Celly `/board` 지연 9–16초(원인 미확정, 호출량 가설 배제)**·`n1585` 용량 대기·새 오버레이 미로드·사이드 적체; Andy `worktree add` 간헐 182초(원인 미확정)·`n2763` 2틱 연속 미관측; KOBE `n5` 가드.
+
 - 04:32:17–04:35:10Z 정기 틱(04:24:03Z 대비 8분 관측 창). 5개 호스트 전원 수집 성공, KOBE·Prody는 이번엔 기본 수집에서도 성공. 재시작·상태 파일 수정 없음. 이하 UTC.
   - **Celly — 보드/MCP 4초 타임아웃 4틱 연속, 원인 후보 관측(미확정).** 이번에도 `board`·`mcp` `TimeoutError`(`mcp` `elapsed_ms=4031`). 라우터 파일 리스는 정상(대기 9·실행/슬롯 3·제출 2). 직접 `/board`를 3회 호출하니 **2.10s / 1.43s / 5.51s** — 성공하지만 편차가 크고 한 번은 4초 예산을 넘겼다. 라우터 로그의 분당 MCP 호출량을 세니 **22 → 36 → 16 → 79 → 118 → 161 → 139 calls/min**으로 급증했고, 누적 상위 도구는 `work_host_page` **153,483회**, `work_side_claim` 20,732회다. 같은 구간에 `router_post_client_disconnected path=/ca/mcp`(WinError 10054/10053)가 반복되고 `runtime_activity_context_usage_failed WinError 5`도 1건 있다. 전사에도 `Work reconciliation: Side router operation failed: work_host_page: The operation timed out.`(04:33:39)와 `Ciel Work gate … router-error`(04:33:47)가 있어 **모니터의 4초 타임아웃과 모드 자신의 `work_host_page` 타임아웃이 같은 현상**임을 보여준다. **인과(호출량 급증 → 지연)는 상관 관측일 뿐 확정 아님.** 코드 수정 없음.
   - Andy (`04:32:17Z`): 보드 `v12543→v12548`, 원장 `8926→8933`, actionable 54, MCP `1313ms`, 리스 제출 20·실행/슬롯 2·대기 1, **finding 0**(직전 `n2763` 검수행 미생성 행이 이번 표본에서 사라짐 — 해소 여부는 다음 틱 확인 필요), 신규 실패 0, 전사 0, 포크 오류 0. 라우터 `fork_turn_watch_poll_failed` 0건·`work_workspace_failed` 2건 유지(신규 없음).
