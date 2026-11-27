@@ -114,6 +114,32 @@ await scenario('side_actor_passes', async () => {
   const resolve = await call(gate, w, { tool: 'mcp__ciel-runtime-router__work_side_resolve', tool_use_id: 't2', agentId: 's1', decision: {} })
   return { bashNext: bash.nextCalled, resolveNext: resolve.nextCalled, routerCalls: routerCalls(w).length }
 })
+// Andy 2026-11-26 14:05:59Z: side actor 659fcb7d3b (ciel-work:side-fresh) called
+// work_node_update on n2459 itself and replaced its progress, erasing the
+// 161117 complaint the side had recorded there the day before.
+await scenario('side_actor_board_write_denied', async () => {
+  const gate = await load()
+  const w = world({ rows: [{ id: 's9', type: 'ciel-work:side-fresh', status: 'running', spawnedBy: 'ciel-work', description: 'Side SSE 659fcb7d3b11' }] })
+  const go = async (n, e) => { const r = await call(gate, w, { tool_use_id: 'w' + n, agentId: 's9', ...e }); return { next: r.nextCalled, deny: r.result?.deny ?? null } }
+  const writes = {}
+  for (const [n, tool] of ['work_node_update', 'work_node_add', 'work_plan_set', 'work_execute', 'work_node_remove',
+      'work_select', 'work_urgent', 'work_focus', 'work_reorder', 'work_replan', 'work_parallel_run', 'work_parallel_report',
+      'work_parallel_item_review', 'work_side_resolve', 'work_side_handoff', 'work_mode_set', 'work_live_settings'].entries())
+    writes[tool] = await go(n, { tool: 'mcp__ciel-runtime-router__' + tool, id: 'n2459', progress: 'x' })
+  const check1 = await check(gate, w, { tool: 'mcp__ciel-runtime-router__work_node_update', tool_use_id: 'c1', agentId: 's9', input: { id: 'n2459' } })
+  return {
+    writes,
+    checkDeny: check1.result?.reason ?? null, checkNext: check1.nextCalled,
+    status: await go(50, { tool: 'mcp__ciel-runtime-router__work_status', root_id: 'n2459' }),
+    parallelStatus: await go(51, { tool: 'mcp__ciel-runtime-router__work_parallel_status' }),
+    proposalStatus: await go(52, { tool: 'mcp__ciel-runtime-router__work_proposal_status' }),
+    codeRead: await go(53, { tool: 'mcp__ciel-runtime-router__work_side_code_read', path: 'a.py' }),
+    codeSearch: await go(54, { tool: 'mcp__ciel-runtime-router__work_side_code_search', pattern: 'x' }),
+    bash: await go(55, { tool: 'Bash', command: 'echo' }),
+    walkie: await go(56, { tool: 'mcp__walkie__walkie_call_tool', operation_id: 'messages.work.get' }),
+    routerCalls: routerCalls(w).length,
+  }
+})
 await scenario('side_actor_by_row_after_reload', async () => {
   const gate = await load()
   const w = world({ rows: [{ id: 's2', type: 'fork', status: 'running', spawnedBy: 'ciel-work', description: 'Side SSE 0123456789ab' }] })

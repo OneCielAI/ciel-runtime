@@ -1,0 +1,7 @@
+# tests/test_work_fork_gate.py against the gate module before the fix (worktree 2026-11-27 ~15:50Z)
+FAILED tests/test_work_fork_gate.py::WorkForkGateTests::test_exact_side_actor_shape_is_untouched
+FAILED tests/test_work_fork_gate.py::WorkForkGateTests::test_side_actor_cannot_write_the_work_board
+    self.assertFalse(result["next"], tool)
+E   AssertionError: True is not false : work_node_update
+2 failed, 33 passed in 1.15s
+# after the fix: 35 passed in 0.72s

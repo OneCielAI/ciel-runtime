@@ -133,10 +133,31 @@ class WorkForkGateTests(unittest.TestCase):
         self.assertTrue(model_fork["nextCalled"])
         self.assertEqual(0, model_fork["routerCalls"])
 
+    def test_side_actor_cannot_write_the_work_board(self):
+        # Andy 2026-11-26 14:05:59Z: a side actor's own work_node_update replaced
+        # n2459's progress and erased the 161117 complaint recorded there.
+        value = self.scenario("side_actor_board_write_denied")
+        for tool, result in value["writes"].items():
+            self.assertFalse(result["next"], tool)
+            self.assertIsNotNone(result["deny"], tool)
+            self.assertTrue(result["deny"].startswith("Ciel Work side gate: "), tool)
+            self.assertIn(tool, result["deny"])
+            self.assertIn("decision", result["deny"])
+        self.assertFalse(value["checkNext"])
+        self.assertIn("work_node_update", value["checkDeny"])
+        # Reads, the side-only code reads, and every non-Work tool still pass.
+        for key in ("status", "parallelStatus", "proposalStatus", "codeRead", "codeSearch", "bash", "walkie"):
+            self.assertTrue(value[key]["next"], key)
+            self.assertIsNone(value[key]["deny"], key)
+        # The rule needs no router read.
+        self.assertEqual(0, value["routerCalls"])
+
     def test_exact_side_actor_shape_is_untouched(self):
         side = self.scenario("side_actor_passes")
         self.assertTrue(side["bashNext"])
-        self.assertTrue(side["resolveNext"])
+        # A side actor's own work_side_resolve is a board write (side default
+        # instruction: no work_* create/update/execute/report/handoff/resolve).
+        self.assertFalse(side["resolveNext"])
         self.assertEqual(0, side["routerCalls"])
         self.assertTrue(self.scenario("side_actor_by_row_after_reload")["bashNext"])
         named = self.scenario("named_side_shape_is_work_fork")

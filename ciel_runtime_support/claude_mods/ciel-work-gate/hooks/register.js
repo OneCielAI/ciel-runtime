@@ -42,6 +42,16 @@ const SHELLS = new Set(['Bash', 'PowerShell', 'Monitor'])
 // The worker's report path and two reads; every other router tool is denied.
 const ROUTER_ALLOWED = new Set(['work_parallel_report', 'work_parallel_status', 'work_status', 'work_proposal_status'].map(tool => PREFIX + tool))
 const ROUTER_HOST_ONLY = new Set(['work_priority_command'].map(tool => PREFIX + tool))
+// A side actor's Work changes go in its decision JSON, which ciel-work commits
+// through the host tools; the actor itself may only read Work. Andy 2026-11-26
+// 14:05:59Z: side actor 659fcb7d3b called work_node_update on n2459 and its
+// progress replaced the field, erasing the 161117 complaint recorded there.
+// The side default instruction already forbade this, but only as text: a fresh
+// side actor runs on main's system prompt, whose Work rules name these tools.
+const WORK_TOOL_PREFIX = PREFIX + 'work_'
+const SIDE_ROUTER_READS = new Set(['work_status', 'work_parallel_status', 'work_proposal_status',
+  'work_side_code_read', 'work_side_code_search'].map(tool => PREFIX + tool))
+const SIDE_DENY = 'Ciel Work side gate: '
 // A fork is bound while its lease is one of these (backend bind sets running).
 const BOUND_STATES = new Set(['running', 'waiting_input'])
 const PROBE_KEY = 'ciel_work_gate_probe'
@@ -282,6 +292,14 @@ async function decide($, tool, input, agentId, fork) {
 async function judge($, tool, input, agentId, callId) {
   const started = Date.now()
   const fork = await classify($, agentId)
+  if (fork.kind === 'side') {
+    // Every other side call stays untouched, as before.
+    if (!tool.startsWith(WORK_TOOL_PREFIX) || SIDE_ROUTER_READS.has(tool)) return null
+    note($, 'decision agent=' + shortId(agentId) + ' tool=' + tool + ' verdict=deny rule=side-work-write'
+      + (callId ? ' call=' + shortId(callId) : ''))
+    return { verdict: 'deny', rule: 'side-work-write', reason: SIDE_DENY + tool.slice(PREFIX.length)
+      + ' is not available to a side actor. Put the Work change in your decision JSON; the host records it.' }
+  }
   if (fork.kind !== 'work') return null
   const result = await decide($, tool, input, agentId, fork)
   note($, 'decision agent=' + shortId(agentId) + ' tool=' + tool + ' verdict=' + result.verdict + ' rule=' + result.rule

@@ -1,0 +1,29 @@
+# Andy (router 9515, session claude:feeac3ad-b623-4b36-abfe-a3dd7b678c20) — read-only extracts
+
+## Side receipt d8f556ff41 (Walkie 161117, Daniel Yun)
+received 2026-11-25T16:53:01Z, processing started 19:00:16Z, consumed 19:14:57Z
+decision: update n2459, kind request, complaint true, side_note_field progress, note_compacted {trimmed: 1}
+summary: "Daniel 161117 complaint: side actor still posts full messages instead of ACK; asks (1) server-side
+          error on post-without-ACK, (2) side-actor system prompt review + pass changes to ciel runtime as default.
+          Recorded on n2459; main to scope."
+reply posted as Walkie 161245 (19:15:02Z) "... n2459 갱신 · P1 · 대기 2번째 (앞 1건)."
+release_notice appended to main (claimed 19:15:00Z): "Ciel side asks main (complaint · n2459 · event d8f556ff4130) ..."
+
+## Main transcript feeac3ad-...jsonl
+19:15:30Z main reads messages.context 161117, work_status n2459, memories ciel-runtime-not-my-scope / ack-flag-only-for-receipts
+19:17:52Z main downloads Daniel's attachment; 19:20:00Z work_node_add for another item (161244) refused (version)
+19:25:53Z compaction summary: "[161117] ... 기존 n2459에 연결됐으며, 새 서버 정책의 구현 승인은 확인되지 않았습니다."
+after 19:28Z main continues n2844/n2834; no Work item is created for either 161117 request
+
+## Side actor agent-a06f6e79161b66bab (meta: agentType ciel-work:side-fresh, description "Side SSE 659fcb7d3b11")
+event 659fcb7d3b (Walkie message.rejected 162016, 2026-11-26T13:48:25Z)
+14:05:22Z mcp__ciel-runtime-router__work_node_update {"expected_version":12292,"id":"n2459","progress":"2026-11-26 13:48 UTC: Daniel Yun [162016] ..."}
+14:05:32Z result: "the plan changed (stored version 12294, expected 12292); call work_status and retry"
+14:05:55Z same call with expected_version 12294
+14:05:59Z result: "Updated n2459 (in_progress). ... Version: 12295"
+14:06:47Z final decision JSON: update n2459 (host then appended "Side request: 144618 Phase 2 R1 검수 반려 ..." at 14:06:50Z)
+
+## Board now (version 12727)
+n2459.progress starts "2026-11-26 13:48 UTC: Daniel Yun [162016] ..." then two "Side request:" blocks (14:06:50Z, 22:17:11Z).
+No "[N earlier side requests trimmed]" line: the field was replaced, not compacted.
+No node anywhere on the board carries the 161117 requests (search: 161117 / ACK 없이 / without ACK); 161117 survives only in n2459.refs.
