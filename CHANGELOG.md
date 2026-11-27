@@ -5,6 +5,31 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+### Beta: side actors cannot edit the Work board, and their gates keep decisions
+
+- A side actor (SSE event processor) no longer changes the Work board itself. Its
+  `work_*` router calls are refused except the reads (`work_status`,
+  `work_parallel_status`, `work_proposal_status`, `work_side_code_read/search`);
+  its decision JSON is what the host commits. A fresh side actor runs on main's
+  system prompt, whose Work rules name `work_node_update`, and one such call
+  replaced a Work item's progress and erased a person's recorded complaint.
+- The ACK and wait-check gates ask once for what is missing, then the answer's
+  decision commits. Before, a second answer without them failed the whole event
+  as `invalid_answer`, and two Walkie approvals' wait releases were lost for
+  twelve minutes. A gate correction no longer uses up the correction for an
+  answer's shape.
+- The prompt and the ACK correction carry one `client_id` per event, derived
+  from its receipt, instead of leaving the model to invent a UUID (one reused a
+  textbook UUID and Walkie answered 409).
+- An unbound worker reservation of this process seen unbound for 15 minutes with
+  no reserve call in flight and no fork of its name is released, so a rotation or
+  reload no longer leaves a priority slot held (one held the only P3 slot for
+  eight hours).
+- `work_node_update` now says in its reply when a title or note edit returned the
+  goal to the planning phase and no Work fork will be assigned until
+  `work_execute` (managed text `scope_planning`).
+
+
 ### Beta: the tool-guard Stop hook is removed
 
 - Launches no longer register `ciel-runtime-tool-guard` for Claude Code's `Stop`
