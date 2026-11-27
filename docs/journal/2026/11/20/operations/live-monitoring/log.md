@@ -2,6 +2,17 @@
 
 ## 2026-11-26
 
+- 07:27:34–07:28:15Z 정기 틱(06:17Z 대비 70분 관측 창). 5개 호스트 전원 수집 성공, `live.board` 전원 `observed`, MCP 전원 `probe_succeeded`(Andy `1672ms`, Celly `2937ms`, KOBE `273ms`, Prody `221ms`, Betty `555ms`). 재시작·상태 파일 수정 없음, 코드 수정 없음. 이하 UTC.
+  - **Celly `n1635` — 수정은 설치됐으나 라이브 미적용이라 거부가 계속됐다.** 07:21:50Z 네 번째 `stranded source facts do not match the legacy review`가 나왔다. 라우터 `66068`은 06:05Z 기동이고 `ebf972e`(07:2xZ 설치) 이전 코드다. 새 실패 `decision_refused_stop ed47d1db x1`은 이 미결 검수로 인한 정상 Stop 가드다. 라우터가 다음에 기동하면 풀린다(사본 재생으로 확인한 경로).
+  - **상류 413 `Failed to buffer the request body: length limit exceeded` — 출처는 게이트웨이 `127.0.0.1:20128`.** 현 라우터 로그 기준 Andy 7건, Celly 5건이다. 거부된 본문은 1,796,115–2,454,619 B(약 475K–638K tokens)이고 모델은 `_Walkie_P1`·`_Walkie_P3`·`_Walkie_P1-Celly`·`_Walkie_S_Tier_Only`다. 그러나 같은 로그에서 최소 거부 크기 이상의 요청이 Andy 48건, Celly 7건이었고 그중 일부만 거부됐다. 따라서 로그의 bytes만으로는 경계가 결정되지 않는다(원인 미확정, 게이트웨이 소관, 코드 수정 없음).
+  - Celly 기타: 보드 `v11475→v11484`, 원장 `10454→10463`, 대기 9·실행/슬롯 3·제출 2. finding은 `n1616`·`n1585` `awaiting_capacity`(P3 1/1 용량 대기), 새 실패 `decision_refused_stop 51b4599e x1`(정상 가드). 07:17:45Z `work_parallel_item_review: The operation timed out`과 07:17:57Z `Parallel read failed: timed out`이 있었고 MCP는 `2937ms`다(추적). `invalid or revoked worker capability`·`authenticated parallel host required`는 권한 가드, `review changed; reread`는 CAS다.
+  - Andy (`07:27:36Z`): 보드 `v12566→v12586`, 원장 `8959→8967`, actionable 52, 리스 제출 20·실행/슬롯 1·대기 1, finding 0, 새 실패 0, 포크 오류 0. 06:54Z 실패 사이드 이벤트 `39b9c150` 원문이 메인으로 전달됐다(fallback). `auto continue could not read the Work status`가 07:04:53Z에 다시 1건 있었다(06:08Z 이후 2번째, 추적). 그 밖의 전사 오류는 모델 자신의 셸·git 명령 실패와 Walkie 409 CAS다.
+  - KOBE (`07:27:55Z`): 보드 `846→852`, 원장 `4951→4966`, MCP `273ms`, 수락 1·대기 2·제출 1·실행/슬롯 1. finding은 `n5` 가드 유지와 신규 `n279 awaiting_capacity`(용량 대기), 새 실패 `decision_refused_stop c1dca7db x1`(정상 가드). 07:13:18Z `gh` `HTTP 401: Bad credentials`는 KOBE의 GitHub 자격 증명 문제로, 제품 결함이 아니다.
+  - Prody (`07:28:07Z`): 보드 `7584→7596`, 원장 `1421→1432`, 실행/슬롯 1, 실패 0. 06:22Z Walkie `400 Invalid operation arguments` 2건은 모델의 도구 인자 오류다.
+  - Betty (`07:28:15Z`): 보드 `5803→5808`, 원장 `1277→1283`, 제출 5, 실패 0, 전사 오류 0.
+  - 호스트(Andy/Celly 기기): 커밋 93%(132.7/142.5 GB), **paged pool 25.4 → 31.5 GB 증가**(풀 태그 미확인), 다른 세션의 grep 37개 5.05 GB.
+  - 미결·추적: Celly `n1635`(라이브 적용 대기)·게이트웨이 413·Celly 검수 타임아웃·Andy auto continue 상태 읽기 실패·Andy 사이드 ACK/`uncertain`·일시 git 타임아웃 분류·paged pool 증가·KOBE `n5`.
+
 - 06:16:59–06:17:31Z 정기 틱(05:12Z 대비 65분 관측 창). 5개 호스트 전원 수집 성공, `live.board` 전원 `observed`, MCP 전원 `probe_succeeded`(Andy `1578ms`, Celly `500ms`, KOBE `241ms`, Prody `201ms`, Betty `241ms`). 이 틱 중 재시작은 없다(05:55–06:05Z의 Andy·Celly 라우터 교체는 직전 배포 작업). 이하 UTC.
   - **Celly — 입증된 결함 수정: `n1635` 검수 영구 거부.** 재작업 결정이 lease `ed47d1db`에서 04:56:39·05:34:05·05:55:11Z 세 번 `stranded source facts do not match the legacy review`로 거부됐다. stranded 행 `binding.head`는 예약 시점 `03f5dae`, 레거시 검수 행 `workspace.head`는 포크 커밋 뒤 `614103d`였다. 코드는 두 값을 같다고 요구하는데, 커밋한 포크에서는 구조적으로 같을 수 없다. 실패 테스트로 재현한 뒤 수정했고, 라이브 상태 사본 재생에서 HEAD 코드는 같은 거부, 수정 코드는 이동 성공이었다. 상세·회귀는 [stranded-legacy-head](../../../27/fixes/stranded-legacy-head/record.md).
   - Celly 포크 `server_error`(06:07:51Z `n1593`·`n1627`): **제 06:05:26Z 라우터 교체가 원인**이다. 포크 전사에 `ECONNRESET` 06:05:33.9Z(`n1627`)과 `ECONNREFUSED` 06:05:53.1Z(`n1593`)가 있다. 모드가 재시도를 예약했고(06:12 1/20), 두 포크 모두 06:18Z 도구 활동이 재개됐다.
