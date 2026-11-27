@@ -2,6 +2,15 @@
 
 ## 2026-11-26
 
+- 03:52:16–03:52:50Z 정기 틱(03:34:58Z 대비 17분 관측 창). 5개 호스트 전원 수집 성공(KOBE SSH 정상), `live.board` 전원 `observed`, MCP 전원 `probe_succeeded`(Andy `1500ms`, Celly `1438ms`, KOBE `264ms`, Prody `424ms`, Betty `417ms`). 재시작·상태 파일 수정 없음. 이하 UTC.
+  - **Celly — 직전 틱의 "slot held, fork absent" 4건이 해소됐다(정정).** 이번 `/parallel`에서 **확인 포크 4건(`n1593`·`n1635`·`n1636`·`n1616` 전부 `running`)**, 대기 9, 미확인 2(`n1585`·`n1611`). device `active_slots=4 / capacity=8`(P1 3/3, P3 1/1). 즉 01:37·02:54에 native 관측이 끊겼던 항목들이 이번 표본에서는 다시 fresh 관측됐다 — **native 부재는 종료 증거가 아니라는 기존 원칙이 다시 확인됐고, 결함으로 단정하지 않은 판단이 맞았다.** 직전 틱 active_slots 3(대기 9) → 이번 4, 보드 `v11459→v11466`, actionable 18→25.
+  - Andy (`03:52:16Z`): 보드 `v12536→v12540`, 원장 `8921→8924`, actionable 54, MCP `1500ms`, 리스 제출 20·실행/슬롯 3·대기 1, finding 0·신규 실패 0·전사 오류 0. 로그: `fork_turn_watch_poll_failed` 0건, `work_workspace_failed` **2건 유지**(`20:49:06`·`20:52:16` 신규 없음). 포크 표본 오류 3건.
+  - Celly (`03:52:21Z`): 보드 `v11466`, 원장 `10424→10430`, MCP `1438ms`(직전 3906ms에서 회복), 대기 9·실행/슬롯 4·제출 2, finding `n1585 awaiting_capacity` 1건만(용량 대기, 결함 아님), 신규 실패 0, 포크 표본 오류 2건, 전사 3건(작업 측).
+  - KOBE (`03:52:31Z`): 보드 `v824→v834`, 원장 4924 유지, MCP `264ms`, 수락 1·대기 1·실행/슬롯 1, finding `n5` 가드 유지, 신규 실패 0, 전사 1건.
+  - Prody (`03:52:40Z`): 보드 `v7566→v7567`, 원장 `1397→1400`, MCP `424ms`, 실행/슬롯 1만, finding 0·신규 실패 0·포크 오류 0, 전사 6건.
+  - Betty (`03:52:50Z`): 보드 5789·원장 1262 변화 없음, MCP `417ms`, 제출 5만, 오류 0.
+  - 미결·추적: Andy **`worktree add` 간헐 182초(원인 미확정, 재현 실패 — 코드 수정 없음)**·`preparing` 잔류; Celly `n1585` P3 용량 대기·`n1611` 미확인·라우터 11-25 빌드·`work_side_intake_enabled=False` 적체; KOBE `n5` 가드; 게이트웨이 341초 무응답(상류, 보류 항목).
+
 - 03:32:00–03:34:58Z 정기 틱(02:33:55Z 대비 59분 관측 창). Andy·Celly·Prody·Betty 수집 성공, **KOBE는 기본 수집에서 `ssh failed`**였으나 직후 단독 재조회(`03:34:58Z`)로 정상 수집(원장 4924·`n5` 가드 1건). 재시작·상태 파일 수정 없음. 이하 UTC.
   - Andy (`03:32:00Z`): 보드 `v12531→v12536`, 원장 `8908→8921`, actionable 54, MCP `1781ms`, 리스 제출 20·실행/슬롯 3·대기 1, finding 0·신규 실패 0. 로그: `fork_turn_watch_poll_failed` 0건 유지, **`work_workspace_failed` 2건 유지**(둘 다 `20:49:06`·`20:52:16` `item=n2779 detail="git worktree add timed out after 182 s"` — 180초 예산으로도 초과). 최근 60분 워크스페이스 매니페스트 4건 중 2건이 `preparing`·워크트리 디렉터리 부재(`0e5aa74e`·`1b2cbefa`), 2건은 `ready`(준비 31초·26초). 포크 표본 오류 5건.
   - **워크트리 지연 조사 결과(이번 창, 읽기 전용):** 같은 저장소에서 `git worktree add`를 15회 이상 반복 측정 — 대부분 **3–9초**, 6스레드 적대적 IO 부하·8 GB 전사 읽기 부하·stale `index.lock`(11-21 생성, 빈 파일) 존재 상태에서도 3–6초. 그러나 **동일 명령이 한 번은 200초를 넘겨 멈췄고** 라우터에도 182초 실패 2건이 있다 → **간헐적**이며 재현 조건 미확정. 배제한 가설: stale `index.lock`(`git status` 정상), 브랜치 생성(detached도 87초), IO 경합(부하 하 3초), 부분 클론/promisor(설정 없음), 실시간 보호(쓰기 40 MB 0.0초, 제외 목록은 관리자 권한 필요해 확인 불가). `GIT_TRACE_PERFORMANCE`에서 정상 시 `reset --hard`의 `check_updates`가 1.0–7.4초로 전체 시간을 차지. **원인 미확정 — 코드 수정 없음.** 워크트리 1,851개·매니페스트 `preparing` 128개는 정리하지 않았다.
