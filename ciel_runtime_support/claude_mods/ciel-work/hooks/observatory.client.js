@@ -99,6 +99,15 @@ function priorityColor(value) {
   return value === 'P0' || value === 'P1' ? C.red : value === 'P2' ? C.yellow : value === 'P3' ? C.violet : C.dim
 }
 
+// A row whose Work fork is running now breathes (user 2026-11-26): its mark
+// turns through a half-circle sweep while the row's shade rises and falls, so
+// the item a fork is executing is told apart from the static rows around it.
+// The beat and the fittest scroll live in this instance's own state, so two
+// panes never share a frame, and the module keeps no state between calls.
+const FORK_MARK = '◐◓◑◒'
+const LIVE_SHADE = ['#12301f', '#17402a', '#1d4f33', '#17402a']
+const FRAME_MS = 500
+
 export default function Observatory(props, surface) {
   const { Box, Text } = surface.elements
   const width = Math.max(24, surface.columns || 48)
@@ -117,15 +126,35 @@ export default function Observatory(props, surface) {
   const forkCount = urgent.filter(row => row.fork).length
   const sideRows = (props.receipts || []).filter(row => !p1 || row.priority === 'P1' || row.priority === 'P0')
   const rows = props.tab === 'side' ? sideRows : workRows
+  // The item list animates itself: while a Work fork is running now, this
+  // instance's frame clock advances a four-frame beat and redraws the module.
+  // With nothing running the clock costs no redraw at all, and no host timer
+  // invalidates the whole session for it. `live` stays on a box owned by this
+  // instance's state so two panes never share a clock or a frame.
+  const hasLive = workRows.some(row => row.fork === true)
+  const local = surface.state || { scroll: 0, beat: 0, live: { on: hasLive }, armed: false }
+  if (local.live) local.live.on = hasLive
+  if (!local.armed && typeof surface.every === 'function') {
+    const liveRef = local.live || { on: hasLive }
+    const next = { scroll: Number(local.scroll) || 0, beat: Number(local.beat) || 0, live: liveRef, armed: true }
+    surface.setState(next)
+    surface.every(FRAME_MS, () => {
+      if (!liveRef.on) return
+      const cur = surface.state || next
+      surface.setState({ scroll: Number(cur.scroll) || 0, beat: ((Number(cur.beat) || 0) + 1) % 480, live: liveRef, armed: true })
+    })
+  }
+  const frame = (Number(local.beat) || 0) % LIVE_SHADE.length
   const selected = Math.max(0, Math.min(Number(props.selected) || 0, Math.max(0, rows.length - 1)))
   const visible = Math.max(3, height - (props.tab === 'side' ? 13 : 12))
   const scroll = Math.max(0, Math.min(selected, Math.max(state.scroll || 0, selected - visible + 1)))
+  const keepState = top => ({ scroll: top, beat: Number(local.beat) || 0, live: local.live || { on: hasLive }, armed: local.armed === true })
   const setSelection = next => {
     const index = Math.max(0, Math.min(next, Math.max(0, rows.length - 1)))
     let top = scroll
     if (index < top) top = index
     if (index >= top + visible) top = index - visible + 1
-    surface.setState({ scroll: top })
+    surface.setState(keepState(top))
     surface.post({ action: 'select', index })
   }
   surface.onKey(event => {
@@ -135,8 +164,8 @@ export default function Observatory(props, surface) {
     else if (event.key === 'pagedown') setSelection(selected + 8)
     else if (event.key === 'home') setSelection(0)
     else if (event.key === 'end') setSelection(rows.length - 1)
-    else if (event.key === 'p') { surface.setState({ scroll: 0 }); surface.post({ action: 'p1' }) }
-    else if (event.key === 'v') { surface.setState({ scroll: 0 }); surface.post({ action: 'view' }) }
+    else if (event.key === 'p') { surface.setState(keepState(0)); surface.post({ action: 'p1' }) }
+    else if (event.key === 'v') { surface.setState(keepState(0)); surface.post({ action: 'view' }) }
     else if (event.key === 'w') surface.post({ action: 'tab', tab: 'work' })
     else if (event.key === 's') surface.post({ action: 'tab', tab: 'side' })
     else if (event.key === 'g') surface.post({ action: 'tab', tab: 'settings' })
@@ -258,14 +287,14 @@ export default function Observatory(props, surface) {
       const running = node.fork === true
       const hasChildFork = !running && Number(node.forkChildren) > 0
       const uncertainRow = !running && !hasChildFork && node.forkGroup === 'uncertain'
-      const glyph = running ? '●' : hasChildFork ? '◉' : uncertainRow ? '?' : statusGlyph(node.status, node.waiting_on)
+      const glyph = running ? FORK_MARK.charAt(frame) : hasChildFork ? '◉' : uncertainRow ? '?' : statusGlyph(node.status, node.waiting_on)
       const left = (selectedRow ? '▸ ' : '  ') + indent + glyph + ' '
       const priority = node.priority || ''
       const count = node.total ? node.done + '/' + node.total : ''
       const tag = running ? ' ●포크실행' : hasChildFork ? ' ●포크×' + node.forkChildren : uncertainRow ? ' ?미확인' : ''
       const room = Math.max(4, workWidth - cells(left) - (priority ? 4 : 0) - cells(count) - cells(tag) - 1)
       workChildren.push(Box({ key: 'wide-work-' + node.id, height: 1, overflow: 'hidden',
-        flexDirection: 'row', backgroundColor: selectedRow ? C.selected : running ? '#12301f' : hasChildFork ? '#0f241b' : undefined, children: [
+        flexDirection: 'row', backgroundColor: selectedRow ? C.selected : running ? LIVE_SHADE[frame] : hasChildFork ? '#0f241b' : undefined, children: [
           Text({ color: running || hasChildFork ? C.green : uncertainRow ? C.red : statusColor(node.status), weight: running || hasChildFork ? 'bold' : undefined, children: left }),
           ...(priority ? [Text({ color: priorityColor(priority), weight: 'bold', children: priority + ' ' })] : []),
           Text({ color: running ? C.green : selectedRow ? C.cyan : C.text, weight: running ? 'bold' : undefined,
@@ -394,7 +423,7 @@ export default function Observatory(props, surface) {
       const running = node.fork === true
       const hasChildFork = !running && Number(node.forkChildren) > 0
       const uncertainRow = !running && !hasChildFork && node.forkGroup === 'uncertain'
-      const glyph = running ? '●' : hasChildFork ? '◉' : uncertainRow ? '?' : statusGlyph(node.status, node.waiting_on)
+      const glyph = running ? FORK_MARK.charAt(frame) : hasChildFork ? '◉' : uncertainRow ? '?' : statusGlyph(node.status, node.waiting_on)
       const left = (selectedRow ? '▸ ' : '  ') + indent + glyph + ' '
       const priority = node.priority || ''
       const tag = running ? ' 포크' : hasChildFork ? ' 포크×' + node.forkChildren : uncertainRow ? ' ?미확인' : ''
@@ -406,7 +435,7 @@ export default function Observatory(props, surface) {
         Text({ color: running ? C.green : selectedRow ? C.cyan : C.text, weight: running ? 'bold' : undefined, children: clip(node.title, room) }),
         ...(tag ? [Text({ color: uncertainRow ? C.red : C.green, weight: 'bold', children: tag })] : []),
         Text({ color: C.dim, children: clip(count, 7) }),
-      ], selectedRow ? { backgroundColor: C.selected } : running ? { backgroundColor: '#12301f' } : {}))
+      ], selectedRow ? { backgroundColor: C.selected } : running ? { backgroundColor: LIVE_SHADE[frame] } : {}))
     }
     const node = workRows[selected]
     if (node) {

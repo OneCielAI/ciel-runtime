@@ -93,7 +93,18 @@ _CONTENT_SUFFIX = ".content-baseline-v1.json"
 _CONTENT_INTENT_SUFFIX = ".content-baseline-v1.intent"
 _CONTENT_SKIPPED_SUFFIX = ".content-baseline-v1.skipped"
 
+# Verification steps are one short Git command each; a repository-owned budget.
 _GIT_TIMEOUT_SECONDS = 30.0
+# Creation copies the whole working tree, so its cost follows repository size and
+# disk load rather than a fixed step. Andy 2026-11-26: 35 refusals in one day were
+# all "git worktree add timed out after 32-88 s" on a repository with 1,482
+# registered worktrees, while the same command took 1.5-4 s run by hand. Creation
+# is verified before use and a repeat returns the same worktree, so the longer
+# budget cannot adopt anything: it only lets a slow run finish. The credential
+# hang 30 s once covered is the non-interactive environment below, and the tree
+# kill still bounds a real hang.
+_GIT_CREATE_TIMEOUT_SECONDS = 180.0
+_CREATE_STEPS = frozenset(("add", "checkout", "reset", "clone", "fetch"))
 _GIT_NONINTERACTIVE_ENV = {
     "GIT_TERMINAL_PROMPT": "0",
     "GCM_INTERACTIVE": "never",
@@ -158,8 +169,12 @@ def _git(repo, *args, strip=True, trust=None):
     started = time.monotonic()
     trust = trusted_roots(repo) if trust is None else trust
     cmd = ["git", *trust_arguments(trust), "-C", str(repo), *args]
+    # Only creation scales with the repository; every other step keeps the short
+    # budget so a real hang is still refused quickly.
+    budget = _GIT_CREATE_TIMEOUT_SECONDS if len(args) > 1 and args[0] == "worktree" \
+        and args[1] in _CREATE_STEPS else _GIT_TIMEOUT_SECONDS
     try:
-        r = _run_git_subprocess(cmd, timeout=_GIT_TIMEOUT_SECONDS, env=_git_popen_env())
+        r = _run_git_subprocess(cmd, timeout=budget, env=_git_popen_env())
     except subprocess.TimeoutExpired as exc:
         # Seen only inside the router (owned run 2026-11-09: worktree add, 30 s);
         # the same command outside it took 0.06 s. Name the step for the log.

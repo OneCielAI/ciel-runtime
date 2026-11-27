@@ -390,3 +390,73 @@ test('graphical pane shows P0-P5 lanes and all running fork items beyond 3 inclu
   expect(text).toContain('◉하위포크 1개(a)')
   await ui.unmount()
 })
+
+// User 2026-11-26: the item list itself must show which item a fork is
+// executing right now, not only a static green row. The pane's own frame clock
+// turns that row's mark and breathes its shade; every other row stays still.
+function forkPane($, on, forks) {
+  const now = Math.floor(Date.now() / 1000)
+  const snap = { ...SNAPSHOT, version: 4 }
+  const detail = { version: 4, root_id: 'g1', nodes: [
+    { id: 'g1', parent_id: null, title: 'Goal', status: 'in_progress', priority: 'P1', note: '', evidence: '' },
+    { id: 'a', parent_id: 'g1', title: 'Cache', status: 'in_progress', note: '', evidence: '' },
+    { id: 'b', parent_id: 'g1', title: 'Docs', status: 'in_progress', note: '', evidence: '' }] }
+  const fork = { lease_id: 'l1', item_id: 'a', goal_id: 'g1', item_title: 'Cache', priority: 'P1', effective_priority: 'P1',
+    role: 'worker', state: 'running', slot: true, agent_name: 'work-a', agent_id: 'ag-a',
+    native: { status: 'running', last_seen_at: now - 2 }, evidence: 'confirmed' }
+  on('session.id', () => ({ value: 'session-a' }))
+  on('env.get', (_, e) => ({ value: e.key === 'CLAUDE_CODE_SUBAGENT_MODEL_FORCE' ? '0' : 'fixture-host-token' }))
+  on('mcp.call', async (_, e) => {
+    let value: unknown = {}
+    if (e.tool === 'work_status') value = e.args.detail ? detail : snap
+    if (e.tool === 'work_live_settings') value = { settings: SETTINGS, provider: 'p' }
+    if (e.tool === 'work_parallel_status') value = { version: 2, active_device: forks ? 1 : 0, leases: {},
+      policy: { enabled: true, paused: false, priority_limits: { P1: 2 } },
+      root_priorities: [{ root_id: 'g1', effective_priority: 'P1' }],
+      forks: { available: true, confirmed_count: forks ? 1 : 0, evidence_version: 2,
+        confirmed: forks ? [fork] : [], waiting: [], reservation: [], uncertain: [], validating: [], ended: [] } }
+    if (e.tool === 'work_side_status') value = { side_inbox_receipts: [] }
+    if (e.tool === 'work_side_claim') value = { claim: null, settings: {}, handoff_replies: [] }
+    if (e.tool === 'work_parallel_event') value = { recorded: true }
+    return { value: { isError: false, content: [{ type: 'text', text: JSON.stringify(value) }] } }
+  })
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.close', () => ({}))
+  on('session.start', () => ({ cwd: '/isolated' }))
+}
+
+test('the item list animates the row whose fork is running now and holds the rest still', async ($, on) => {
+  forkPane($, on, true)
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  await $.command.run({ command: 'work-mode', args: 'view all' })
+  await new Promise(resolve => setTimeout(resolve, 40))
+  const ui = await $.ui.mount(pane('terminal', 110) as any)
+  await ui.resize({ columns: 110, rows: 36, in: 'obs-graphic' })
+  const texts = async () => (await ui.findAll({ type: 'Text', in: 'obs-graphic' })).map(x => x.text)
+  const before = await texts()
+  await ui.advance(500)
+  const after = await texts()
+  const changed = before.map((line, index) => line === after[index] ? -1 : index).filter(index => index >= 0)
+  // Exactly the running item's mark moves between frames ...
+  expect(changed).toHaveLength(1)
+  expect('◐◓◑◒').toContain(after[changed[0]].trim())
+  // ... and its row still reads as the executing fork.
+  expect(after.join('\n')).toContain('●포크실행')
+  await ui.unmount()
+})
+
+test('a list with no running fork does not redraw on the pane clock', async ($, on) => {
+  forkPane($, on, false)
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  await $.command.run({ command: 'work-mode', args: 'view all' })
+  await new Promise(resolve => setTimeout(resolve, 40))
+  const ui = await $.ui.mount(pane('terminal', 110) as any)
+  await ui.resize({ columns: 110, rows: 36, in: 'obs-graphic' })
+  const texts = async () => (await ui.findAll({ type: 'Text', in: 'obs-graphic' })).map(x => x.text)
+  const before = await texts()
+  await ui.advance(1500)
+  expect(await texts()).toEqual(before)
+  expect(before.join('\n')).not.toContain('●포크실행')
+  await ui.unmount()
+})

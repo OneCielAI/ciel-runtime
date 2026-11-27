@@ -340,6 +340,31 @@ class WorkspaceTests(unittest.TestCase):
                              for p in (self.config / "work-parallel-workspaces").glob("*.json")))
         self.assertEqual(self.observe()["status"], "ready")
 
+    def test_a_slow_worktree_add_that_finishes_is_not_a_failed_reservation(self):
+        # Andy 2026-11-26: 35 `workspace_prepare_retained` refusals in one day, every
+        # one "git worktree add timed out after 32-88 s". The same command takes
+        # 1.5-4 s when run by hand, so one fixed 30 s budget for every Git step
+        # failed a fork that would have finished on a large repository (1,482
+        # registered worktrees here). Creation is verified before use and a repeat
+        # returns the same worktree, so only creation gets the longer budget; the
+        # credential hang that motivated 30 s is now the non-interactive
+        # environment, and the tree kill still bounds a real hang.
+        import time
+        real = ws._git
+
+        def slow_add(repo, *args, **kwargs):
+            if args[:2] == ("worktree", "add"):
+                time.sleep(3.0)
+            return real(repo, *args, **kwargs)
+
+        # A verification step keeps the short budget; only creation is stretched.
+        with patch.object(ws, "_GIT_TIMEOUT_SECONDS", 1.0), \
+                patch.object(ws, "_GIT_CREATE_TIMEOUT_SECONDS", 60.0), \
+                patch.object(ws, "_git", side_effect=slow_add):
+            r = ws.prepare(self.repo, "slow-create", config_dir=self.config)
+        self.assertEqual("ready", r["status"])
+        self.assertTrue(Path(r["path"]).is_dir())
+
     def test_git_sets_noninteractive_env_and_kills_grandchild_on_timeout(self):
         # Betty 2026-11-25: partial-clone worktree add triggered a promisor fetch
         # whose credential-manager child blocked on interactive auth; Windows
@@ -379,7 +404,10 @@ class WorkspaceTests(unittest.TestCase):
             return real_popen(cmd, **kwargs)
 
         started = time.monotonic()
+        # `worktree add` spends the creation budget (2026-11-26); this test is
+        # about the kill path, so both budgets are lowered to reach it fast.
         with (patch.object(ws, "_GIT_TIMEOUT_SECONDS", 0.6),
+              patch.object(ws, "_GIT_CREATE_TIMEOUT_SECONDS", 0.6),
               patch.object(ws.subprocess, "Popen", side_effect=fake_popen)):
             with self.assertRaisesRegex(ws.WorkspaceError, "timed out"):
                 ws._git(self.repo, "worktree", "add")
