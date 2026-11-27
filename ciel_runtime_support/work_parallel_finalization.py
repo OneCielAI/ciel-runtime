@@ -32,6 +32,8 @@ HISTORY_TRIM_TARGET = MAX_BYTES * 3 // 4
 FINALIZED_PROTECT_SECONDS = 24 * 60 * 60
 MAX_REVIEWS = 2_000
 MAX_PROJECTION = 24
+# Main's review evidence; work_parallel_item_review advertises it as maxLength.
+EVIDENCE_LIMIT = 2_000
 SCHEMA = 5
 STAGES = ("accepted", "workspace", "board", "lease", "archive")
 STATES = ("pending", "awaiting_capacity", "deciding", "rework_ready", "finalized")
@@ -510,8 +512,13 @@ class WorkParallelFinalizationStore:
 
     def decide(self, lease_id, decision, decision_id, evidence, *, decision_body_digest,
                expected_version, replacement_lease_id=None, expected_review_pin=None):
-        require(decision in ("approve", "rework", "close") and text(decision_id, 200)
-                and text(evidence, 2_000) and digest(decision_body_digest), "review decision")
+        # Each refusal names its field (Celly 2026-11-27: a 2,181-character
+        # evidence came back as "review decision" alone).
+        require(decision in ("approve", "rework", "close"), "review decision must be approve, rework or close")
+        require(text(decision_id, 200), "review decision_id must be 1-200 characters")
+        require(text(evidence, EVIDENCE_LIMIT), "review evidence must be 1-%d characters without NUL (got %s)"
+                % (EVIDENCE_LIMIT, len(evidence) if isinstance(evidence, str) else type(evidence).__name__))
+        require(digest(decision_body_digest), "review decision digest is invalid")
         def apply(state):
             row = state["reviews"].get(lease_id)
             require(row is not None, "result is not pending main review")

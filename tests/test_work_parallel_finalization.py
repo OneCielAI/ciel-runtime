@@ -431,6 +431,17 @@ class MainReviewTests(unittest.TestCase):
         with self.assertRaisesRegex(WorkParallelError, "decided differently"):
             self.review(reserve["lease_id"], "rework", decision_id="second")
 
+    def test_an_oversized_evidence_refusal_names_the_field_and_its_limit(self):
+        # Celly 2026-11-27 19:24:27Z (lease 72f4006b, n1669): a 2,181-character
+        # evidence was refused as "work_parallel_item_review: review decision".
+        reserve, workspace, artifact = self.completed()
+        self.idle(reserve["lease_id"])
+        with self.assertRaisesRegex(WorkParallelError, r"evidence.*2000.*2181"):
+            self.review(reserve["lease_id"], "rework", evidence="e" * 2181)
+        self.assertIsNone(self.review_row(reserve["lease_id"])["decision"])
+        schema = next(s for s in m.schemas() if s["name"] == "work_parallel_item_review")
+        self.assertEqual(2000, schema["inputSchema"]["properties"]["evidence"]["maxLength"])
+
     # Rework ------------------------------------------------------------------
 
     def test_rework_rebinds_retained_workspace_and_host_dispatch_mints_capability(self):

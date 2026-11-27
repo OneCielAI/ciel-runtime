@@ -103,6 +103,8 @@ def schemas():
         elif name == "work_parallel_item_review":
             schema["required"] = ["lease_id", "decision", "decision_id", "evidence",
                                   "expected_finalization_version"]
+            from .work_parallel_finalization import EVIDENCE_LIMIT
+            schema["properties"]["evidence"] = {"type": "string", "maxLength": EVIDENCE_LIMIT}
         schemas.append({"name": name, "description": descriptions[name], "inputSchema": schema})
     return schemas
 
