@@ -2,6 +2,19 @@
 
 ## 2026-11-27
 
+- 12:20:11–12:20:44Z 정기 틱(12:17Z 대비 3분, 배포 직후). 재시작·상태 파일 수정 없음.
+  - **모드 라이브 확인:** KOBE 12:09:33Z, Prody 12:09:24Z, Betty 12:09:14Z 전사에 `ciel-work: reloaded (19 hooks …)`가 있다. Andy·Celly는 앞서 확인했으므로 다섯 호스트 모두 `2fe04af` 모드가 로드됐다.
+  - **라우터:** 다섯 라우터 모두 `2fe04af`다(`/health`의 pid가 위 교체 표와 같다).
+    - `router_lifetime_keep_alive reason=reachable_health_mismatch_active_client`가 Andy 32·Celly 33·KOBE 36·Betty 38건 나왔다(첫 기록 각 라우터 기동 직후).
+    - 이 경고는 런처가 기동할 때 기록한 소스 지문과 새 라우터의 지문이 다를 때 남기는 설계상 keep-alive다(`router_client_lifecycle.py:243-253`). 오버레이로 파일이 바뀌어 지문이 달라졌기 때문으로 보고, 재기동 경고로 분류한다(제품 결함 아님).
+  - **호스트별:**
+    - Andy: MCP 1203ms, 새 실패 0, 전사 오류 0.
+    - Celly: MCP 2906ms, 새 실패 0, 전사 오류 0.
+    - KOBE: MCP 446ms, `n298 awaiting_capacity`, `n5` 가드 유지.
+    - Prody: 변화 없음.
+    - Betty: 변화 없음.
+  - **대기 확인 게이트 라이브 효과:** 아직 대기 항목 이벤트가 없어 미관측이다.
+
 - 11:56–12:18Z 사이클 배포 `2fe04af`. 상세는 [cycle-4](../../../27/deployments/cycle-4/record.md)에 있다.
   - **발행:** beta/npm `0.2.51-beta.20261127-115656.2fe04af`.
   - **파일 설치:** 7개 루트 오버레이 7/7 `ok=True`, 재check 7/7 `new`.
