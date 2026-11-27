@@ -59,6 +59,20 @@ class WorkMcpToolsTests(unittest.TestCase):
         kept = self.call("work_node_update", id="n3", progress="ran", expected_version=self.store.read()["version"])
         self.assertNotIn("PLANNING:", kept["text"])
 
+    def test_status_json_parallel_block_is_this_conversations(self):
+        # Andy_Main 2026-11-27 17:2xZ: work_status(format=json) said
+        # runtime=codex and unfinished=0 for every priority while
+        # work_parallel_status said runtime=claude, P1 unfinished=58: the block
+        # was projected for an empty conversation identity.
+        from unittest.mock import patch
+        import ciel_runtime_support.runtime_paths as rp
+        self.plan()
+        with patch.object(rp, "CONFIG_DIR", self.directory):
+            result = self.call("work_status", format="json")
+        self.assertFalse(result["error"], result)
+        parallel = json.loads(result["text"])["parallel"]
+        self.assertEqual("claude", parallel["runtime"])
+
     def test_update_with_only_id_and_version_is_rejected_without_mutation(self):
         doc = self.plan()
         result = self.call('work_node_update', id='n3', expected_version=doc['version'])

@@ -965,7 +965,9 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
             from .work_discovery import discovery_hint
             state["discovery"] = discovery_hint(config or {}, state)
             from .work_parallel_mcp import ledger, project
-            state["parallel"] = project(ledger(), "")
+            # This conversation's projection (Andy_Main 2026-11-27: an empty
+            # identity reported runtime=codex and no unfinished work).
+            state["parallel"] = project(ledger(), identity or "")
             state["parallel"].pop("leases", None)
             state["active_forks"] = _active_forks_for(doc, identity)
             state["retention"] = retention or retention_status({})
