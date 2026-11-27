@@ -2,6 +2,87 @@
 
 ## 2026-11-27
 
+- 21:20:13–21:20:39Z 틱(이전 20:18–20:20Z 대비). 이 기계(SAMA)가 재부팅된 직후다.
+  - **재부팅 사실(Windows 이벤트 로그):**
+    - 20:59:10Z `winlogon.exe`가 사용자 `djlov` 대신 재시작을 시작했다(id 1074).
+    - 21:02:09Z 이벤트 로그 서비스가 중지됐다(6006).
+    - 21:05:42Z 부팅했다. 21:05:45Z에 "깨끗한 종료 없이 재부팅"이 기록됐다(41).
+    - 재시작을 누가 왜 했는지는 이벤트의 사유 코드만으로 알 수 없다(미확인).
+    - 제가 재시작한 것은 없다. 운영 상태 파일도 수정하지 않았다.
+  - **재부팅 결과:**
+    - Andy 라우터는 `15960`, Celly 라우터는 `30732`다. 둘 다 c8363a3이다.
+    - Claude 프로세스 4개가 21:06:46–21:07:59Z에 새로 떴다.
+    - Docker Desktop이 내려가 있어서 21:19:36Z에 제가 기동했다. 21:19:43Z에 엔진이 올라왔고, 테스트 컨테이너 py310·py311도 다시 올라왔다. walkie-test 컨테이너는 Exited 상태로 두었다.
+  - **Andy:**
+    - 21:07:26Z(로컬 15:07:26) 라우터가 `work_orphan_released owner=dead`로 리스 15개를 해제했다. 포함 리스: n2888 `e26e475f`, n2779 `c4a612a6`, n2975 `40403c50`, n2549 `50129428`, n2982 `3b4b537c` 등. 원장에서는 모두 `orphaned`, `slot False`다.
+    - 원인은 재부팅으로 소유 세션 프로세스가 죽은 것이다(`owner=dead`). 정상 고아 정리 가드이며 제품 결함으로 보지 않는다.
+    - 이 리스들은 이제 실행 중이 아니다. 해당 항목이 다시 디스패치되는지는 다음 틱에 확인한다.
+    - 그 밖의 오류:
+      - 20:19:54Z `work_parallel_item_review: git rev-parse --show-toplevel timed out after 32 s`. 이전 틱의 부하 구간이다. 판정은 `a76ace4b`이며, 이후 결과는 다음 틱에 확인한다.
+      - 20:59:56–57Z MCP 연결 종료와 Work gate `router-error`. 재부팅 직전 구간이다.
+    - 발견: `n2961 2be7fa81 submitted, completion receipt, no review row`(native running). 검수 행이 만들어지는지 다음 틱에 확인한다.
+  - **Celly:**
+    - 보드 11594 observed, MCP 813 ms로 탐침이 회복됐다.
+    - 21:11:34Z `workspace_prepare_retained n1577 "git worktree add timed out after 181 s"`. 180 s 생성 예산을 넘은 첫 관측이다. 재부팅 직후 부하 구간이며, 반복되는지 추적한다.
+    - `revival_refused 46c43e5c`는 orphaned 리스로 메시지를 보내려다 거절된 것이다(정상 가드, 21:12:48Z).
+    - `decision_refused_stop ed3c437a`는 20:35:13Z의 `positive matching idle workspace proof required`다(가드).
+  - **KOBE·Prody·Betty:** 새 결함은 없다. KOBE의 `channel_turn_projection_persistent` 경고는 1,569–1,689 s 동안 `observe_only`였다.
+  - **사이클 8 진행:**
+    - 재부팅으로 Linux 회귀가 끊겼다.
+    - Windows 임시 격리는 파일 단위로 모두 다시 돌렸다. side 7개 파일(ack_gate 10, wait_check 9, failures_hotfix 20, fork_answers 8, intake_mcp 53+skip 1, intake_mod 75), 검수 5개(finalization 115, review_pin 15, approval_workflow_review 6, legacy_reviewer 12, rework_worktree 82), mcp_tools 34, mode_launch 12, parallel_mcp 37. 실패는 0이다.
+    - 앞서 보인 부분 출력의 F들은 CPU 99% 부하 구간의 일괄 실행에서 나왔고, 파일 단위 재실행에서는 재현되지 않았다.
+    - `claude plugin validate ciel-work` 통과, `claude plugin test ciel-work` 99/0.
+    - Linux py310·py311 실행 중.
+
+- 20:18:19–20:20:38Z 틱(이전 19:24–19:25Z 대비). 운영 세션·라우터 재시작과 운영 상태 파일 수정은 없었다.
+  - **이 기계의 부하 — 제가 남긴 프로세스가 포함됨:**
+    - 20:23Z 측정: CPU 99.6%, 디스크 큐 10–33.
+    - 부모가 이미 없는 Git `grep -r`/`find` 고아 7개가 돌고 있었다. 누적 CPU는 grep 2개가 각 3.7만 초, 1개가 1.2만 초, 나머지는 600–4,600초였다. 이 중 `wka_`/`wtc_` 패턴은 Andy 포크 `a1832d5a`·`aeb178c2` 전사에서 확인됐다. 나머지의 출처는 미확인이다.
+    - 제 Windows 회귀 pytest(19:39Z 시작)도 41분째 돌고 있었다.
+    - 처리: 제 pytest와 멈춘 `git status`를 중지했다. 고아 7개는 부모가 없음을 확인한 뒤 중지했다. 20:26Z에 CPU 60–66%, 디스크 큐 15–16으로 내려갔다.
+    - 같은 시간대 Andy·Celly의 `work_parallel_item_review: The operation timed out`(Andy 19:47:07Z·20:13:40Z, Celly 19:44:28Z)과 Andy_Main이 보고한 `git rev-parse --show-toplevel timed out after 32 s`는 이 부하 구간과 겹친다. 부하가 직접 원인인지는 확인하지 못했다.
+    - 부하가 내려간 뒤 `G:\ciel-Walkie`에서 읽기 전용으로 다시 쟀다. `rev-parse --show-toplevel` 3.8 s·4.6 s, `worktree list --porcelain`(1,546 항목) 3.4 s.
+  - **Andy:**
+    - 보드 12815→12832, 원장 9303→9339, MCP 766 ms.
+    - 새 실패 `decision_refused_stop` 3건: `c6204eeb` n2960 19:47:10Z, `a543c50f` n2999 20:13:44Z, `a76ace4b` 20:19:55Z. c6204eeb·a543c50f는 같은 판정을 다시 보내 `finalized approve`가 됐다(19:48:03Z, 20:13:50Z). 첫 거절은 위 타임아웃이다.
+    - 413 `length limit exceeded`는 13:24Z(로컬) 이후 `_Walkie_P1` 55건이다. 해당 요청은 계속 재시도 없이 끝난다(`not_retryable`). 게이트웨이 소관이라 추적만 한다.
+    - 20:16:42Z: n1175·n2995 `transport_interrupted` 재시도 예약.
+    - 발견: `n2961 1df8f1da P5 running, fork absent since 19:43` → 원장에서 지금 `unreported`, `slot False`이다.
+  - **Celly:**
+    - 모니터 탐침에서 보드가 unavailable이었다. 원인은 4초 제한이다. MCP는 3,344 ms로 성공했다.
+    - 413(`_Walkie_P1-Celly`) 11건.
+    - 19:41:29Z Walkie `Approvers must be mentioned` 400 1건. 호출 측 입력 오류다.
+  - **KOBE:** 변화 없음(n5 검수 대기 유지). Walkie 404 4건, OKF YAML 400 1건은 모델 스크립트 입력 오류다.
+  - **Prody·Betty:** 새 결함 없음. Betty 18:47Z `gateway_central discovery unavailable degraded`(요청은 설정된 base URL 사용) 1건.
+  - **Andy_Main 측정 반영:**
+    - 배포(c8363a3) 이후 사이드 영수증: 19:17:01Z 이후 19건 모두 failure 없음. 최근 100건 창에서 `side claim expired` 0건이다.
+    - 남은 실패 23건 중 14건이 invalid_answer다. 이는 진행 중인 사이클 8 수정 대상이다.
+  - **워크스페이스 누적(Andy_Main 보고):**
+    - `G:\ciel-Walkie` 등록 워크트리는 1,546개다(직접 측정).
+    - 코드 확인 결과:
+      - 검수 승인/종료(`_roll_forward_stages`)는 워크스페이스를 지우지 않는다. `cleanup_proof`를 `retained verified workspace …`로 남긴다(work_parallel_mcp.py:2905–2908, "The result is retained by default").
+      - 삭제는 코디네이터가 `work_parallel_event event=cleanup`으로 부를 때만 일어난다. 조건은 HEAD 원격 푸시 확인 또는 경로별 사용자 승인, dirty 아님이다(worktree_cleanup.py).
+      - 자동 prune을 호출하는 코드는 없다.
+    - 보존 기간 정책도 코드에 없다.
+    - 사용자 결정 없이 일괄 정리하지 않는다([[no-scope-expansion-shared-values]]).
+
+- 19:24:50–19:25:38Z 틱(이전 18:35Z 대비, 사이클 7 배포 직후). 운영 상태 파일은 수정하지 않았다.
+  - **Andy**
+    - 보드·원장: 보드 12792→12815, 원장 9263→9303. MCP 탐침은 3375ms에 성공했다.
+    - 19:16:47–19:16:56Z 포크 3개(n2883 `ae1157f4`, n2999 `a03ed951`, n2994 `a1a8e324`)와 메인 2건이 `API Error: Connection refused (ECONNREFUSED)`를 받았다. 이어 19:19:23Z에 server_error 재시도 예약이 3건, 19:17:02–03Z에 `Work reconciliation: MCP server not connected`가 2건, 19:21:40Z에 auto continue 상태 읽기 실패가 1건 나왔다. 모두 제 19:16:47Z 라우터 교체(115520→116036) 구간이다. 라우터 로그에는 `router_spawn_start`(13:16:56 로컬)가 남아 있다.
+    - 위 포크의 이후 상태: n2999는 19:25:37Z에 완료 보고했다(`end_turn`). ae1157f4는 19:30:13Z에도 작업 중이었다.
+    - **413 `Failed to buffer the request body: length limit exceeded`**: 현재 로그 19건, 이전 로그 17건. 직전 틱 이후 첫 건은 18:36:03Z, 이번 구간 마지막은 19:25:39Z다. 모두 `_Walkie_P1/_Walkie_P4-5`, 약 473–505K 토큰(1.79–1.91 MB) 요청이며, `cielairouter_transient_stopped ... stop=not_retryable`로 끝났다. 413을 받은 주체를 확인한 것은 과거 포크 3개뿐이다(a41fde9f n2473 00:36Z, aca05432 n2900 10:41Z, a8cbf157 n2900 13:12Z). 지금 구간의 413이 어느 대화에서 나왔는지와 상한이 어디에 있는지는 확인하지 못했다. 업스트림 요청 크기 상한은 게이트웨이 소관이다([[upstream-headers-are-gateway-owned]]). 이번 건은 추적만 했다.
+    - 발견 2건
+      - `n2778 fadde694 slot held, fork absent since 18:42`: native 기록은 `running`, `missing_since null`, `last_seen 19:28:05Z`이다. 포크 전사도 19:26:48Z까지 늘었다. 모니터가 표시한 부재는 지금 해소된 상태이며, 결함 근거는 아니다.
+      - `n2993 a86ae34a review pending, wake pending > 5 min`: 리뷰 행의 wake가 `appended`(19:25:30Z)이다. 메인이 판정하기를 기다리는 중이다.
+  - **Celly**
+    - 보드·MCP: 모니터 탐침에서 보드·workflow·MCP가 모두 unavailable/4000ms였다. 재측정하니 health는 94–1531ms, board는 703ms(404,707 B, v11582), workflow는 297ms로 모두 응답했다. 모니터의 4초 제한에 걸린 것이다.
+    - 라우터 교체 구간 경고: 19:19:19Z `router_lifetime_restart`, 19:19:35Z `agent_turn_event_dropped reason=router_unreachable`, 19:19:11Z `channel_turn_projection_persistent 182 s`. 모두 제 교체(78204→33968, 19:17:27–19:19:36Z) 구간이다.
+    - **새 실패 `decision_refused_stop 72f4006b`(n1669, 19:24:32Z)**: 메인이 rework 판정을 냈는데 evidence가 2,181자였다. 라우터 `decide()`가 2,000자 상한을 넘었다고 `"review decision"`만 돌려줬다. 어떤 필드가 왜 틀렸는지 말하지 않는 결함이다. 실패 테스트 `test_an_oversized_evidence_refusal_names_the_field_and_its_limit`로 재현했다. 수정은 두 가지다: 필드별 거절 문구(길이 포함)로 바꾸고, 도구 스키마에 `evidence maxLength 2000`을 공개한다. 영향 회귀 진행 중.
+  - **KOBE**: 보드 894→897, 원장 5037→5044, MCP 407ms. 기존 n5 검수 대기는 그대로이고 n298 대기는 사라졌다. P3 슬롯 부족으로 파킹 재개가 보류된 건이 4건(18:47–19:16Z)이다. 슬롯 정원 가드이며 결함 근거는 아니다.
+  - **Prody**: 변화 없음. **Betty**: 보드 5832→5837, 원장 1364→1381, MCP 630ms. 버전 충돌 재시도가 1건 있었다(정상 가드).
+  - **사이클 7 부작용 정리**: 이번 교체로 생긴 일은 위 ECONNREFUSED 포크 3개·메인 2건, MCP 미연결, Celly의 턴 이벤트 1건 유실이다. 포크는 재시도 경로로 들어갔고, 그중 하나는 이후 완료했다.
+
 - 18:35:15–18:35:47Z 읽기 전용 틱(`run.sh`, `tick_compare.py`, 이전 18:18–18:20Z 스냅샷 비교). 운영 세션·라우터 재시작 및 운영 상태 파일 수정 없음. 포크 관측은 5개 호스트 모두 partial이므로 미관측을 종료로 보지 않았다.
   - **Andy**: 보드 12776→12792, 리스 9232→9263, MCP 3594ms 성공(이전 4초 탐침 실패). n2957 `transport_interrupted` 재시도 예약 1건(18:24:08Z), 인자 거절 400 1건(18:24:18Z), 사이드 `965d84239d22`의 `side answer carries no decision JSON` 1건(18:28:37Z; 18:28:45Z 원문 메인 append 관측). 라우터 SSE EOF 16건(첫 18:19:02Z), MCP POST reset 3건(첫 18:20:37Z), keep-alive 경고 198건은 재기동으로 집계하지 않았다. 이전 틱의 Work gate `router-error` 3건(18:10:20·18:11:20·18:13:05Z)은 이 틱에서 새로 관측되지 않았다. 직접 확인 18:36:26Z: P3 full, fenced `reserved:1`, 후보 5개; n2779 `c4a612a6`과 n2549 `50129428`은 `waiting_input`, `slot False`. 앞선 슬롯 획득은 지속 실행을 뜻하지 않는다.
   - **Celly**: 보드 11577→11579, 리스 10699→10702, MCP 515ms 성공, 새 검수 장애 없음. 18:30:14Z 콘솔 입력 `17103` 미확인 만료(142.3초)와 연속 제출 차단이 각각 1건이며 같은 메시지에 대한 두 로그다. 커서 17102. 전달 실패까지 확인했고 미확인 원인은 조사 대상이다. SSE EOF 16건, MCP POST reset 4건·abort 1건.

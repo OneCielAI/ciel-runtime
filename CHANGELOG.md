@@ -36,6 +36,16 @@ capability, followed by the complete commit ledger merged into each release.
 - `work_status` (json) reports the calling conversation's parallel summary instead
   of one computed for an empty identity, which showed `runtime=codex` and no
   unfinished work.
+- A side answer refused for its decision JSON now says which of three things went
+  wrong: no JSON object with a decision was found, the JSON did not parse (with
+  the parser's message), or the object has no decision object (with its top-level
+  keys). The same sentence covered all three before.
+- A decision that the ACK or wait-check gate held back is no longer lost when the
+  answer to that correction reports its lookups in prose; the decision the actor
+  already gave is committed, and the router still validates it.
+- `work_parallel_item_review` names the field it refuses, for example
+  `review evidence must be 1-2000 characters without NUL (got 2181)`, instead of
+  `review decision` alone, and its schema advertises `evidence` `maxLength` 2000.
 
 
 ### Beta: the tool-guard Stop hook is removed
