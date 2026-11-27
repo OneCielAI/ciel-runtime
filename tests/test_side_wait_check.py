@@ -49,11 +49,13 @@ class SideWaitCheckTests(unittest.TestCase):
         # wait_checks is the host's evidence, never a router decision field.
         self.assertNotIn('wait_checks', row['decisionKeys'][0])
 
-    def test_a_second_unchecked_answer_fails_and_names_the_item(self):
+    def test_a_second_unchecked_answer_still_commits_its_decision(self):
+        # Andy 2026-11-27 55ec25fcc867: the 163087 approval's release of n1584
+        # was dropped as invalid_answer because three other waiting items had
+        # no wait_checks; the approval reached main 12 minutes late as raw text.
         row = self.result['unchecked_twice']
-        self.assertEqual((1, 0), (len(row['sends']), row['resolves']))
-        self.assertEqual(['invalid_answer'], [failure['category'] for failure in row['failures']])
-        self.assertIn('side wait check required: n2892', row['failures'][0]['reason'])
+        self.assertEqual((1, 1, []), (len(row['sends']), row['resolves'], row['failures']))
+        self.assertTrue(any('n2892' in text for text in row['shortfallLogs']), row['shortfallLogs'])
 
     def test_a_met_condition_must_be_released(self):
         row = self.result['met_not_released']

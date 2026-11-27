@@ -340,6 +340,12 @@ DEFAULTS: dict[str, str] = {
         '(fork는 물려받은 대화, fresh는 main_transcript)에서 확인합니다. 메시지가\n'
         '나열되지 않은 게이트는 현재 상태 확인에 필요한 것만 읽습니다\n'
         '(CI 실행, 승인 메시지, 파일). 스레드 전체나 이력은 읽지 마십시오.'),
+    # work_node_update reply when a title or note edit returned an executing
+    # goal to planning (Andy_Main 2026-11-27, n2976: no fork, no word of why).
+    "scope_planning": (
+        "PLANNING: goal {root} returned to the planning phase because its approved scope (a title or note) "
+        "changed. No Work fork is assigned to it until work_execute approves the plan again. Implementation, "
+        "CI, review and cleanup narrative belongs in progress, which keeps the approval."),
     "gate_review": ('메인 검수 대기: 포크 결과 {count}건이 메인의 검수를 기다립니다(아이템 {items}). '
                     '메인이 검수하지 않고 있습니다. ask_main으로 메인에게 지금 검수하라고 알리십시오.'),
     "turn_end": '메인의 턴이 방금 끝났습니다. 아래 게이트(있다면) 외에, 지금 할 다른 일이 있는지 확인합니다: 블록이 해제된 아이템, 도착한 승인, 다음에 실행할 수 있는 Work 아이템(보드는 work_status로 필요한 만큼만 읽습니다). 큐를 정리합니다. 당신의 reply는 메인에게 전달됩니다: 메인이 다음에 할 일을 한 줄에서 세 줄로 적고, 할 일이 없으면 정확히 "할 일 없음"이라고만 적습니다.',

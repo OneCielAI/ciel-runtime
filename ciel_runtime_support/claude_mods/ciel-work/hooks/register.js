@@ -3840,26 +3840,51 @@ function noteLostReserve(key, error) {
   lostReserves.set(key, Date.now())
   if (lostReserves.size > 50) lostReserves.delete(lostReserves.keys().next().value)
 }
+// Andy 2026-11-27 16:43Z: a0874c5a still held the only P3 slot eight hours
+// after its reservation, with five P3 items runnable: the module had reloaded
+// since, so its key was never noted above. An unbound worker reservation of
+// this process that this module has seen unbound for UNBOUND_RESERVE_MS, with
+// no reserve call of this module in flight for it and no native agent of its
+// dispatch name, has no fork behind it either (the spawn follows the reserve
+// reply within seconds) and is released the same way.
+const unboundSeen = new Map()
+const UNBOUND_RESERVE_MS = 900000
 async function releaseLostReserves($, state, listed) {
-  if (!lostReserves.size) return false
   const now = Date.now()
   for (const [key, at] of lostReserves) if (now - at > LOST_RESERVE_MS) lostReserves.delete(key)
-  const leases = Object.values(state?.leases || {}).filter(lease => lease.state === 'reserved' && !lease.host_id
-    && lease.slot === true && lease.role === 'worker' && lostReserves.has(lease.dispatch_name)
+  const unbound = Object.values(state?.leases || {}).filter(lease => lease.state === 'reserved' && !lease.host_id
+    && lease.slot === true && lease.role === 'worker' && typeof lease.dispatch_name === 'string' && lease.dispatch_name
     && typeof lease.workspace_path === 'string' && lease.workspace_path && lease.owner_process === 'own')
+  const current = new Set(unbound.map(lease => lease.id))
+  for (const id of [...unboundSeen.keys()]) if (!current.has(id)) unboundSeen.delete(id)
+  const inFlight = lease => parallelPending.has(lease.dispatch_name)
+    || [...parallelPending.values()].some(request => request?.lease_id === lease.id)
+  const leases = unbound.filter(lease => {
+    if (lostReserves.has(lease.dispatch_name)) return true
+    if (inFlight(lease)) { unboundSeen.delete(lease.id); return false }
+    if (!unboundSeen.has(lease.id)) unboundSeen.set(lease.id, now)
+    return now - unboundSeen.get(lease.id) >= UNBOUND_RESERVE_MS
+  })
   if (!leases.length) return false
   let rows
   try { rows = (await listed.fresh()) || [] } catch { return false }
   let released = false
   for (const lease of leases) {
-    if (rows.some(agent => agent?.name === lease.dispatch_name)) { lostReserves.delete(lease.dispatch_name); continue }
+    const lost = lostReserves.has(lease.dispatch_name)
+    if (rows.some(agent => agent?.name === lease.dispatch_name)) {
+      lostReserves.delete(lease.dispatch_name); unboundSeen.delete(lease.id); continue
+    }
     try {
-      await parallelEvent($, { event:'release', lease_id:lease.id }, { proof:'The reserve reply for '
-        + lease.dispatch_name + ' never reached the Work host, so no fork was spawned under that name' })
+      await parallelEvent($, { event:'release', lease_id:lease.id }, { proof:lost
+        ? 'The reserve reply for ' + lease.dispatch_name + ' never reached the Work host, so no fork was spawned under that name'
+        : 'No fork named ' + lease.dispatch_name + ' appeared while the Work host saw this reservation unbound for '
+          + Math.round(UNBOUND_RESERVE_MS / 60000) + ' minutes, and no reserve call of this host was in flight for it' })
       lostReserves.delete(lease.dispatch_name)
+      unboundSeen.delete(lease.id)
       released = true
-      rememberParallelFailure('reserve-reply-lost', 'lease ' + clipped(lease.id, 40) + ' (' + lease.item_id
-        + '): its reserve reply never arrived and no fork was started; the reservation was released and the item stays queued')
+      rememberParallelFailure(lost ? 'reserve-reply-lost' : 'reserve-unbound-stale', 'lease ' + clipped(lease.id, 40)
+        + ' (' + lease.item_id + '): ' + (lost ? 'its reserve reply never arrived and' : 'it stayed unbound and')
+        + ' no fork was started; the reservation was released and the item stays queued')
     } catch (error) {
       rememberParallelFailure('release-unbound', 'lease ' + clipped(lease.id, 40) + ': ' + String(error?.message || error))
     }

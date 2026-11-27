@@ -2227,6 +2227,8 @@ export async function pollSide($, identity) {
       sourceMessage.reply_to_message_id,sourceMessage.thread_root_id],sourceMessage.conversation_id,
       event.thread_bindings?.excluded || [])
     const waitItems = event.route?.source_kind === 'gate_check' ? [] : waitTargetsOf(event).map(waitItem)
+    // The ACK the event's Walkie guidance asks for, with this event's own key.
+    const ack = ackRequirement(event)
     const text = JSON.stringify({event_id:event.receipt_id,parent_session_id:identity,claim_generation:event.generation,
       external_event_preview:eventView(event.text),source_context:sourceMessage.source_context,
       ...(sourceMessage.event_truncated ? {event_truncated:true} : {}),
@@ -2242,6 +2244,8 @@ export async function pollSide($, identity) {
         sourceMessage.reply_to_message_id,sourceMessage.thread_root_id,sourceMessage.conversation_id],
         sourceMessage.root_id ? {conversation_id:sourceMessage.conversation_id, bindings:event.thread_bindings} : null),
       ...(waitItems.length ? {wait_items:waitItems,wait_check:T('mod_side_wait_items')} : {}),
+      ...(ack ? {ack:{conversation_id:ack.conversation_id,message_id:ack.message_id,client_id:ack.client_id,
+        rule:T('mod_side_ack_client')}} : {}),
       handoff_context:event.handoff_context || [],
       priority_policy:settings.priority_policy || 'adaptive',
       // A gate re-check runs the blocker-check actor: its own instruction
@@ -2918,7 +2922,17 @@ function ackRequirement(event) {
   const conversation_id = String(data.conversation || data.conversation_id || spec.conversation_id || '')
   const message_id = String(data.message_id ?? spec.target_message_id ?? '')
   if (!WALKIE_UUID.test(conversation_id) || !messageId(message_id)) return null
-  return {server:String(spec.server || 'walkie'),conversation_id,message_id}
+  return {server:String(spec.server || 'walkie'),conversation_id,message_id,client_id:ackClientId(event.receipt_id)}
+}
+// Andy 2026-11-27: told to send "a new UUID client_id", side actors sent
+// textbook UUIDs (a1b2c3d4-e5f6-7890-abcd-ef1234567890, 123e4567-e89b-...,
+// f47ac10b-58cc-...); the 163057 ACK reused one and Walkie answered 409, so no
+// ACK was recorded. Each event gets its own key, derived from its receipt id in
+// UUID layout: never shared with another event, the same on a resend.
+function ackClientId(receipt) {
+  const hex = String(receipt || '').toLowerCase().replace(/[^0-9a-f]/g,'').padEnd(32,'0').slice(0,32)
+  return hex.slice(0,8)+'-'+hex.slice(8,12)+'-4'+hex.slice(13,16)+'-'+'89ab'[parseInt(hex[16],16) & 3]
+    +hex.slice(17,20)+'-'+hex.slice(20,32)
 }
 const walkieSelf = new Map()
 async function ackRecorded($,ack) {
@@ -3031,7 +3045,7 @@ export function requireWaitCheck(event,parsed) {
 const CORRECTABLE = /side ACK required|side wait check (required|met but not released)|side answer carries no decision JSON|invalid side decision (action|kind|fields|priority|queue_position|item_id|note|title|refs|release_waits)|decision refs required|side decision kind does not match its action|side decision needs bounded summary and reply|a request must create, update or prioritize Work|existing Work identity required|side target Work item missing|new Work cannot overwrite an existing identity|side proposal needs bounded understanding|side understanding must/
 function correctionText(reason,event) {
   const ack = /side ACK required/.test(String(reason || '')) ? ackRequirement(event) : null
-  if (ack) return T('mod_side_ack_required',{message:ack.message_id,conversation:ack.conversation_id})
+  if (ack) return T('mod_side_ack_required',{message:ack.message_id,conversation:ack.conversation_id,client:ack.client_id})
   const waiting = /side wait check/.test(String(reason || '')) && Array.isArray(event?.wait_pending) ? event.wait_pending : []
   if (waiting.length) return T('mod_side_wait_check',{items:waiting.map(waitLine).join('\n')})
   return T('mod_side_correction',{reason:line(reason,400)})
@@ -3049,9 +3063,17 @@ async function sendCorrection($,actor,reason,event) {
   catch (error) { return {isDelivered:false,reason:String(error?.message || error)} }
   finally { correctionResumes.delete(actor.id) }
 }
+// The ACK and wait-check gates ask for something besides the answer's shape, so
+// their one correction is counted apart from the shape correction (Andy
+// 2026-11-27 b386e8da7270: a wait-check correction used it up, and the next
+// answer's over-long summary failed the event).
+const GATE_SHORTFALL = /side ACK required|side wait check (required|met but not released)/
 async function correctSide($,actor,event,reason) {
-  if (actor.corrected || actor.understood || !actor.id || !CORRECTABLE.test(String(reason || ''))) return false
-  actor.corrected = true
+  const gate = GATE_SHORTFALL.test(String(reason || ''))
+  if ((gate ? actor.gateCorrected : actor.corrected) || actor.understood || !actor.id
+      || !CORRECTABLE.test(String(reason || ''))) return false
+  if (gate) actor.gateCorrected = true
+  else actor.corrected = true
   const asked = () => { try { $.ui.log('Ciel side: asked the side actor for '+event.receipt_id.slice(0,12)
     +' to correct its answer ('+line(reason,160)+')',{to:'debug'}) } catch {} }
   const sent = await sendCorrection($,actor,reason,event)
@@ -3118,8 +3140,20 @@ export async function completeSide($,e) {
       // The version only records which snapshot the decision saw; the host
       // re-validates against the current board, so a missing one is not fatal.
       if (!Number.isInteger(proposal.expected_version)) proposal.expected_version = event.workload?.version ?? null
-      await requireAck($,actor,event)
-      requireWaitCheck(event,parsed)
+      // Andy 2026-11-27 (55ec25fcc867, 9d0578fb1be6): two approvals' wait
+      // releases (n1584; n2967/n2968) were dropped as invalid_answer because
+      // the ACK or other items' wait_checks were still missing after the
+      // correction, and reached main 12 minutes late as raw text. These gates
+      // ask once; a second answer without them still commits its decision.
+      const shortfalls = []
+      try { await requireAck($,actor,event) } catch (error) { shortfalls.push(String(error?.message || error)) }
+      try { requireWaitCheck(event,parsed) } catch (error) { shortfalls.push(String(error?.message || error)) }
+      if (shortfalls.length && !actor.gateCorrected) throw new Error(shortfalls.join('; '))
+      if (shortfalls.length) {
+        const missing = shortfalls.map(text => /side ACK required/.test(text) ? 'the ACK' : 'the wait check').join(' and ')
+        try { $.ui.log('Ciel side: committing '+event.receipt_id.slice(0,12)+' without '+missing
+          +' after one correction ('+line(shortfalls.join('; '),300)+')',{to:'debug'}) } catch {}
+      }
       if (Array.isArray(parsed.wait_checks) && parsed.wait_checks.length) {
         try { $.ui.log('Ciel side: wait checks for '+event.receipt_id.slice(0,12)+': '+line(JSON.stringify(parsed.wait_checks),600),
           {to:'debug'}) } catch {}

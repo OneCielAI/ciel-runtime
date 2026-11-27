@@ -2057,6 +2057,15 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(1, result["calls"].count("release:L1"), result)
         self.assertLess(result["calls"].index("release:L1"), result["calls"].index("bind:L2"), result)
 
+    def test_an_old_unbound_reservation_without_a_fork_is_released(self):
+        # Andy 2026-11-27: a0874c5a held the only P3 slot for 8 hours.
+        result = self.run_scenario("parallel-stale-unbound-reserve")
+        self.assertEqual(0, result["early"], result)
+        self.assertFalse(result["stuck"], result)
+        self.assertEqual(1, result["calls"].count("release:L0"), result)
+        self.assertEqual(1, result["spawned"], result)
+        self.assertLess(result["calls"].index("release:L0"), result["calls"].index("bind:L2"), result)
+
     def test_successful_worker_report_triggers_refill(self):
         result = self.run_scenario("parallel-report-refills-released-slot")
         self.assertEqual(1, result["spawned"], result)

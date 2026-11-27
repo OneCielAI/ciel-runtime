@@ -23,7 +23,7 @@ const eventText=(message,root)=>JSON.stringify({specversion:'1.0',id:CONVERSATIO
  data:{conversation:CONVERSATION,message_id:message,thread_root_id:root,reply_to_message_id:root,
   text:root==='162095' ? BODY : 'unrelated note in another thread'}})
 function run(label,{message='162796',root='162095'}={}){
- const calls=[],sends=[],spawns=[]
+ const calls=[],sends=[],spawns=[],logs=[]
  let receipt=0
  const hostStore=new Map()
  const $={
@@ -55,9 +55,9 @@ function run(label,{message='162796',root='162095'}={}){
   tool:{call:async args=>{calls.push({toolCall:args});return {}}},
   agent:{list:async()=>[],spawn:async args=>{spawns.push(args);return {agentId:'actor-'+label}}},
   env:{get:async()=>'x'.repeat(40)},
-  usage:{},ui:{log:()=>{},invalidate:()=>{},open:async()=>{}},clock:{after:()=>({cancel(){}})},
+  usage:{},ui:{log:text=>{logs.push(String(text))},invalidate:()=>{},open:async()=>{}},clock:{after:()=>({cancel(){}})},
  }
- return {$,calls,sends,spawns}
+ return {$,calls,sends,spawns,logs}
 }
 const answer=(extra={},decision={})=>JSON.stringify({understanding:'Eric reports SSH card 162105 already approved; n2892 waits on it.',
  decision:{action:'update',kind:'request',item_id:'n2892',summary:'162105 approval reported',reply:'recorded on n2892',
@@ -74,7 +74,7 @@ async function scenario(label,answers,options){
  const host=run(label,options)
  await startSide(host.$); await pollSide(host.$,'claude:parent-'+label)
  for (const value of answers) await completeSide(host.$,{agentId:'actor-'+label,reason:'answer',answer:value,usage:null})
- const {calls,sends,spawns}=host
+ const {calls,sends,spawns,logs}=host
  let prompt={}
  try { prompt=JSON.parse(spawns[0]?.prompt || '{}') } catch {}
  const resolves=calls.filter(c=>c.name==='work_side_resolve')
@@ -87,7 +87,8 @@ async function scenario(label,answers,options){
   resolves:resolves.length,
   released:resolves.map(c=>c.args.decision.release_waits || []),
   decisionKeys:resolves.map(c=>Object.keys(c.args.decision).sort()),
-  failures:calls.filter(c=>c.name==='work_side_fail').map(c=>({category:c.args.category,reason:c.args.reason}))}
+  failures:calls.filter(c=>c.name==='work_side_fail').map(c=>({category:c.args.category,reason:c.args.reason})),
+  shortfallLogs:logs.filter(text=>/without the ACK|without the wait check/.test(text))}
 }
 await scenario('unchecked_then_checked',[unchecked,checkedOpen])
 await scenario('unchecked_twice',[unchecked,unchecked])

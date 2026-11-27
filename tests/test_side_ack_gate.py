@@ -32,23 +32,43 @@ class SideAckGateTests(unittest.TestCase):
     def test_a_missing_ack_is_corrected_with_the_ack_instruction_then_commits(self):
         row = self.result['missing_then_acked']
         self.assertEqual([{'to': 'actor-missing_then_acked', 'ackText': True, 'namesMessage': True,
-                           'allowsTools': True}], row['sends'])
+                           'allowsTools': True, 'namesClient': True}], row['sends'])
         self.assertEqual((1, []), (row['resolves'], row['failures']))
         self.assertEqual(2, len(row['readbacks']))
         self.assertEqual({'conversation_id': '34886995-4a66-4527-a618-814e9cb0a5bf', 'message_id': '41'},
                          row['readbacks'][0])
 
-    def test_a_second_missing_ack_fails_and_says_what_to_register(self):
+    def test_a_second_missing_ack_still_commits_the_decision_and_logs_the_shortfall(self):
+        # Andy 2026-11-27 9d0578fb1be6: the 163057 approval's release of
+        # n2967/n2968 was dropped as invalid_answer because the ACK was missing.
         row = self.result['missing_twice']
         self.assertEqual(1, len(row['sends']))
-        self.assertEqual(0, row['resolves'])
-        self.assertEqual(['invalid_answer'], [failure['category'] for failure in row['failures']])
-        self.assertIn('ACK와 note를 먼저 등록', row['failures'][0]['reason'])
+        self.assertTrue(row['sends'][0]['ackText'])
+        self.assertEqual((1, []), (row['resolves'], row['failures']))
+        self.assertTrue(any('ACK' in text for text in row['shortfallLogs']), row['shortfallLogs'])
 
     def test_an_ack_without_a_memo_is_not_the_required_ack(self):
         row = self.result['ack_without_memo']
-        self.assertEqual((1, 0), (len(row['sends']), row['resolves']))
-        self.assertIn('ACK와 note를 먼저 등록', row['failures'][0]['reason'])
+        self.assertEqual(1, len(row['sends']))
+        self.assertTrue(row['sends'][0]['ackText'])
+        self.assertEqual((1, []), (row['resolves'], row['failures']))
+
+    def test_the_prompt_and_correction_carry_the_events_own_ack_client_id(self):
+        # Andy 2026-11-27: actors invented textbook UUIDs (a1b2c3d4-e5f6-...,
+        # 123e4567-e89b-...) as client_id; a reused key got 409 and no ACK.
+        row = self.result['missing_then_acked']
+        self.assertEqual({'conversation_id': '34886995-4a66-4527-a618-814e9cb0a5bf', 'message_id': '41',
+                          'client_id': 'eeeeeeee-eeee-4eee-aeee-eeeeeeeeeeee'},
+                         {key: row['promptAck'][key] for key in ('conversation_id', 'message_id', 'client_id')})
+        self.assertTrue(row['promptAck']['rule'])
+        self.assertIsNone(self.result['no_guidance']['promptAck'])
+
+    def test_a_gate_correction_leaves_the_shape_correction_available(self):
+        row = self.result['ack_then_prose']
+        self.assertEqual(2, len(row['sends']))
+        self.assertTrue(row['sends'][0]['ackText'])
+        self.assertFalse(row['sends'][1]['ackText'])
+        self.assertEqual((1, []), (row['resolves'], row['failures']))
 
     def test_a_recorded_ack_with_memo_commits_without_correction(self):
         row = self.result['acked']

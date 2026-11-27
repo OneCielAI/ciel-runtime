@@ -40,6 +40,25 @@ class WorkMcpToolsTests(unittest.TestCase):
         self.assertEqual("executing", updated["phase"])
         self.assertEqual("tests passed", next(n for n in updated["nodes"] if n["id"] == "n3")["progress"])
 
+    def test_a_scope_edit_that_returns_the_goal_to_planning_says_so(self):
+        # Andy_Main 2026-11-27 (n2976 14:52Z): a note edit returned the executing
+        # goal to planning, no fork was assigned, and the update reply said only
+        # "Updated n2976": nothing told main the goal now waits for work_execute.
+        doc = self.plan()
+        self.assertFalse(self.call("work_execute", expected_version=doc["version"])["error"])
+        running = self.store.read()
+        result = self.call("work_node_update", id="n3", note="widen the scope", expected_version=running["version"])
+        self.assertFalse(result["error"], result)
+        self.assertEqual("planning", self.store.read()["phase"])
+        self.assertIn("PLANNING:", result["text"])
+        self.assertIn("n1", result["text"])
+        self.assertIn("work_execute", result["text"])
+        # A progress note keeps approval and says nothing about planning.
+        again = self.call("work_execute", expected_version=self.store.read()["version"])
+        self.assertFalse(again["error"], again)
+        kept = self.call("work_node_update", id="n3", progress="ran", expected_version=self.store.read()["version"])
+        self.assertNotIn("PLANNING:", kept["text"])
+
     def test_update_with_only_id_and_version_is_rejected_without_mutation(self):
         doc = self.plan()
         result = self.call('work_node_update', id='n3', expected_version=doc['version'])

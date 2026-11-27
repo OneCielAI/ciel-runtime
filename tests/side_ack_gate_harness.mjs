@@ -19,7 +19,7 @@ const row=(agent,history)=>({agent_id:agent,display_name:agent===SELF?'Andy Ai':
  state:history.at(-1)?.state ?? null,version:history.length,updated_at:null,received:true,
  memo:history.at(-1)?.state==='ack' ? history.at(-1).memo ?? null : null,history})
 function run(label,{guidance=GUIDANCE,work=()=>[],readbackFails=false}={}){
- const calls=[],sends=[]
+ const calls=[],sends=[],spawns=[],logs=[]
  let receipt=0
  const hostStore=new Map()
  const $={
@@ -54,25 +54,32 @@ function run(label,{guidance=GUIDANCE,work=()=>[],readbackFails=false}={}){
    if(name==='work_side_fail') return text({receipt:{receipt_id:'e'.repeat(64),stage:'received'}})
    return text({})}},
   tool:{call:async args=>{calls.push({toolCall:args});return {}}},
-  agent:{list:async()=>[],spawn:async()=>({agentId:'actor-'+label})},
+  agent:{list:async()=>[],spawn:async args=>{spawns.push(args);return {agentId:'actor-'+label}}},
   env:{get:async()=>'x'.repeat(40)},
-  usage:{},ui:{log:()=>{},invalidate:()=>{},open:async()=>{}},clock:{after:()=>({cancel(){}})},
+  usage:{},ui:{log:text=>{logs.push(String(text))},invalidate:()=>{},open:async()=>{}},clock:{after:()=>({cancel(){}})},
  }
- return {$,calls,sends}
+ return {$,calls,sends,spawns,logs}
 }
 const good=JSON.stringify({understanding:'You want the CSV export queued as new Work.',
  decision:{action:'create',kind:'request',title:'CSV export',summary:'queue CSV export',reply:'queued',refs:['41','40']},
  expected_version:3,sent_via:['mcp__walkie__walkie_call_tool']})
 const acked=[{state:'ack',version:1,at:'2026-11-27T06:00:00Z',memo:'새 Work로 큐 등록'}]
+// The receipt id 'e'*64 as the event's own ACK idempotency key (UUID layout).
+const CLIENT='eeeeeeee-eeee-4eee-aeee-eeeeeeeeeeee'
+const prose='결정 JSON 없이 끝난 답입니다.'
 const out={}
 async function scenario(label,answers,options){
  const host=run(label,options)
  await startSide(host.$); await pollSide(host.$,'claude:parent-'+label)
  for (const answer of answers) await completeSide(host.$,{agentId:'actor-'+label,reason:'answer',answer,usage:null})
- const {calls,sends}=host
+ const {calls,sends,spawns,logs}=host
+ let prompt={}
+ try { prompt=JSON.parse(spawns[0]?.prompt || '{}') } catch {}
  out[label]={
+  promptAck:prompt.ack || null,
   sends:sends.map(s=>({to:s.to?.agentId,ackText:/ACK와 note를 먼저 등록/.test(s.text),
-   namesMessage:/41/.test(s.text),allowsTools:!/Do not call tools/.test(s.text)})),
+   namesMessage:/41/.test(s.text),allowsTools:!/Do not call tools/.test(s.text),namesClient:s.text.includes(CLIENT)})),
+  shortfallLogs:logs.filter(text=>/without the ACK|without the wait check/.test(text)),
   readbacks:calls.filter(c=>c.name==='walkie_call_tool'&&c.args?.operation_id==='messages.work.get')
    .map(c=>c.args.arguments),
   resolves:calls.filter(c=>c.name==='work_side_resolve').length,
@@ -81,8 +88,13 @@ async function scenario(label,answers,options){
 // No ACK of this agent yet (another agent's ACK does not count): one correction
 // naming the ACK, the actor ACKs, and the second answer commits.
 await scenario('missing_then_acked',[good,good],{work:sent=>sent ? [row(OTHER,acked),row(SELF,acked)] : [row(OTHER,acked),row(SELF,[])]})
-// Never ACKed: one correction, then the refusal counts and says what is missing.
+// Never ACKed: one correction naming the ACK; a second answer without it still
+// commits its decision (Andy 2026-11-27 9d0578fb1be6: a release of n2967/n2968
+// was dropped as invalid_answer) and the host logs what was missing.
 await scenario('missing_twice',[good,good],{work:()=>[row(SELF,[])]})
+// A gate correction does not use up the correction for the answer's shape
+// (Andy 2026-11-27 b386e8da7270): ACK missing, then prose, then a decision.
+await scenario('ack_then_prose',[good,prose,good],{work:()=>[row(SELF,[])]})
 // An ACK without its note is not the required ACK.
 await scenario('ack_without_memo',[good,good],{work:()=>[row(SELF,[{state:'ack',version:1,at:'x',memo:null}])]})
 // Already ACKed with a memo (a later state keeps the ACK in history): commits at once.

@@ -1,0 +1,23 @@
+# Andy side inbox pending receipts (read-only), 2026-11-27
+
+55ec25fcc867  message.approved 163087 (thread 61802)  received 14:58:20Z
+  side_failure: invalid_answer, attempt 1, failed 15:06:58Z, retryable false
+  reason: "side wait check required: n869, n2778, n2967, n2968"
+  actor agent-acd2c62520cba77af answered twice (15:05:39Z, 15:06:54Z) with
+    update n1584, release_waits [{"id":"n1584","waiting_on":"Daniel Yun decision on Action Required 163087 (124250 r6 위임)"}]
+  ACK client_ids it sent: 123e4567-e89b-12d3-a456-426614174000, f47ac10b-58cc-4372-a567-0e02b2c3d479, 9b1deb4d-30f1-11d7-8f1a-0800200c9a66
+  raw forward to main claimed 15:07:06Z; Andy_Main: arrived at its turn 15:10:12Z, 15-min delegation expired 15:13:19Z
+
+9d0578fb1be6  message.approved 163057 (root 156289)  received 14:58:48Z
+  side_failure: invalid_answer, failed 15:07:59Z
+  reason: 'side ACK required: ACK와 note를 먼저 등록하십시오 (... message 163057 ...)'
+  actor agent-a99a7c57f34ecab62: ACK with client_id a1b2c3d4-e5f6-7890-abcd-ef1234567890 -> "409 (idempotency key reused)";
+    decision: update n2967, release_waits n2967 and n2968 ("Daniel Yun review decision on Walkie 163057 (156289)")
+
+b386e8da7270  agent.pending_reminder (root 144618)  received 15:26:26Z
+  side_failure: invalid_answer, failed 15:33:42Z
+  reason: "Side router operation failed: work_side_understanding: side decision needs bounded summary and reply"
+  actor agent-af0423bdf271c89d9: router loop cut at 15:31:17Z, then wait_checks for six items, then an answer the router refused
+
+# Replay of eventWaitTargets on the current board (version 12727-12735): 55ec -> n869,n1584,n2778; 9d05 -> n2778,n2927;
+# b386 -> n869,n2807,n2883,n2885,n2927,n2981. Matching rules unchanged in this fix (see record).

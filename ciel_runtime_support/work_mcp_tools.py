@@ -850,7 +850,7 @@ def dispatch_work_tool(
                 output = attach_packet(output, store, state_dir)
             return respond(request_id, output)
         try:
-            output = _run(name, args, store, approval_ask, auto_continue=work_auto_continue_enabled(config), retention=retention_status(config), config=config, log=log, identity=identity)
+            output = _run(name, args, store, approval_ask, auto_continue=work_auto_continue_enabled(config), retention=retention_status(config), config=config, log=log, identity=identity, state_dir=state_dir)
         except ValueError as error:
             # Priority/P0 services use the parallel domain's ValueError base;
             # model-facing Work tools expose the same bounded error contract.
@@ -911,7 +911,7 @@ def _active_forks_for(doc: dict[str, Any], identity: str | None) -> list[dict[st
         return []
 
 
-def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bool, *, auto_continue: bool = True, retention: dict[str, Any] | None = None, config: dict[str, Any] | None = None, log: Callable[[str, str], Any] | None = None, identity: str | None = None) -> str:
+def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bool, *, auto_continue: bool = True, retention: dict[str, Any] | None = None, config: dict[str, Any] | None = None, log: Callable[[str, str], Any] | None = None, identity: str | None = None, state_dir: Path | None = None) -> str:
     expected = _expected_version(args)
     if name == "work_status":
         doc = store.read_snapshot()
@@ -1040,19 +1040,27 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
                 raise tree.WorkPlanError("priority belongs to a goal, not a detail item")
             raise tree.WorkPlanError("P0 existing-root priority is applied by the authenticated Work host")
         replayed = all(existing.get(key, '') == value for key, value in supplied.items())
+        demoted = None
         if replayed and expected != current['version']:
             doc, node, before, version_before = current, existing, current.get('active_root'), current['version']
         else:
-            def update(d: dict[str, Any]) -> tuple[dict[str, Any], str | None, int]:
+            def update(d: dict[str, Any]) -> tuple[dict[str, Any], str | None, int, str | None]:
                 before = d.get("active_root")
-                return tree.update_node(
+                by_id = {item["id"]: item for item in d.get("nodes", [])}
+                goal = tree._root_of(by_id, node_id) if node_id in by_id else None
+                was = tree.root_phase(d, goal) if goal else None
+                updated = tree.update_node(
                     d, node_id, status=args.get("status"), title=args.get("title"),
                     note=args.get("note"), progress=args.get("progress"), evidence=args.get("evidence"),
                     ref=args.get("ref"), refs=args.get("refs"), waiting_on=args.get("waiting_on"),
                     priority=args.get("priority"), release_hint=args.get('release_hint'),
-                ), before, d.get("version", 0)
+                )
+                # An unfinished executing goal sent back to planning by this edit.
+                back = (goal if was == tree.PHASE_EXECUTING and by_id[goal]["status"] != "done"
+                        and tree.root_phase(d, goal) == tree.PHASE_PLANNING else None)
+                return updated, before, d.get("version", 0), back
 
-            doc, (node, before, version_before) = store.transaction(update, expected_version=expected)
+            doc, (node, before, version_before, demoted) = store.transaction(update, expected_version=expected)
         if doc.get("version", 0) == version_before:
             message = (f"NO CHANGE: {node['id']} already had these values; version {version_before} is unchanged. "
                        "Do not repeat this call.")
@@ -1069,6 +1077,9 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
             message += ' waiting_on is empty on this node; ancestor waits/blocks may still exclude it.'
         else:
             message += ' waiting_on was not supplied; existing wait state was not changed.'
+        if demoted:
+            from .work_workflow_prompts import render as prompt_render
+            message += " " + prompt_render(state_dir, "scope_planning", root=demoted)[0]
         resume = tree.continuation(doc)
         if resume.get('next'):
             message += f" Next runnable item: {resume['next']['id']} (goal {resume['next']['root_id']})."

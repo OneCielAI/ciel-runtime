@@ -1986,6 +1986,45 @@ const scenarios = {
     await startSettled($)
     return {calls,spawned:spawned.length,stuck:!!reservation}
   },
+  // Andy 2026-11-27 16:43Z: a0874c5a, reserved 08:20:08Z by this live process,
+  // still held the only P3 slot with five P3 items runnable; its reserve key was
+  // never noted (the module had reloaded since), so nothing released it.
+  async 'parallel-stale-unbound-reserve'() {
+    let reservation={id:'L0',item_id:'n2',state:'reserved',role:'worker',slot:true,owner_process:'own',
+      dispatch_name:'work-auto-mwypnx82-0tw2q90vf3z',workspace_path:'/repo/.claude/worktrees/L0'}
+    let bound=false
+    const calls=[], spawned=[]
+    const realNow=Date.now
+    let clock=realNow()
+    Date.now=()=>clock
+    try {
+      const {$}=host(async(tool,args)=>{
+        if(tool==='work_status') return text(snapshot())
+        if(tool==='work_parallel_status') return text({version:9,active_device:0,
+          policy:{enabled:true,paused:false,priority_limits:{P3:1}},leases:reservation ? {L0:reservation} : {}})
+        if(tool==='work_parallel_event'){
+          if(args.event==='reserve_next'){
+            calls.push('reserve_next')
+            if (bound) return {isError:true,...text('no eligible candidate')}
+            if (reservation) return {isError:true,...text('active slot capacity reached for P3 (1/1)')}
+            return text({lease_id:'L2',plan_version:7,item_id:'n2',priority:'P3',worker_token:'e'.repeat(64)})
+          }
+          if(args.event==='release') { calls.push('release:'+args.lease_id); reservation=null; return text({released:true}) }
+          if(args.event==='bind') { bound=true; calls.push('bind:'+args.lease_id); return text({}) }
+        }
+        return text({})
+      })
+      $.session.repo=async()=>({root:'/repo'}); $.session.root=async()=>'/repo'
+      $.agent.spawn=async args=>{spawned.push(args);return {agentId:'agent-new'}}
+      await handlers['session.start']($,{isInteractive:true},next(undefined))
+      await startSettled($)
+      const early=calls.filter(call=>call.startsWith('release:')).length
+      clock+=16*60000
+      await handlers['tool.call']($,{tool:'mcp__ciel-runtime-router__work_parallel_report',agentId:'worker'},next({ok:true}))
+      await startSettled($)
+      return {early,calls,spawned:spawned.length,stuck:!!reservation}
+    } finally { Date.now=realNow }
+  },
   async 'parallel-report-refills-released-slot'() {
     let reserve=0; const spawned=[]
     const {$}=host(async(tool,args)=>{

@@ -1,0 +1,10 @@
+# tests/test_side_ack_gate.py tests/test_side_wait_check.py against side-intake.js 2fe04af/4f65d4e code (2026-11-27 ~16:40Z)
+FAILED tests/test_side_ack_gate.py::SideAckGateTests::test_a_gate_correction_leaves_the_shape_correction_available
+FAILED tests/test_side_ack_gate.py::SideAckGateTests::test_a_missing_ack_is_corrected_with_the_ack_instruction_then_commits
+FAILED tests/test_side_ack_gate.py::SideAckGateTests::test_a_second_missing_ack_still_commits_the_decision_and_logs_the_shortfall
+FAILED tests/test_side_ack_gate.py::SideAckGateTests::test_an_ack_without_a_memo_is_not_the_required_ack
+FAILED tests/test_side_ack_gate.py::SideAckGateTests::test_the_prompt_and_correction_carry_the_events_own_ack_client_id
+FAILED tests/test_side_wait_check.py::SideWaitCheckTests::test_a_second_unchecked_answer_still_commits_its_decision
+E   [{'category': 'invalid_answer', 'reason': 'side wait check required: n2892'}]
+6 failed, 10 passed in 1.42s
+# after the fix (with test_work_texts.py): 26 passed, 29 subtests passed

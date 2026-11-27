@@ -111,16 +111,23 @@ TEXTS: dict[str, str] = {
         " acknowledgment and grants no approval."),
     # Correction to a side actor whose event guidance asked for a Walkie ACK and
     # memo first, when the host's read-back found none (Daniel 2026-11-27).
-    # {message} and {conversation} are the source message and room.
+    # {message} and {conversation} are the source message and room; {client} is
+    # the event's own ACK idempotency key (side-intake.js ackClientId).
     'mod_side_ack_required': (
         "Ciel side host: ACK와 note를 먼저 등록하십시오. 이 이벤트의 Walkie 안내는 처리 전에 메시지 {message}"
         "(대화 {conversation})에 ACK와 memo를 남기라고 요구하지만, 호스트가 messages.work.get으로 확인한 당신의"
         " 상태에는 memo가 있는 ACK가 없습니다. 그래서 답이 거부됐고 아무것도 커밋하거나 보내지 않았습니다.\n"
         "지금 walkie_call_tool로 messages.work.get(conversation_id, message_id)을 불러 당신 행의 현재 version을"
-        " 읽고(상태가 없으면 0), messages.work.update(conversation_id, message_id, state=\"ack\", version, 새"
-        " UUID client_id, memo=\"이 이벤트를 어떻게 처리하는지 한 줄\")를 보내십시오. 서버 성공을 확인한 뒤"
-        " 같은 JSON 객체 하나로 다시 답하고 \"sent_via\"에 보낸 도구 이름을 적으십시오. 그 밖의 글은 보내지"
-        " 마십시오."),
+        " 읽고(상태가 없으면 0), messages.work.update(conversation_id, message_id, state=\"ack\", version,"
+        " client_id=\"{client}\", memo=\"이 이벤트를 어떻게 처리하는지 한 줄\")를 보내십시오. client_id는 이 이벤트"
+        " 전용 값이니 그대로 쓰고 새로 만들지 마십시오. 서버 성공을 확인한 뒤 같은 JSON 객체 하나로 다시 답하고"
+        " \"sent_via\"에 보낸 도구 이름을 적으십시오. 그 밖의 글은 보내지 마십시오."),
+    # The rule beside the prompt's "ack" block (Andy 2026-11-27: actors made up
+    # textbook UUIDs as client_id, one was reused and Walkie answered 409).
+    'mod_side_ack_client': (
+        "ack는 이 이벤트의 Walkie 안내가 요구하는 ACK의 대상입니다. messages.work.update를 보낼 때 client_id에는"
+        " ack.client_id를 그대로 쓰십시오. 이 이벤트 전용 값이라 다른 이벤트의 ACK와 겹치지 않고, 같은 전송을"
+        " 다시 보낼 때도 같은 값입니다. UUID를 새로 만들지 마십시오."),
     # Correction to a side actor whose answer the host refused for its shape
     # ({reason} is the exact error). Read-only lookups stay allowed (Andy
     # 2026-11-27 #162105: "Do not call tools" here left the actor unable to
