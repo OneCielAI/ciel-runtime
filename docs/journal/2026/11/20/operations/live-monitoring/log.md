@@ -2,6 +2,13 @@
 
 ## 2026-11-26
 
+- 05:45–06:13Z 재배포·라우터 점검(정기 틱 아님, 사용자 지시 "다시 수정본 전부 배포해 베타도 푸시하고"). 이하 UTC. 상세는 [e9eef86 재배포](../../../27/deployments/e9eef86-redeploy/record.md).
+  - beta/npm `0.2.51-beta.20261127-052302.e9eef86`. 7개 루트에 버전 스탬프 오버레이를 적용했다(7/7 `ok=True`, 코드는 1ca7dc3과 동일).
+  - **Andy 라우터 정지:** 05:39:06–15Z `MemoryError` 3건 이후 `/health`가 무응답이 됐다(`listener_reachable_health_busy`). 05:54:50Z CLI가 `exit_0`으로 끝나고 05:55:47Z `--continue`로 재기동됐으며, 새 라우터는 `9515`(`83616`, e9eef86)에서 떴다. 남아 있던 옛 `95176`은 05:55:59Z에 종료했다. 호스트 커밋은 91–97%, paged pool 25.4 GB였다. 정지 원인 스레드는 미확정이다.
+  - **Celly 라우터 교체:** `111684`(61d2f8b 코드) → `66068`(e9eef86). 권한 상승 종료 후 Work REST 정상을 확인했다.
+  - **정정:** 04:12Z 틱의 "Prody 구 빌드"는 틀렸다. 01:40Z 기동한 Prody/Betty 라우터는 1ca7dc3 코드를 실행 중이고 버전 문자열만 61d2f8b다.
+  - Andy 162787: 05:23Z 재알림분은 14.6분 처리됐다(`update n2952`). 06:01Z 세 번째 재알림분은 9.3분 뒤 claim됐고 06:12Z 기준 처리 중이다. 재기동 후 사이드 claim 7·ack 6·reply 8건이 관측됐다.
+
 - 05:12:18–05:13:09Z 정기 틱(04:56:32Z 대비 16분 관측 창). 5개 호스트 전원 수집 성공, `live.board` 전원 `observed`(**Celly 포함 — 5틱 만에 4초 안에 응답**), MCP 전원 `probe_succeeded`(Andy `1218ms`, Celly `1704ms`, KOBE `294ms`, Prody `722ms`, Betty `493ms`). 재시작·상태 파일 수정 없음. 이하 UTC.
   - **Celly — 이번 틱은 보드·MCP 정상 응답.** 보드 `v11470`(직전 미관측), actionable 24, MCP `1704ms`. 직접 `/board` 3회는 **5.64s / 6.08s / 1.46s**로 여전히 편차가 크고 두 번은 4초를 넘었다 — 모니터 호출이 이번엔 운 좋게 빠른 구간에 들어갔을 뿐 지연 패턴 자체는 지속(추적, 원인 미확정, 코드 수정 없음). 원장 10444 유지, 대기 9·실행/슬롯 3·제출 2, finding `n1585 awaiting_capacity` 1건(용량 대기), 새 실패 `decision_refused_stop ed47d1db x1`(직전 틱과 같은 lease, 정상 Stop 가드), 포크 표본 오류 4건, 전사 5건.
   - Andy (`05:12:18Z`): 보드 `v12552→v12555`, 원장 `8940→8944`, actionable 53, MCP `1218ms`, 리스 제출 20·실행/슬롯 2·대기 1, finding 0(**`n2763` 검수행 미생성 행 3틱 연속 미관측**), 신규 실패 0, 포크 오류 0, 전사 0. 로그 `fork_turn_watch_poll_failed` 0건·`work_workspace_failed` 2건 유지(신규 없음).

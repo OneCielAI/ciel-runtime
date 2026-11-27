@@ -37,6 +37,7 @@ timestamp: 2026-11-27T01:45:00Z
 - **7개 승인 루트 해시 확인 오버레이 (`overlay-1ca7dc3.tgz`):** 로컬 4개, KOBE `u24`(.14), Prody `u41`·Betty `u42`(.12) **7/7 apply ok=True**. 원격 임시 오버레이 정리 완료.
 - **라우터 재시작(사용자 지시):** Andy `9505` pid `13560→95176`, Prody `9592` `11560→7836`, Betty `9564` `6196→11836`, KOBE `9779` `2104→17008`(30초 창 초과 후 기동, 직접 `/health`·Work REST로 확인). Celly `9385` 는 `taskkill` 접근 거부(고권한 프로세스)로 라우터 도구 `restart_session`을 사용해 CLI 재시작을 큐잉했다. 4개 호스트 모두 재시작 후 Work REST 정상.
 - **라이브 효과:** Andy·KOBE·Prody·Betty의 새 라우터는 오버레이 설치 이후에 기동됐으므로 `work_parallel_workspace.py` 새 예산을 메모리에 로드했다. Celly는 CLI 재시작이 완료된 뒤 적용된다.
+  - **후속(06:05Z):** Celly CLI 재시작은 완료되지 않았고 라우터 `111684`는 61d2f8b 코드를 계속 실행했다. 권한 상승 종료 후 `66068`로 교체해 적용했다. Prody/Betty `/health`의 `61d2f8b` 표기는 이 오버레이가 버전 문자열을 바꾸지 않아서 생긴 것이며, 메모리의 코드는 새 코드다. 상세는 [e9eef86 재배포](../../deployments/e9eef86-redeploy/record.md).
 
 ## 함께 관측된 미해결 사항 (수정하지 않음)
 
