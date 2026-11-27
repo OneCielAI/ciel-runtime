@@ -143,6 +143,18 @@ def is_settled_workflow_event(config: Mapping[str, Any], state_dir: Path, identi
 
 def side_instruction(config: Mapping[str, Any], state_dir: Path, instruction: Any) -> Any:
     parts = [str(instruction or "").strip()]
+    # The minimal default replaces the old routing directives, not an operator's edits.
+    from .work_workflow_prompts import DEFAULTS
+    if not (config.get('work_side_intake') or {}).get('instruction_replace'):
+        names = ['side_complaint_and_urgency', 'side_running_fork_relay',
+                 'side_external_wait_routing', 'side_source_instructions']
+        if wf.enabled(config):
+            names.extend(('side_intake', 'side_answer', 'side_approval'))
+        for name in names:
+            text, _ = _workflow_prompt(state_dir, name)
+            if text and text != DEFAULTS[name]:
+                parts.append(text)
+        return '\n'.join(part for part in parts if part)
     if wf.enabled(config):
         parts.extend(_workflow_prompt(state_dir, name)[0] for name in ("side_intake", "side_answer", "side_approval"))
         parts.append('승인 워크플로우가 켜져 있습니다: 메인만 답할 수 있는 간단한 질문은 action answer에 '

@@ -183,8 +183,7 @@ class SideRunningForkRelayTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as raw:
             state = Path(raw)
             text = side_instruction({}, state, "")
-            self.assertIn("active_forks", text)
-            self.assertIn("no_reply", text)
+            self.assertNotIn(DEFAULTS['side_running_fork_relay'], text)
             rule = DEFAULTS["side_running_fork_relay"]
             set_prompt(state, "side_running_fork_relay", "custom fork relay rule", fingerprint(rule))
             self.assertIn("custom fork relay rule", side_instruction({}, state, ""))

@@ -21,8 +21,10 @@ SIDE_JS = Path(__file__).resolve().parents[1] / "ciel_runtime_support/claude_mod
 class SideInstructionViewTests(unittest.TestCase):
     def test_python_default_is_exactly_the_prompt_the_side_fork_receives(self):
         source = SIDE_JS.read_text(encoding="utf-8").replace("\r\n", "\n")
-        prompt = re.search(r"const PROMPT = `([^`]*)`", source).group(1)
-        self.assertEqual(prompt, DEFAULT_SIDE_INSTRUCTION)
+        from ciel_runtime_support.work_texts import mod_texts_js, TEXTS
+        self.assertIn("T('mod_side_default_instruction')", source)
+        self.assertEqual(DEFAULT_SIDE_INSTRUCTION, TEXTS['mod_side_default_instruction'])
+        self.assertEqual(mod_texts_js(), (SIDE_JS.parent / 'texts.generated.js').read_text(encoding='utf-8'))
 
     def test_view_shows_default_and_a_saved_text_replaces_it(self):
         view = instruction_view({})

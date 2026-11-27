@@ -22,6 +22,13 @@ INSTRUCTIONS = {"side": DEFAULT_SIDE_INSTRUCTION, "gate_actor": DEFAULTS["gate_a
 
 
 class SideBackgroundPromptTests(unittest.TestCase):
+    def test_default_side_is_connector_neutral_and_only_creates_new_work(self):
+        text = DEFAULT_SIDE_INSTRUCTION
+        for phrase in ('ACK + 메모', '새 작업 요청', '원문', 'ask_main', 'completed'):
+            self.assertIn(phrase, text)
+        self.assertNotIn('walkie_call_tool', text)
+        self.assertNotIn('순서와 긴급도는 prioritize', text)
+
     def test_no_instruction_claims_an_inherited_conversation_for_every_mode(self):
         for name, text in INSTRUCTIONS.items():
             with self.subTest(name=name):
@@ -32,7 +39,7 @@ class SideBackgroundPromptTests(unittest.TestCase):
                 self.assertIn("fresh", text)
 
     def test_the_actor_instructions_name_the_session_mode_and_the_background_reads(self):
-        for name in ("side", "gate_actor"):
+        for name in ("gate_actor",):
             text = INSTRUCTIONS[name]
             with self.subTest(name=name):
                 self.assertIn('session_mode가 "fork"이면', text)
@@ -55,7 +62,9 @@ class SideBackgroundPromptTests(unittest.TestCase):
                 self.assertNotIn('"미조회"라고 적고', text)
 
     def test_a_partial_approval_or_mains_narrowing_never_releases_a_wait(self):
-        for name, text in INSTRUCTIONS.items():
+        self.assertIn('대기를 직접 변경하지 마십시오', INSTRUCTIONS['side'])
+        for name in ('gate_actor', 'gate_recheck'):
+            text = INSTRUCTIONS[name]
             with self.subTest(name=name):
                 self.assertIn("범위 전체", text)
                 self.assertIn("범위를 좁히거나", text)
@@ -88,14 +97,17 @@ class SideBackgroundPromptTests(unittest.TestCase):
         text = INSTRUCTIONS["side"]
         self.assertNotIn("그 항목에 대한 단순한 상태 질문이나 상황 보고는 전달하지 않습니다", text)
         self.assertIn("상태, 진행, 사양 변경", text)
-        self.assertIn('"no_reply": true를 넣어 그 포크가 직접 답하거나 조치하게', text)
+        self.assertIn('relay=true, no_reply=true', text)
+        self.assertIn('포크가 없거나 파킹됐거나 대상이 모호하면', text)
         relay = DEFAULTS["side_running_fork_relay"]
         self.assertIn("상태 질문", relay)
         self.assertIn("사양 변경", relay)
 
     def test_the_side_default_is_still_the_fork_prompt_byte_for_byte(self):
         source = SIDE_JS.read_text(encoding="utf-8").replace("\r\n", "\n")
-        self.assertEqual(re.search(r"const PROMPT = `([^`]*)`", source).group(1), DEFAULT_SIDE_INSTRUCTION)
+        self.assertIn("T('mod_side_default_instruction')", source)
+        from ciel_runtime_support.work_texts import TEXTS
+        self.assertEqual(TEXTS['mod_side_default_instruction'], DEFAULT_SIDE_INSTRUCTION)
         self.assertNotIn("${", DEFAULT_SIDE_INSTRUCTION)
 
 

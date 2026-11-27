@@ -334,8 +334,7 @@ class SideModTests(unittest.TestCase):
         self.assertEqual({'conversation_id':'34886995-4a66-4527-a618-814e9cb0a5bf','root_id':'40','target_message_id':'41'},
                          prompt['source_ref'])
         self.assertEqual('event_only',prompt['source_context'])
-        self.assertIn('호스트는 원본 스레드를 대신 읽어 주지 않습니다',prompt['instruction'])
-        self.assertIn('스레드\n전체는 읽지 마십시오',prompt['instruction'])
+        self.assertIn('스레드 전체는 읽지 마십시오',prompt['instruction'])
 
     def test_walkie_source_reads_only_a_cut_events_target_and_fails_closed(self):
         row=self.run_harness('side_prefetch_harness.mjs')
@@ -1219,74 +1218,15 @@ class SideModTests(unittest.TestCase):
             {'tool':'TaskStop','task_id':'idle-side'},
         ],json.loads(done.stdout))
 
-    def test_side_prompt_requires_answer_ack_queue_and_status_behaviors(self):
-        source=(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js').read_text(encoding='utf8')
-        self.assertIn('status: 현재 Work 상태를 직접 보고합니다',source)
-        self.assertIn('info: 필요한 것만 모아 정리해서 답합니다',source)
-        self.assertIn('request: 이 이벤트와 대화 기록으로 사용자의 요청을 이해한 뒤',source)
-        # 2026-11-17: the restatement is understanding, sent before the board commit.
-        self.assertIn('understanding: 이 메시지가 무엇을 묻거나 말한다고 이해했는지를',source)
-        self.assertIn('"ACK"로 시작하지 말고',source)
-        # ciel-walkie 2026-11-10: Celly 121710 and Daniel 121677 were both
-        # replaced by a stale Grant 121686 decision copied from main context.
-        # 2026-11-18: the instruction is written in Korean; the same rules, same order.
-        self.assertIn('decision은 반드시 이 이벤트의 target_message_id', source)
-        self.assertIn('오래된 이전 이벤트를 대신 쓰지 마십시오', source)
-        self.assertIn('사람, 메시지 id, 승인, 결과, 요청된 결과가', source)
-        # Owned run 2026-11-09: the recap dropped "mobile browsers", and a new
-        # payment outage was merged into the active payment refactoring item.
-        self.assertIn('understanding에는 사용자가 준 구체적 요구, 제약, 대상, 환경, 기한을 모두',source)
-        self.assertIn('기존 항목은 이벤트가 그 항목이 요청한 결과에 관한\n  것일 때만 update합니다',source)
-        self.assertIn('다른 문제, 실패, 사고, 기능은 같은 영역이나 시스템이라도 새 항목입니다',source)
-        self.assertIn('급한 새 문제는 priority P1로 create합니다',source)
-        self.assertIn('queue_position은 활성 목표 뒤 대기 목표들',source)
-        self.assertIn('reply에서 큐 자리를 주장하지 마십시오. 호스트가 기록된 자리를 덧붙입니다',source)
-        self.assertNotIn('act when the event requests it',source)
-
-    def test_every_spawned_fork_prompt_states_prompt_only_prohibitions(self):
-        row=self.run_harness('side_intake_harness.mjs')
+    def test_spawned_side_prompt_is_connector_neutral_and_limits_the_role(self):
+        row = self.run_harness('side_intake_harness.mjs')
+        self.assertTrue(row['spawns'])
         for spawn in row['spawns']:
-            instruction=spawn['prompt']['instruction']
-            # Prompt-only restriction (no tool fence), stated in every event.
-            # Andy 2026-11-23: true for a fork only; a fresh actor starts empty.
-            self.assertIn('이 액터는 메인의 모델, 도구, 권한 모드를 씁니다. session_mode가 "fork"이면',instruction)
-            self.assertIn('"fresh"이면 메인의 대화 없이 빈 대화로 시작했습니다',instruction)
-            self.assertIn('도구를 막는 장치가 아니라',instruction)
-            for rule in ('- 코드, 설정, 그 밖의 파일을 쓰거나 고치거나 만들기',
-                         '- Bash, PowerShell 등 셸 명령 실행',
-                         '- 빌드, 테스트, 배포, 설치, 커밋, 푸시',
-                         '- 런타임, 세션, 모델, 설정을 재시작하거나 바꾸거나 제어하기',
-                         '- Work를 직접 변경하기 (work_* create/update/execute/report/handoff/resolve 등)',
-                         '- Agent 호출로 새 포크를 시작하거나 강제로 재개하기'):
-                self.assertIn(rule,instruction)
-            # User 2026-11-25: the side actor sends (ACK, short answer, reaction);
-            # a blanket send ban left explicit ACK requests unanswered.
-            self.assertNotIn('ACK, 답장, SendMessage 등 무엇이든 보내기',instruction)
-            self.assertNotIn('원본에 메시지를 보내는 일은 호스트만',instruction)
-            for role in ('당신은 사이드 액터입니다',
-                         '요청을 Work 큐에 할당',
-                         '진행 중인 항목이면 그 포크 세션에 바로 전달',
-                         '큐에 넣은 결과',
-                         '원본 스레드에 직접 보낼 수 있습니다',
-                         '"sent_via"',
-                         '메타데이터',
-                         '원문을 함께 전달'):
-                self.assertIn(role,instruction)
-            # User 2026-11-25 (Celly #161250): a source that names its ACK method
-            # (messages.work.update state=ack, memo) gets exactly that, with the
-            # handling in the memo and no separate answer.
-            # User 2026-11-27: the side text Andy's user saved is the default
-            # (one line per paragraph, no hard wraps).
-            for rule in ('data.agent_context.guidance',
-                         '"messages.work.update"를 불러',
-                         'state="ack"',
-                         'memo에는 이 이벤트를 어떻게 처리했는지',
-                         'ACK와 memo로 반응했으면 따로 답하지 않습니다',
-                         '["mcp__walkie__walkie_call_tool"]'):
-                self.assertIn(rule,instruction)
-            self.assertIn('최종 답은 아래에 설명한 decision JSON 그대로여야 합니다',instruction)
-            self.assertIn('{"understanding":"...","decision":{...},"expected_version":N}.',instruction)
-            self.assertIn('target_message_id',instruction)
+            instruction = spawn['prompt']['instruction']
+            for phrase in ('ACK + 메모', '원문', 'relay=true', 'ask_main=true',
+                           '새 작업 요청만', 'completed', 'Work 직접 변경', 'fresh'):
+                self.assertIn(phrase, instruction)
+            self.assertNotIn('walkie_call_tool', instruction)
 
     def test_reply_route_override_is_not_mcp_inheritance(self):
         from ciel_runtime_support.recent_menu_text import menu_text

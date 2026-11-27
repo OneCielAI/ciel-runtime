@@ -31,7 +31,8 @@ class WorkTextsTests(unittest.TestCase):
     def test_ack_and_worker_guidance_cover_observed_failures(self):
         from ciel_runtime_support.side_intake_settings import DEFAULT_SIDE_INSTRUCTION
 
-        for text in (DEFAULT_SIDE_INSTRUCTION, prompts.DEFAULTS['side_source_instructions']):
+        self.assertIn('등록된 연동과 그 스키마만 사용', DEFAULT_SIDE_INSTRUCTION)
+        for text in (prompts.DEFAULTS['side_source_instructions'],):
             for field in ('messages.work.get', 'version', 'UUID client_id', 'message_id', 'memo'):
                 self.assertIn(field, text)
         for tool in ('Agent', 'Explore', 'TaskStop', 'SendMessage', 'work_parallel_report'):
@@ -78,15 +79,9 @@ class WorkTextsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as raw:
             state = Path(raw)
             combined = side_instruction({}, state, '')
-            self.assertIn('외부 실행 결과 전달 (필수 규칙)', combined)
-            self.assertIn('head SHA', combined)
-            # User 2026-11-25: GitHub failure/progress results reach the owning
-            # fork or main even without a recorded wait; an explicit ACK or
-            # instruction in the message or its metadata is acted on or
-            # forwarded with the original, never silently dropped.
-            for phrase in ('대기 기록이 없어도', '의미 있는 진행 전환', '직접 만든 PR',
-                           '명시 ACK', '메타데이터', '직접 보낼 수 있습니다', '원문을 전달'):
-                self.assertIn(phrase, combined)
+            self.assertNotIn('외부 실행 결과 전달 (필수 규칙)', combined)
+            self.assertNotIn('명시 ACK', combined)
+            self.assertIn('원문', work_texts.TEXTS['mod_side_default_instruction'])
             self.assertIn('side_source_instructions', prompts.DEFAULTS)
             prompts.set_prompt(state, 'side_external_wait_routing', 'custom ci routing rule',
                                prompts.fingerprint(side))
