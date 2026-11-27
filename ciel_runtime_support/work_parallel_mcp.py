@@ -2330,11 +2330,14 @@ def _terminalize_legacy_review(store, lease, captured):
     require(side is not None and side["kind"] == "workspace_unavailable", "stranded source row not durable")
     # The sidecar row must describe exactly this schema-5 row: same completion,
     # approval and recorded workspace identity. Anything else is not this row.
+    # HEAD is not identity: the sidecar binding is the lease's reservation HEAD,
+    # the schema-5 row holds the snapshot HEAD after the fork's own commits
+    # (Celly n1635 2026-11-27 was refused on every decision for that alone).
     same = all(side[key] == captured[key] for key in (
         "lease_id", "scope", "item_id", "root_id", "priority", "plan_version", "generation",
         "artifact", "completion_receipt", "fingerprint", "summary", "coverage", "verification"))
     same = same and all(side["binding"][key] == captured["workspace"][key]
-                        for key in ("repo", "path", "branch", "head"))
+                        for key in ("repo", "path", "branch"))
     require(same, "stranded source facts do not match the legacy review")
     source_digest = side["source_digest"]
     prior = side["legacy_review_removed"]

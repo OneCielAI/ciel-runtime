@@ -2,6 +2,17 @@
 
 ## 2026-11-26
 
+- 06:16:59–06:17:31Z 정기 틱(05:12Z 대비 65분 관측 창). 5개 호스트 전원 수집 성공, `live.board` 전원 `observed`, MCP 전원 `probe_succeeded`(Andy `1578ms`, Celly `500ms`, KOBE `241ms`, Prody `201ms`, Betty `241ms`). 이 틱 중 재시작은 없다(05:55–06:05Z의 Andy·Celly 라우터 교체는 직전 배포 작업). 이하 UTC.
+  - **Celly — 입증된 결함 수정: `n1635` 검수 영구 거부.** 재작업 결정이 lease `ed47d1db`에서 04:56:39·05:34:05·05:55:11Z 세 번 `stranded source facts do not match the legacy review`로 거부됐다. stranded 행 `binding.head`는 예약 시점 `03f5dae`, 레거시 검수 행 `workspace.head`는 포크 커밋 뒤 `614103d`였다. 코드는 두 값을 같다고 요구하는데, 커밋한 포크에서는 구조적으로 같을 수 없다. 실패 테스트로 재현한 뒤 수정했고, 라이브 상태 사본 재생에서 HEAD 코드는 같은 거부, 수정 코드는 이동 성공이었다. 상세·회귀는 [stranded-legacy-head](../../../27/fixes/stranded-legacy-head/record.md).
+  - Celly 포크 `server_error`(06:07:51Z `n1593`·`n1627`): **제 06:05:26Z 라우터 교체가 원인**이다. 포크 전사에 `ECONNRESET` 06:05:33.9Z(`n1627`)과 `ECONNREFUSED` 06:05:53.1Z(`n1593`)가 있다. 모드가 재시도를 예약했고(06:12 1/20), 두 포크 모두 06:18Z 도구 활동이 재개됐다.
+  - Celly 기타: 보드 `v11470→v11475`, 원장 `10444→10454`, actionable 26, 대기 10·실행/슬롯 3·제출 3. finding은 `n1585 awaiting_capacity`(용량 대기), 새 실패는 `decision_refused_stop 89282b49 x1`(정상 Stop 가드). `n1616` 검수는 06:16:01Z `review decision` 거부 후 06:17:30Z 재시도로 성공했다(`awaiting_capacity`). 라우터 로그 `reachable_health_mismatch_active_client` 97건은 옛 런처 `104616`의 패키지 지문 차이로 남기는 설계상 keep-alive다(`router_client_lifecycle.py:243-253`). 06:11:56Z 상류 413(474,518 tokens 본문 초과) 1건은 추적한다.
+  - Andy (`06:16:59Z`): 보드 `v12555→v12566`, 원장 `8944→8959`, actionable 53, 리스 제출 20·실행/슬롯 2, finding 0, 새 실패 0, 포크 오류 0. 전사 `Parallel read failed: timed out` 3건(05:46–05:48Z)은 라우터 정지 구간이다. 06:08:07Z `auto continue could not read the Work status` 1건은 재기동 직후다. 사이드는 Andy_Main 세션 보고와 영수증을 대조했다. 162787 첫 영수증 `5239d8f0` `answer` `delivery=uncertain`, 스레드 게시 없음, Walkie 첫 ACK 06:33:21Z. `39b9c150`은 약 50분 처리 후 `invalid_answer`, `650dcf79`는 `work_side_understanding: side claim expired`로 격리됐다(원인 미확정, 추적).
+  - KOBE (`06:17:13Z`): 보드 `839→846`, 원장 `4940→4951`, MCP `241ms`, 수락 1·대기 1·실행/슬롯 1, finding `n5` 가드, 새 실패 0. 전사 `plan changed`는 정상 CAS다.
+  - Prody (`06:17:23Z`): 보드 `7573→7584`, 원장 `1407→1421`, 리스 0, 실패 0. 전사 2건은 정상 가드(`plan changed`, reviewer fork 거부)다.
+  - Betty (`06:17:31Z`): 보드 `5789→5803`, 원장 `1262→1277`, 제출 5·대기 1. 전사 5건은 정상 가드다(Agent 이름 누락 ×2, P5 용량, 기존 lease, 검증 대기). keep-alive mismatch 766건은 Celly와 같은 설계 경로다.
+  - 호스트(Andy/Celly 기기): 커밋 90%(128.7/142.5 GB), paged pool 25.4 GB.
+  - 미결·추적: 일시 git 타임아웃이 `workspace_unavailable`로 분류되는 경로(n1635 계기, 미수정)·Andy 사이드 ACK/`uncertain`·claim 만료·Andy 정지 라우터 kill guarantee·Celly 413·KOBE `n5` 가드.
+
 - 05:45–06:13Z 재배포·라우터 점검(정기 틱 아님, 사용자 지시 "다시 수정본 전부 배포해 베타도 푸시하고"). 이하 UTC. 상세는 [e9eef86 재배포](../../../27/deployments/e9eef86-redeploy/record.md).
   - beta/npm `0.2.51-beta.20261127-052302.e9eef86`. 7개 루트에 버전 스탬프 오버레이를 적용했다(7/7 `ok=True`, 코드는 1ca7dc3과 동일).
   - **Andy 라우터 정지:** 05:39:06–15Z `MemoryError` 3건 이후 `/health`가 무응답이 됐다(`listener_reachable_health_busy`). 05:54:50Z CLI가 `exit_0`으로 끝나고 05:55:47Z `--continue`로 재기동됐으며, 새 라우터는 `9515`(`83616`, e9eef86)에서 떴다. 남아 있던 옛 `95176`은 05:55:59Z에 종료했다. 호스트 커밋은 91–97%, paged pool 25.4 GB였다. 정지 원인 스레드는 미확정이다.

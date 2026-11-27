@@ -1481,6 +1481,40 @@ class BrokenRetainedWorktreeTests(ReworkFixture):
                                           self.reviews()[replacement]["wake"]["attempts"]))
         self.assertEqual("prepared", self.stranded_rows()[replacement]["legacy_review_removed"]["state"])
 
+    def test_committed_result_whose_workspace_breaks_after_publication_still_moves_to_stranded(self):
+        """Celly n1635 (2026-11-27): the fork committed its fix, so the published
+        review's snapshot HEAD is the fork's commit while the lease keeps the HEAD
+        it was reserved at. When the workspace later fails verification, the move
+        to the sidecar must not refuse that row as a different one, forever."""
+        first, replacement, worktree = self.rework()
+        token, name = self.launch(replacement, 1, "agent-a1")
+        self.bind(replacement, "agent-a1", name)
+        (worktree / "result.txt").write_text("fixed result\n")
+        git(worktree, "add", "result.txt")
+        git(worktree, "commit", "-m", "fix result")
+        self.report(replacement, token, "c" * 64, "done")
+        self.idle(replacement)
+        reserved_head = self.lease(replacement)["workspace"]["head"]
+        published_head = self.reviews()[replacement]["workspace"]["head"]
+        self.assertNotEqual(reserved_head, published_head)
+        shutil.rmtree(worktree)
+        with self.assertRaisesRegex(WorkParallelError,
+                                    "workspace unavailable: .*; approve refused; rework creates a fresh workspace"):
+            self.review(replacement, "approve", "approve-2")
+        self.assertNotIn(replacement, self.reviews())
+        side = self.stranded_rows()[replacement]
+        self.assertEqual("removed", side["legacy_review_removed"]["state"])
+        # The exact removed row is still bound by its digest; a replay writes nothing.
+        self.assertEqual(64, len(side["legacy_review_removed"]["row_digest"]))
+        row = self.pending()[0]
+        self.assertEqual((replacement, "workspace_unavailable"), (row["lease_id"], row["stranded"]["kind"]))
+        before = self.durable_bytes()
+        with self.assertRaisesRegex(WorkParallelError, "workspace unavailable"):
+            self.review(replacement, "approve", "approve-3")
+        self.assertEqual(before, self.durable_bytes())
+        recovery, _ = self.recover_stranded(replacement)
+        self.assertNotEqual(str(worktree), self.lease(recovery)["workspace"]["path"])
+
     def test_non_idle_activity_write_still_needs_a_bound_workspace(self):
         first, replacement, worktree = self.rework()
         self.launch(replacement, 1, "agent-a1")
