@@ -193,6 +193,12 @@ Side view, `POST /ca/work/api/v1/side/discard-failed`, or
 `ciel-runtimectl work side-discard-failed`).
 Discarded receipts are never retried or forwarded to main and stay for audit.
 
+From a routed workspace, `ciel-runtimectl restart-router --reason "MCP not responding"`
+restarts only the local router owned by its registered launcher, even if the
+router's HTTP interface is unresponsive. It does not restart the CLI or its
+forks. Live streams may be interrupted briefly. The command refuses uncertain
+ownership, and reports success only after a replacement passes health checks.
+
 Use the [CLI reference](docs/CLI-Reference.md) for every command and
 [Configuration](docs/Configuration.md) for files, environment variables, and
 security boundaries.

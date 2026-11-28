@@ -368,7 +368,7 @@ def select_workspace_router_port(
 # runtime_paths selected the port through the launch path below. These commands
 # resolve the port read-only instead. Every other invocation, unknown ones
 # included, keeps select_workspace_router_port and its lease.
-LEASE_FREE_COMMANDS = frozenset(("work", "session-api-key", "status", "version", "env", "stop", "restart-session"))
+LEASE_FREE_COMMANDS = frozenset(("work", "session-api-key", "status", "version", "env", "stop", "restart-session", "restart-router"))
 CLI_ENTRYPOINT = "ciel_runtime.py"
 
 

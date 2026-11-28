@@ -73,6 +73,7 @@ class CliOperations:
     cmd_test: Any
     cmd_remote_bridge: Any = lambda _args: 0
     cmd_restart_session: Any = lambda _args: None
+    cmd_restart_router: Any = lambda _args: 1
 
 
 @dataclass(frozen=True)
@@ -293,6 +294,10 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
             return int(
                 cmd_remote_bridge(argparse.Namespace(action=action, host=host)) or 0
             )
+        if head == "restart-router":
+            parser = argparse.ArgumentParser(prog="ciel-runtimectl restart-router")
+            parser.add_argument("--reason", required=True)
+            return int(services.operations.cmd_restart_router(parser.parse_args(rest)))
         if head == "stop":
             cmd_stop(argparse.Namespace())
             ncp = find_executable("ncp")

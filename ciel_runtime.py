@@ -3754,6 +3754,27 @@ def cmd_stop(_: argparse.Namespace) -> None:
     stopped = stop_ncp_proxy(quiet=True) or stopped
     print("ciel-runtime managed services stopped" if stopped else "ciel-runtime managed services were not running")
 
+def cmd_restart_router(args: argparse.Namespace) -> int:
+    from ciel_runtime_support.router_restart_command import (
+        RestartPorts, owned_by_registered_launcher, restart_owned_router, terminate_generation,
+    )
+    from ciel_runtime_support.workspace_router_selection import _process_identity
+    if _unisolated_test_process():
+        print('ciel-runtimectl restart-router: test isolation required', file=sys.stderr)
+        return 1
+    ports = RestartPorts(router_port_listener_pids, _process_identity,
+                         lambda pid: owned_by_registered_launcher(
+                             pid, ROUTER_CLIENTS_DIR, ROUTER_PORT, ROUTER_WORKSPACE, _process_command_line),
+                         terminate_generation, router_health, router_health_config_matches_current, router_log)
+    try:
+        result = restart_owned_router(PID_PATH, args.reason, ports)
+    except (OSError, RuntimeError) as exc:
+        print(f'ciel-runtimectl restart-router: {exc}', file=sys.stderr)
+        return 1
+    print(json.dumps(result))
+    return 0
+
+
 pid_is_running = inspect_pid_is_running
 def register_router_client(pid: int | None = None) -> Path: return router_client_registry().register(pid)
 def release_router_client(path: Path | None) -> None: router_client_registry().release(path)
@@ -4940,14 +4961,14 @@ def cli_services() -> cli_dispatch.CliServices:
         provider_commands=cli_dispatch.CliProviderCommands(cmd_advisor_model, cmd_api_key, cmd_base_url, cmd_language, cmd_log_level, cmd_model,
                                                            cmd_models, cmd_provider, cmd_provider_options, cmd_set_api_key),
         special_commands=cli_dispatch.CliSpecialCommands(cmd_ollama_catalog, cmd_ollama_native, cmd_ollama_options, cmd_web_fetch, cmd_web_search),
-        operations=cli_dispatch.CliOperations(cmd_status, cmd_stop, cmd_test, cmd_remote_bridge, runtime_session_restart_service().command),
+        operations=cli_dispatch.CliOperations(cmd_status, cmd_stop, cmd_test, cmd_remote_bridge, runtime_session_restart_service().command, cmd_restart_router),
         configuration=cli_dispatch.CliConfiguration(apply_auto_llm_options_config, apply_headless_env_config, set_advisor_model_config,
                                                     set_log_level_config, cmd_set_api_keys),
     ).services()
 def cli_parser_services() -> cli_parser.CliParserServices:
     return cli_assembly.CliParserAssembly(
             launch=cli_parser.CliParserLaunch(cmd_cli, cmd_launch, cmd_launch_codex, cmd_launch_codex_app_server, cmd_launch_agy, serve, cmd_remote_bridge, cmd_launch_grok, cmd_launch_zcode, cmd_launch_muse),
-            runtime=cli_parser.CliParserRuntime(cmd_version, cmd_status, cmd_env, cmd_stop, cmd_test, runtime_session_restart_service().command, remote_provision_command(load_config, save_config, remote_provisioner)),
+            runtime=cli_parser.CliParserRuntime(cmd_version, cmd_status, cmd_env, cmd_stop, cmd_test, runtime_session_restart_service().command, remote_provision_command(load_config, save_config, remote_provisioner), cmd_restart_router),
             settings=cli_parser.CliParserSettings(cmd_language, cmd_web_search, cmd_web_fetch, cmd_log_level, *event_settings_cli.handlers(event_settings_cli.EventSettingsCliPorts(load_config, save_config, external_event_receiver_service, lambda: set_remote_instruction_config('sync', ''), sync_all_remote_memories, print, lambda: USAGE_API_KEYS))),
             provider=cli_parser.CliParserProvider(cmd_ollama_native, cmd_ollama_options, cmd_provider_options, cmd_ollama_catalog, cmd_provider,
                                                   cmd_api_key, cmd_set_api_key, cmd_set_api_keys, cmd_base_url, {"copilot": cmd_copilot_oauth, "zai": cmd_zai_oauth}),

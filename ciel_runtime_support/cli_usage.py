@@ -60,6 +60,8 @@ Control plane, runs before Claude Code and does not require LLM connectivity:
   ciel-runtime ollama-catalog          Download Ollama model/context catalog
   ciel-runtime test [seconds] [mode]   Test compatibility; mode is auto, quick, smoke, or full
   ciel-runtime stop                    Stop router
+  ciel-runtimectl restart-router --reason TEXT
+                                      Restart only the local launcher-owned router; keep the CLI session
   ciel-runtime restart-session [--pid N] [--workspace PATH] [--runtime NAME] [--reason TEXT] [--no-resume]
                                       Restart the active CLI session: the launcher terminates the
                                       CLI and relaunches it with --continue so the conversation resumes

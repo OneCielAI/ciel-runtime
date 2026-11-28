@@ -41,6 +41,7 @@ class CliParserRuntime:
     test: CliHandler
     restart_session: CliHandler = lambda _args: None
     remote_provision: CliHandler = lambda _args: None
+    restart_router: CliHandler = lambda _args: 1
 
 
 @dataclass(frozen=True)
@@ -190,6 +191,9 @@ def build_cli_parser(services: CliParserServices) -> argparse.ArgumentParser:
     restart_session.add_argument("--workspace", default="")
     restart_session.add_argument("--no-resume", action="store_true")
     restart_session.set_defaults(func=services.runtime.restart_session)
+    restart_router = commands.add_parser("restart-router", help="Restart only this workspace's managed router")
+    restart_router.add_argument("--reason", required=True)
+    restart_router.set_defaults(func=lambda args: sys.exit(services.runtime.restart_router(args)))
     _add_optional_value_command(commands, "language", services.settings.language)
     _add_optional_value_command(commands, "web-search", services.settings.web_search)
     _add_optional_value_command(commands, "web-fetch", services.settings.web_fetch)
