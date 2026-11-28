@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from pathlib import Path
+import time
 from typing import Any, Callable
 
 
@@ -120,11 +121,26 @@ class RuntimeActivityRepository:
         record = {"updated_at": self.clock.epoch(), "time": self.clock.display(), **data}
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_name(f"{path.name}.{self.clock.temporary_suffix()}.tmp")
-        temporary.write_text(
-            json.dumps(record, ensure_ascii=False, separators=(",", ":")),
-            encoding="utf-8",
-        )
-        temporary.replace(path)
+        try:
+            temporary.write_text(
+                json.dumps(record, ensure_ascii=False, separators=(",", ":")),
+                encoding="utf-8",
+            )
+            # Windows readers can briefly prevent replacement. Keep this
+            # best-effort snapshot off the long durable-write retry path.
+            for attempt in range(5):
+                try:
+                    temporary.replace(path)
+                    return
+                except PermissionError as exc:
+                    if getattr(exc, "winerror", None) not in (5, 32) or attempt == 4:
+                        raise
+                    time.sleep(0.002)
+        finally:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass  # Do not mask the original snapshot failure.
 
     def _report_failure(self, operation: str, exc: BaseException) -> None:
         try:

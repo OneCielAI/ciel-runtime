@@ -55,6 +55,29 @@ class RuntimeActivityRepositoryTests(unittest.TestCase):
         self.assertEqual(1, usage["messages"])
         self.assertEqual("context.usage", publish.call_args.kwargs["category"])
 
+    def test_transient_replace_error_preserves_latest_snapshot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repository, _publish, log = self.repository(root)
+            repository.router_activity('request', 'openai')
+            replace = Path.replace
+            denied = PermissionError('snapshot temporarily held')
+            denied.winerror = 5
+            attempts = []
+
+            def replace_once(path, target):
+                attempts.append(path)
+                if len(attempts) == 1:
+                    raise denied
+                return replace(path, target)
+
+            with mock.patch.object(Path, 'replace', replace_once):
+                repository.router_activity('response', 'openai')
+            self.assertEqual(2, len(attempts))
+            self.assertEqual('response', json.loads(repository.paths.router.read_bytes())['event'])
+            self.assertEqual([], list(root.glob('*.tmp')))
+            log.assert_not_called()
+
     def test_snapshot_failure_is_observable(self):
         with tempfile.TemporaryDirectory() as tmp:
             repository, _publish, log = self.repository(
