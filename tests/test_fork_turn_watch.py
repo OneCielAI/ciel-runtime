@@ -113,6 +113,22 @@ class ClosingPredicateParityTests(unittest.TestCase):
 
 
 class ForkTurnWatchTests(unittest.TestCase):
+    def test_info_checkpoints_bracket_scan_without_logging_transcript_or_paths(self):
+        h = Harness()
+        self.addCleanup(shutil.rmtree, h.root)
+        w = h.watch()
+        log = mock.Mock()
+        w.ports = ftw.ForkTurnWatchPorts(w.ports.scope, h.submit, lambda scope: {}, log,
+                                       now=lambda: h.clock[0])
+        h.fork(A, [assistant('end_turn', 'a1')])
+        h.polls(w, 3)
+        messages = [call.args[1] for call in log.call_args_list if call.args[0] == 'INFO']
+        self.assertEqual(2, len(messages), messages)
+        self.assertRegex(messages[0], r'fork_turn_watch_scan_begin pid=\d+ poll=1')
+        self.assertRegex(messages[1], r'fork_turn_watch_scan_end pid=\d+ poll=1 .*meta_stats=1')
+        self.assertNotIn(SECRET, str(messages))
+        self.assertNotIn(str(h.root), str(messages))
+
     def test_two_forks_one_ends_then_both_end_exactly_one_notice(self):
         h = Harness()
         w = h.watch()

@@ -564,6 +564,8 @@ class ForkTurnWatch:
     _thread: threading.Thread | None = None
     _meta: dict[str, tuple[int, int, Any]] = field(default_factory=dict)
     bytes_read: int = 0
+    _poll_number: int = field(default=0, init=False)
+    _next_scan_log: float = field(default=0.0, init=False)
 
     # -- persistence (atomic, no transcript text) --------------------------
     def _path(self, session: str) -> Path:
@@ -802,12 +804,21 @@ class ForkTurnWatch:
         baseline_epoch = not epoch_known
         forks: dict[str, dict[str, Any]] = state["forks"]
         changed, armed = first or baseline_epoch, bool(state["armed"])
+        self._poll_number += 1
+        scan_started = time.monotonic()
+        sampled = scan_started >= self._next_scan_log
+        if sampled:
+            self._next_scan_log = scan_started + 60.0
+            self.ports.log("INFO", f"fork_turn_watch_scan_begin pid={os.getpid()} poll={self._poll_number}")
         try:
             names = sorted(os.listdir(directory))
             listing_ok = True
         except OSError:
             names, listing_ok = [], False
         if not listing_ok:
+            if sampled:
+                self.ports.log("INFO", f"fork_turn_watch_scan_end pid={os.getpid()} poll={self._poll_number} "
+                               f"outcome=directory_unreadable meta_stats=0 scan_ms={int((time.monotonic() - scan_started) * 1000)}")
             # Do not commit an epoch change on an unreadable sample. The next
             # successful listing still compares prior durable state to the new launch.
             if state.get("candidate") is not None:
@@ -824,6 +835,7 @@ class ForkTurnWatch:
             state["launch_started_at"] = started
             changed = True
         seen: set[str] = set()
+        meta_stats = 0
         for name in names:
             match = _AGENT_FILE.match(name)
             if not match:
@@ -831,6 +843,7 @@ class ForkTurnWatch:
             agent = match.group(1)
             meta_path = directory / name
             old = forks.get(agent)
+            meta_stats += 1
             try:
                 stamp = meta_path.stat()
                 token = (stamp.st_mtime_ns, stamp.st_size)
@@ -862,6 +875,9 @@ class ForkTurnWatch:
                 armed = True
             if fork != old:
                 forks[agent], changed = fork, True
+        if sampled:
+            self.ports.log("INFO", f"fork_turn_watch_scan_end pid={os.getpid()} poll={self._poll_number} "
+                           f"outcome=ok meta_stats={meta_stats} scan_ms={int((time.monotonic() - scan_started) * 1000)}")
         for agent, old in list(forks.items()):
             if agent in seen:
                 continue
