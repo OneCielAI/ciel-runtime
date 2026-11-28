@@ -1731,7 +1731,10 @@ async function workToolCall($, e, next) {
   if (knownWrite && await nativePlanWrite($, e.tool, e, e.agentId)) return next(e)
   let read = { s: null, stage: '' }
   if (knownWrite || name === 'work_execute') read = await gateRead($)
-  else if (name) read.s = await refresh($)
+  // Ordinary node updates are validated by the router, including version CAS.
+  // Keep the post-update display refresh but do not wait on a redundant read
+  // before the mutation. Completion and priority retain their distinct gates.
+  else if (name && (name !== 'work_node_update' || e.status === 'done' || e.priority !== undefined)) read.s = await refresh($)
   const s = read.s
   if (knownWrite) {
     const reason = blocked(read, e)

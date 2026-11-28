@@ -328,7 +328,7 @@ test('every Work result refreshes; another server is not treated as Work', async
     'work_select', 'work_replan', 'work_status']) {
     const before = s.calls.length
     await $.tool.call({ tool: T + tool })
-    expect(s.calls.length - before).toBe(2)
+    expect(s.calls.length - before).toBe(tool === 'work_node_update' ? 1 : 2)
   }
   const before = s.calls.length
   await $.tool.call({ tool: 'mcp__other__work_execute', user_confirmed: true })
