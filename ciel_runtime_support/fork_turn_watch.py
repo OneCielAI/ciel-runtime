@@ -811,10 +811,13 @@ class ForkTurnWatch:
             self._next_scan_log = scan_started + 60.0
             self.ports.log("INFO", f"fork_turn_watch_scan_begin pid={os.getpid()} poll={self._poll_number}")
         try:
-            names = sorted(os.listdir(directory))
+            # Windows directory entries already carry stat metadata for regular files.
+            # Keep one enumeration and preserve the old name order and symlink behavior.
+            with os.scandir(directory) as scan:
+                entries = sorted(scan, key=lambda entry: entry.name)
             listing_ok = True
         except OSError:
-            names, listing_ok = [], False
+            entries, listing_ok = [], False
         if not listing_ok:
             if sampled:
                 self.ports.log("INFO", f"fork_turn_watch_scan_end pid={os.getpid()} poll={self._poll_number} "
@@ -836,19 +839,18 @@ class ForkTurnWatch:
             changed = True
         seen: set[str] = set()
         meta_stats = 0
-        for name in names:
-            match = _AGENT_FILE.match(name)
+        for entry in entries:
+            match = _AGENT_FILE.match(entry.name)
             if not match:
                 continue
             agent = match.group(1)
-            meta_path = directory / name
             old = forks.get(agent)
             meta_stats += 1
             try:
-                stamp = meta_path.stat()
+                stamp = entry.stat()
                 token = (stamp.st_mtime_ns, stamp.st_size)
                 cached = self._meta.get(agent)
-                meta = cached[2] if cached is not None and cached[:2] == token else json.loads(meta_path.read_text(encoding="utf-8"))
+                meta = cached[2] if cached is not None and cached[:2] == token else json.loads(Path(entry.path).read_text(encoding="utf-8"))
                 self._meta[agent] = (token[0], token[1], meta)
             except (OSError, ValueError):
                 meta = None

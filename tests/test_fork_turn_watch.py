@@ -113,6 +113,27 @@ class ClosingPredicateParityTests(unittest.TestCase):
 
 
 class ForkTurnWatchTests(unittest.TestCase):
+    def test_metadata_scan_uses_directory_entries_without_path_stat(self):
+        h = Harness()
+        self.addCleanup(shutil.rmtree, h.root)
+        w = h.watch()
+        h.fork(A, [assistant('tool_use', 'a1')])
+        original = Path.stat
+        metadata_stats = []
+
+        def track(path, *args, **kwargs):
+            if path.name.endswith('.meta.json'):
+                metadata_stats.append(path.name)
+            return original(path, *args, **kwargs)
+
+        with mock.patch.object(Path, 'stat', track):
+            h.polls(w, 2)
+            self.assertEqual('active', w._state['forks'][A]['state'])
+            h.fork(A, [], meta={'isFork': False, 'agentType': 'not-fork'})
+            h.polls(w, 1)
+            self.assertEqual('meta_identity_changed', w._state['forks'][A]['reason'])
+        self.assertEqual([], metadata_stats)
+
     def test_info_checkpoints_bracket_scan_without_logging_transcript_or_paths(self):
         h = Harness()
         self.addCleanup(shutil.rmtree, h.root)
@@ -290,7 +311,7 @@ class ForkTurnWatchTests(unittest.TestCase):
         h.fork(A, [assistant("tool_use", "a1")])
         h.polls(w, 1)
         before = json.loads(json.dumps(w._state["forks"]))
-        with patch.object(ftw.os, "listdir", side_effect=OSError("fixture")):
+        with patch.object(ftw.os, "scandir", side_effect=OSError("fixture")):
             h.polls(w, 2)
             self.assertEqual(before, w._state["forks"])
             self.assertFalse(w._state["armed"])
@@ -508,7 +529,7 @@ class ForkTurnWatchTests(unittest.TestCase):
         h.fork(A, [assistant("tool_use", "a1", ts="1970-01-01T00:01:50Z")])
         h.polls(w, 1)
         h.scope["started_at"] = 200.0
-        with patch.object(ftw.os, "listdir", side_effect=OSError("fixture")):
+        with patch.object(ftw.os, "scandir", side_effect=OSError("fixture")):
             h.polls(w, 1)
         self.assertEqual(100.0, w._state["launch_started_at"], "unreadable sample does not consume epoch change")
         h.polls(w, 1)
