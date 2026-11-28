@@ -67,6 +67,14 @@ ciel-runtimectl <subcommand> [args]
 
 ---
 
+### 샌드박스 라우터 복구
+
+```bash
+ciel-runtimectl restart-router --reason "Work MCP not responding"
+```
+
+대상 워크스페이스의 샌드박스 실행 계정에서 호출합니다. 등록된 런처가 소유한 라우터만 교체하며 Claude 세션은 재시작하지 않습니다. 호출 계정에 라우터 확인·제어 권한이 없으면 실패합니다. 다른 계정의 ACL을 변경하거나 강제 종료하는 명령이 아닙니다. 교체 성공은 새 PID와 health 응답으로 확인하고, Work MCP 및 포크 재개 여부는 별도로 확인합니다.
+
 ### Work · SSE 설정
 
 ```bash

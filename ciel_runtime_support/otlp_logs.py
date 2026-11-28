@@ -745,7 +745,6 @@ class TelemetryLogRuntime:
     ) -> None:
         self.repository = TelemetryLogRepository(root)
         self.token = TelemetryLogTokenRepository(root / "ingest-token")
-        self.token.ensure()
         self.retention = TelemetryLogRetentionService(self.repository, log)
         self.http = OtlpLogsHttpController(
             OtlpLogsHttpPorts(

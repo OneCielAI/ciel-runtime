@@ -175,7 +175,11 @@ WORKSPACE_ROUTER_REGISTRY_PATH = CONFIG_DIR / "workspace-router-ports.json"
 _router_port_selection_started = time.monotonic()
 # Only launch/serve paths take the startup lease; ctl commands that neither
 # launch nor serve resolve the same port read-only (workspace_router_selection).
-_TAKES_LAUNCH_LEASE = takes_launch_lease(sys.argv)
+_CLI_ARGS = sys.argv[1:]
+_ROUTER_RESTART_INVOCATION = Path(sys.argv[0]).name.lower() == CLI_ENTRYPOINT and (
+    _CLI_ARGS[:1] == ['restart-router'] or _CLI_ARGS[:2] == ['cli', 'restart-router']
+)
+_TAKES_LAUNCH_LEASE = not _ROUTER_RESTART_INVOCATION and takes_launch_lease(sys.argv)
 try:
     ROUTER_PORT = (select_workspace_router_port if _TAKES_LAUNCH_LEASE else resolve_workspace_router_port)(
         _BASE_ROUTER_PORT,
@@ -231,7 +235,7 @@ ROUTER_INSTANCE_DIR = (
 )
 MIGRATED_LEGACY_INSTANCE_ID = (
     ""
-    if _TEST_STATE_ISOLATED
+    if _TEST_STATE_ISOLATED or _ROUTER_RESTART_INVOCATION
     else migrate_workspace_state(CONFIG_DIR, _WORKSPACE_DIGEST, WORKSPACE_STATE_DIR)
 )
 LOG_PATH = ROUTER_INSTANCE_DIR / "router.log"
