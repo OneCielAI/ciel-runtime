@@ -20,6 +20,8 @@ _RECEIPT_VERDICTS = StatVerdictCache()
 def _owed_reply_state(path):
     """The outbox state of a processed receipt that still owes its reply, else None."""
     row = SideIntakeInbox._read_file(path)
+    if row and row.get('source_status', {}).get('state') in ('pending', 'submitting', 'uncertain'):
+        return 'source_status'
     if (row and row.get('stage')=='processed' and row.get('result',{}).get('delivery') not in ('route_unavailable','side_mcp','duplicate_source','not_applicable')
             and row.get('outbox',{}).get('state') not in ('submitted','uncertain','submitting','failed')):
         return row.get('outbox',{}).get('state','pending')
@@ -94,10 +96,26 @@ def _drop_pending_outbox(row):
         row.pop('outbox', None)
 
 
-def prepare(state_dir, identity, receipt_id, *, config=None):
+def prepare(state_dir, identity, receipt_id, *, config=None, source_status=False):
     inbox = SideIntakeInbox(state_dir, identity)
     with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
         row = inbox._load(receipt_id)
+        if source_status:
+            job = (row or {}).get('source_status', {})
+            state = job.get('state')
+            if state not in ('pending', 'submitting', 'uncertain'):
+                return {'state': state or 'not_applicable', 'receipt_id': receipt_id}
+            checks = int(job.get('checks') or 0)
+            if checks >= 3:
+                job['state'] = 'unconfirmed'
+                inbox._save_file(inbox._event_path('receipts', receipt_id), row)
+                return {'state': 'unconfirmed', 'receipt_id': receipt_id}
+            if state == 'pending':
+                job.update(state='submitting', attempt_id=uuid.uuid4().hex)
+            job['checks'] = checks + 1
+            inbox._save_file(inbox._event_path('receipts', receipt_id), row)
+            return {'state': 'submitting', 'attempt_id': job['attempt_id'],
+                    'source_status': {**job['plan'], 'phase': job['phase'], 'send': state == 'pending'}}
         previous = (row or {}).get('outbox', {})
         if row and row.get('stage') != 'processed' and (row.get('side_failure') or {}).get('quarantined'):
             if previous.get('state') in ('submitting', 'uncertain', 'submitted', 'failed', 'not_applicable'):
@@ -207,12 +225,23 @@ def retry(state_dir, identity, receipt_id, expected_state, confirmed=False, *, a
         return SideIntakeInbox._public_summary(receipt_id, row, now=time.time())
 
 
-def record(state_dir, identity, receipt_id, state, *, attempt_id):
+def record(state_dir, identity, receipt_id, state, *, attempt_id, source_status=False):
     if state not in ('submitted', 'uncertain', 'failed'):
         raise WorkPlanError('invalid side delivery state')
     inbox = SideIntakeInbox(state_dir, identity)
     with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
         row = inbox._load(receipt_id)
+        if source_status:
+            job = (row or {}).get('source_status', {})
+            if not attempt_id or job.get('attempt_id') != attempt_id or job.get('state') not in ('submitting', 'uncertain'):
+                raise WorkPlanError('stale source status attempt')
+            if state == 'submitted' and job['phase'] == 'ack':
+                job.update(phase='completed', state='pending', checks=0)
+                job.pop('attempt_id')
+            else:
+                job['state'] = state
+            inbox._save_file(inbox._event_path('receipts', receipt_id), row)
+            return inbox._receipt(receipt_id, row, duplicate=False)
         if not row or row.get('outbox', {}).get('state') != 'submitting':
             raise WorkPlanError('side send was not prepared')
         if not attempt_id or row['outbox'].get('attempt_id') != attempt_id:

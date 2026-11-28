@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 
 TEXTS: dict[str, str] = {
+    'side_source_registered_memo': 'Work 보드에 {item_id} 항목으로 등록했습니다. 업무 자체의 완료를 뜻하지 않습니다.',
     'mod_side_default_instruction': (
         '사이드 액터의 일은 접수, 전달, 접수 완료뿐입니다.\n'
         '1. 최초 ACK + 메모(note/readback): 원본 메시지에 즉시 ACK하고 받은 요청을 한 줄로 복기하십시오. 확인에 다시 ACK하지 마십시오.\n'

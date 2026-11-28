@@ -5775,6 +5775,20 @@ export function register(on) {
     await update($, panelView, () => null)
     return next(e)
   })
+  on('ui.render', { component: 'AgentRow' }, ($, e, next) => {
+    if (!enabled || e.props.isHidden || e.props.body !== undefined) return next(e)
+    const agent = e.props
+    const lease = Object.values(observatoryParallel?.leases || {}).find(row => row.host_id === agent.id)
+    const assignment = lease && { ...lease, ...parallelPending.get(agent.name) }
+      || parallelPending.get(agent.name)
+    const id = assignment?.item_id
+    const priority = assignment?.effective_priority || assignment?.priority
+    if (!/^n[0-9]+$/.test(id || '') || !/^P[0-5]$/.test(priority || '')) return next(e)
+    const ref = assignment.item_ref
+    const source = /^[1-9][0-9]{0,17}$/.test(ref || '') ? ', ' + ref : ''
+    const label = agent.label || assignment.item_title || ''
+    return next({ ...e, props: { ...agent, body: priority.toLowerCase() + '-[' + id + source + '] - ' + label } })
+  })
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     // Keep the real downstream tree, including native teammate/plugin controls.
     const native = await next(e)

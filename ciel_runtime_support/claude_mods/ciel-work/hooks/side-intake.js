@@ -37,11 +37,16 @@ export function sideActors(identity) {
 }
 export function sideMcpParity() { return {...mcpParity} }
 async function recoverReply($,identity,event) {
-  if (replying.has(event.receipt_id)) return
-  replying.add(event.receipt_id)
-  try { await submitReply($,{identity},event) }
-  catch { /* Durable side state retains an unconfirmed reply without main output. */ }
-  finally { replying.delete(event.receipt_id) }
+  const flight = identity + ':' + event.receipt_id + ':' + (event.source_status ? 'status' : 'reply')
+  if (replying.has(flight)) return
+  replying.add(flight)
+  try {
+    // An old router never advertises this state. Do not send it status
+    // prepares that it would interpret as a normal chat reply prepare.
+    if (event.source_status) await submitSourceStatus($,identity,event)
+    else await submitReply($,{identity},event)
+  } catch { /* Durable state retains the unconfirmed attempt. */ }
+  finally { replying.delete(flight) }
 }
 let lifecycle = 0
 let busy = false
@@ -1875,7 +1880,8 @@ export async function pollSide($, identity) {
     // Receipt ACKs first: every event that arrived, claimed or still waiting.
     await sendOwedAcks($,identity,answer.pending_acks)
     for (const reply of answer.pending_replies || []) {
-      $.clock.after(10,async()=>{await recoverReply($,identity,{receipt_id:reply.receipt_id})})
+      $.clock.after(10,async()=>{await recoverReply($,identity,{receipt_id:reply.receipt_id,
+        source_status:reply.state === 'source_status'})})
     }
     for (const reply of answer.handoff_replies || []) {
       const key = identity+':'+reply.event_id
@@ -2187,6 +2193,43 @@ async function submitUnderstanding($,actor,event,proposal) {
     {receipt_id:event.receipt_id,generation:event.generation,attempt_id:prepared.attempt_id},actor.identity)
   if (update.receipt) display($,actor.identity,{side_inbox_receipts:[update.receipt]})
   return state
+}
+async function submitSourceStatus($,identity,event) {
+  const host = {source_status:true}
+  for (let step = 0; step < 2; step++) {
+    const request = {receipt_id:event.receipt_id}
+    const prep = await callRouter($,'work_side_reply',{...request,state:'prepare'},host,identity)
+    const job = prep.source_status
+    if (!job || job.adapter !== 'walkie') return
+    let state = 'uncertain'
+    try { state = await applyWalkieSourceStatus($,job) } catch { /* Read back on recovery. */ }
+    await callRouter($,'work_side_reply',{...request,state},{...host,attempt_id:prep.attempt_id},identity)
+    if (state !== 'submitted' || job.phase === 'completed') return
+  }
+}
+export async function applyWalkieSourceStatus($,job) {
+  const self = (await approvalReadWalkie($,job.server,'walkie_identity',{}))?.user?.id
+  if (typeof self !== 'string' || !self) return 'uncertain'
+  const read = async () => {
+    const value = await approvalReadWalkie($,job.server,'walkie_call_tool',{
+      operation_id:'messages.work.get',schema_version:1,arguments:job.target})
+    const rows = Array.isArray(value) ? value : value?.rows ?? value?.result
+    return Array.isArray(rows) ? rows.find(row=>row?.agent_id === self) : null
+  }
+  const recorded = row => job.phase === 'ack'
+    ? row?.state === 'ack' && row.memo === job.memo
+    : row?.state === 'completed'
+  const before = await read()
+  if (recorded(before)) return 'submitted'
+  if (!job.send || before?.state !== 'ack' || !Number.isSafeInteger(before.version)
+      || (job.phase === 'completed' && before.memo !== job.memo)) return 'uncertain'
+  const arguments_ = {...job.target,version:before.version,state:job.phase,
+    client_id:job.phase === 'ack' ? job.ack_key : job.complete_key,
+    ...(job.phase === 'ack' ? {memo:job.memo} : {})}
+  // A timeout or rejection may coincide with an accepted write. Only the
+  // canonical read may advance the durable step; never retry blindly.
+  try { await $.mcp.call(job.server,'walkie_messages_work_update',arguments_) } catch {}
+  return recorded(await read()) ? 'submitted' : 'uncertain'
 }
 async function submitReply($,actor,event) {
   const prepared = await callRouter($,'work_side_reply',{receipt_id:event.receipt_id,state:'prepare'},{},actor.identity)

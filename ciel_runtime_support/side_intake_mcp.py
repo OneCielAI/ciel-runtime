@@ -454,13 +454,16 @@ def run(name, args, config, state_dir, identity, store):
                                   attempt_id=host.get('attempt_id'))}
     if name == 'work_side_reply':
         from .side_reply_outbox import prepare, record
+        source_status = host.get('source_status') is True
         if args.get('state') == 'prepare':
-            prepared = prepare(state_dir, identity, args.get('receipt_id'), config=config)
+            prepared = prepare(state_dir, identity, args.get('receipt_id'), config=config,
+                               source_status=source_status)
             if prepared.get('state') == 'route_unavailable':
                 _unsent_to_main(store, state_dir, identity, args.get('receipt_id'))
             return prepared
-        receipt = record(state_dir, identity, args.get('receipt_id'), args.get('state'), attempt_id=host.get('attempt_id'))
-        if args.get('state') == 'failed':
+        receipt = record(state_dir, identity, args.get('receipt_id'), args.get('state'),
+                         attempt_id=host.get('attempt_id'), source_status=source_status)
+        if args.get('state') == 'failed' and not source_status:
             _unsent_to_main(store, state_dir, identity, args.get('receipt_id'))
         return {'receipt': receipt}
     if name == 'work_side_wake':
@@ -570,7 +573,7 @@ def run(name, args, config, state_dir, identity, store):
                 result = _settle_side_p0(store, identity, receipt_id, {
                     **prior['result'], 'duplicate': True, 'version': document['version']})
                 recovered = finish(state_dir, identity, receipt_id, active['generation'], result,
-                                   main_notice=_complaint_notice(state_dir, receipt_id, result))
+                                   main_notice=_complaint_notice(state_dir, receipt_id, result), config=config)
                 active = None
             else:
                 from .side_workload import project as project_workload, project_active_forks
@@ -774,7 +777,7 @@ def run(name, args, config, state_dir, identity, store):
     # The board records the decision before pending mail is removed. A retry
     # recovers the same application if this receipt write was interrupted.
     main_notice = _complaint_notice(state_dir, key, result)
-    receipt = finish(state_dir, identity, key, generation, result, main_notice=main_notice)
+    receipt = finish(state_dir, identity, key, generation, result, main_notice=main_notice, config=config)
     # Gate re-check thread cursors (Andy 2026-11-18): every committed event of a
     # Walkie thread advances that thread's cursor, and a node the decision
     # created or updated is bound to the thread. The thread is the host's own

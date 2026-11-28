@@ -558,7 +558,7 @@ def release_for_recheck(state_dir, session_id, receipt_id, generation, reason):
         return inbox._receipt(receipt_id, row, duplicate=False)
 
 
-def finish(state_dir, session_id, receipt_id, generation, result, *, main_notice=None, now=None):
+def finish(state_dir, session_id, receipt_id, generation, result, *, main_notice=None, now=None, config=None):
     inbox = SideIntakeInbox(state_dir, session_id)
     with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
         existing = inbox._load(receipt_id)
@@ -569,6 +569,13 @@ def finish(state_dir, session_id, receipt_id, generation, result, *, main_notice
         row = verify_claim(inbox, receipt_id, generation, now=now)
         row.update(stage='processed', result=result, item_id=result.get('item_id'),
                    consumed_at=time.time() if now is None else now)
+        if (result.get('action') == 'create' and result.get('item_id')
+                and row.get('route', {}).get('source_kind') == 'external_event'):
+            from .side_reply_connector import source_status_plan
+            plan = source_status_plan(config or {}, row['route'], row.get('text', ''),
+                                      receipt_id, result['item_id'])
+            if plan:
+                row['source_status'] = {'plan': plan, 'phase': 'ack', 'state': 'pending'}
         if main_notice:
             from .side_notice import stage_pending
             stage_pending(inbox, receipt_id, row, main_notice)

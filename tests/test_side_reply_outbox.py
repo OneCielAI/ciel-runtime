@@ -8,6 +8,59 @@ from ciel_runtime_support.side_reply_outbox import prepare, record, pending
 
 
 class SideReplyTests(unittest.TestCase):
+    @unittest.skipUnless(__import__('shutil').which('node'), 'Node required')
+    def test_walkie_write_order_and_readback(self):
+        import shutil
+        import subprocess
+        here = Path(__file__).resolve().parent
+        hooks = here.parent / 'ciel_runtime_support/claude_mods/ciel-work/hooks'
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            (root / 'package.json').write_text('{"type":"module"}', encoding='utf8')
+            for file in (hooks / 'side-intake.js', hooks / 'texts.generated.js',
+                         here / 'side_source_status_harness.mjs'):
+                shutil.copyfile(file, root / file.name)
+            run = subprocess.run(['node', str(root / 'side_source_status_harness.mjs')],
+                                 capture_output=True, text=True, timeout=20)
+            self.assertEqual(0, run.returncode, run.stderr)
+    def test_committed_walkie_create_owes_source_status_even_without_chat_reply(self):
+        import json
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            identity = 'claude:test'
+            inbox = SideIntakeInbox(root, identity)
+            room = '256a28fd-f1c3-443a-9782-19405288a8d3'
+            event = json.dumps({'type': 'com.ciel.walkie.task.auto_assigned', 'data': {
+                'conversation': room, 'message_id': '163544', 'agent_context': {
+                    'guidance': 'messages.work.update state="ack"'}}})
+            key = inbox.receive(event, 'event', route={'channel': 'external:default',
+                'source_kind': 'external_event', 'sender_id': 'source', 'thread_id': 'thread'})['receipt_id']
+            leased = claim(root, identity, 'actor')
+            finish(root, identity, key, leased['generation'], {'action': 'create', 'item_id': 'n3018',
+                'no_reply': True, 'reply': 'registered', 'delivery': 'not_applicable'})
+            self.assertEqual([key], [row['receipt_id'] for row in pending(root, identity)])
+            out = prepare(root, identity, key, source_status=True)
+            self.assertEqual('163544', out['source_status']['target']['message_id'])
+            self.assertIn('n3018', out['source_status']['memo'])
+            self.assertNotEqual(out['source_status']['ack_key'], out['source_status']['complete_key'])
+            self.assertNotIn('arguments', prepare(root, identity, key))
+            self.assertTrue(out['source_status']['send'])
+            mark = lambda state, attempt: record(root, identity, key, state,
+                source_status=True, attempt_id=attempt)
+            mark('uncertain', out['attempt_id'])
+            resumed = prepare(root, identity, key, source_status=True)
+            self.assertFalse(resumed['source_status']['send'])
+            self.assertEqual('ack', resumed['source_status']['phase'])
+            mark('submitted', resumed['attempt_id'])
+            done = prepare(root, identity, key, source_status=True)
+            self.assertEqual('completed', done['source_status']['phase'])
+            self.assertNotEqual(out['attempt_id'], done['attempt_id'])
+            with self.assertRaisesRegex(Exception, 'stale source status attempt'):
+                mark('submitted', out['attempt_id'])
+            mark('submitted', done['attempt_id'])
+            self.assertEqual([], pending(root, identity))
+            self.assertNotIn('source_status', prepare(root, identity, key, source_status=True))
+
     def test_pending_reads_only_new_or_changed_receipts(self):
         """Andy 2026-11-22: every work_side_claim read all 5,459 receipt files (108 MB,
         about 9 s each call, 0 owed) and took ~41% of the router's CPU samples."""

@@ -222,9 +222,32 @@ def binding_for(config, route, original=''):
 
 
 def phase_client_id(receipt_id, phase):
-    if phase not in ('ack', 'understanding', 'final'):
+    if phase not in ('ack', 'understanding', 'final', 'processing_ack', 'completed'):
         raise ValueError('invalid connector reply phase')
-    return str(uuid.UUID(hashlib.sha256((receipt_id + ':' + phase).encode()).hexdigest()[:32]))
+    raw = hashlib.sha256((receipt_id + ':' + phase).encode()).hexdigest()[:32]
+    return str(uuid.UUID(raw, version=4 if phase in ('processing_ack', 'completed') else None))
+
+
+def source_status_plan(config, route, original, receipt_id, item_id):
+    """An optional status capability, independent of the connector's chat reply."""
+    binding = binding_for(config, route, original)
+    if not binding or binding.get('preset') != 'walkie' or not _walkie_event(original):
+        return None
+    context = walkie_source_context(original)
+    _, data = _walkie_body(original)
+    agent = (data or {}).get('agent_context')
+    guidance = agent.get('guidance') if isinstance(agent, dict) else None
+    target = walkie_target(original)
+    if (not target or context.get('classification') != 'thread' or not isinstance(guidance, str)
+            or 'messages.work.update' not in guidance
+            or not re.search(r'\bstate\s*=\s*["\'“]?ack\b', guidance, re.I)):
+        return None
+    from .work_texts import TEXTS
+    return {'adapter': 'walkie', 'server': binding['server'], 'target': {'conversation_id': context['conversation_id'],
+            'message_id': context['target_message_id']},
+            'memo': TEXTS['side_source_registered_memo'].format(item_id=item_id),
+            'ack_key': phase_client_id(receipt_id, 'processing_ack'),
+            'complete_key': phase_client_id(receipt_id, 'completed')}
 
 
 def is_receipt_ack(original):

@@ -842,6 +842,7 @@ class SideIntakeInbox:
                 **({'source_bounded': _source_bounded(row)} if _source_bounded(row) else {}),
                 'main_fallback': row.get('main_fallback'), 'context': row.get('context'),
                 'result': row.get('result'),
+                **({'source_status': row['source_status']['state']} if row.get('source_status') else {}),
                 **({'notice_delivery_uncertain': _notice_uncertain(row.get('release_notice')),
                     'notice_state': _notice_state(row.get('release_notice'))}
                    if isinstance(row.get('release_notice'), dict) else {}),

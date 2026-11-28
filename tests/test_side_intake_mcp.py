@@ -678,7 +678,7 @@ class SideMcpTests(unittest.TestCase):
         self.assertEqual('already_issuing', json.loads(self.invoke('work_side_wake', wake)['text'])['state'])
         self.assertEqual([], json.loads(self.invoke('work_side_claim', {'owner': 'other'})['text'])['main_notices'])
 
-    def test_complaint_and_p0_rules_reach_every_side_actor_from_the_prompt_registry(self):
+    def test_simplified_default_does_not_restore_legacy_rules_but_keeps_override(self):
         from ciel_runtime_support.work_workflow import CONFIG
         from ciel_runtime_support.work_workflow_prompts import DEFAULTS, fingerprint, set_prompt
         rule = DEFAULTS['side_complaint_and_urgency']
@@ -687,7 +687,8 @@ class SideMcpTests(unittest.TestCase):
         for workflow in (False, True):
             self.config[CONFIG] = {'enabled': workflow}
             settings = json.loads(self.invoke('work_side_claim', {'owner': 'actor'})['text'])['settings']
-            self.assertIn(rule, settings['instruction'])
+            self.assertNotIn(rule, settings['instruction'])
+            self.assertNotIn('edited complaint rule', settings['instruction'])
         # Edited through the registry, applied on the next claim without a restart.
         set_prompt(self.root, 'side_complaint_and_urgency', 'edited complaint rule', fingerprint(rule))
         settings = json.loads(self.invoke('work_side_claim', {'owner': 'actor'})['text'])['settings']

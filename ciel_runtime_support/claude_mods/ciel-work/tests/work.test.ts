@@ -758,6 +758,23 @@ retiredStop('Stop read failure preserves native result and does not consume no-p
   expect((await $.classic.Stop(STOP)).block).toContain('last continuation')
 })
 
+test('native Work rows show priority and item IDs without changing dispatch identity', async ($, on) => {
+  const s = inspection(on)
+  const name = 'work-p0-' + 'a'.repeat(32)
+  s.parallelStatus = () => ({ version: 5, leases: { lease: {
+    host_id: 'fork-fixture', agent_name: name, item_id: 'n3018', item_ref: '163544',
+    priority: 'P1', effective_priority: 'P0', state: 'running' } } })
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  await $.command.run({ command: 'work-mode', args: 'view all' })
+  const mount = async id => $.ui.mount({ plugin:'ciel-work', component:'AgentRow', requestId:id,
+    surface:'terminal', props:{id,name,type:'fork',status:'running',label:'Checking OAuth',rowIds:[id],isHidden:false} })
+  await mount('fork-fixture')
+  expect(s.rendered.props.body).toBe('p0-[n3018, 163544] - Checking OAuth')
+  expect(s.rendered.props.name).toBe(name)
+  await mount('unrelated-fork')
+  expect(s.rendered.props.body).toBeUndefined()
+})
+
 const BAND = { plugin: 'ciel-work', component: 'AbovePrompt', surface: 'terminal', viewport: { columns: 80, rows: 40 }, props: {
   hasSurvey: false, isWorking: false, maxRows: 16, bodyColumns: 80, scroll: { offset: 0, bodyRows: 15 }, view: {} } } as const
 // The Work & SSE observatory (5266982) draws its Work tab as a graphic Client on
