@@ -41,6 +41,25 @@ class PrelaunchTerminalPrimitiveTests(unittest.TestCase):
             ),
         )
 
+    @unittest.skipIf(prelaunch_terminal.os.name == 'nt', 'POSIX pipe input')
+    def test_posix_escape_does_not_wait_for_another_keystroke(self):
+        import subprocess
+        import sys
+        child = subprocess.Popen([sys.executable, '-c',
+            'from ciel_runtime_support.prelaunch_terminal import read_menu_key; print(read_menu_key())'],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        try:
+            child.stdin.write('\x1b')
+            child.stdin.flush()
+            child.wait(timeout=3)
+            self.assertEqual('esc', child.stdout.read().strip())
+        finally:
+            if child.poll() is None:
+                child.kill()
+                child.wait()
+            child.stdin.close()
+            child.stdout.close()
+
     def test_windows_menu_key_preserves_standalone_escape(self):
         self.assertEqual(
             "esc",

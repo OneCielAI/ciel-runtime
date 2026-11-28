@@ -230,15 +230,24 @@ def read_menu_key(
     log = f"{time.time():.3f} first={character!r}"
     if character == b"\x1b":
         sequence = character.decode("latin-1")
-        following = os.read(descriptor, 1)
+        import select
+
+        # A bare Escape and a truncated VT key must not wait for another key.
+        # Bound the whole sequence, not each byte, even during continuous input.
+        deadline = time.monotonic() + 0.05
+
+        def read_tail() -> bytes:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0 or not select.select([descriptor], [], [], remaining)[0]:
+                return b""
+            return os.read(descriptor, 1)
+
+        following = read_tail()
         log += f" next={following!r}"
-        if not following:
-            debug_log(log + " result='esc'\n")
-            return "esc"
         sequence += following.decode("latin-1")
         if following == b"[":
-            while True:
-                following = os.read(descriptor, 1)
+            while len(sequence) < 16:
+                following = read_tail()
                 log += f" next={following!r}"
                 if not following:
                     break
@@ -246,10 +255,9 @@ def read_menu_key(
                 if 0x40 <= following[0] <= 0x7E:
                     break
         elif following == b"O":
-            following = os.read(descriptor, 1)
+            following = read_tail()
             log += f" next={following!r}"
-            if following:
-                sequence += following.decode("latin-1")
+            sequence += following.decode("latin-1")
         result = {
             "\x1b[A": "up",
             "\x1b[B": "down",
